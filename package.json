@@ -1,0 +1,25 @@
+{
+  "name": "ride-share-app",
+  "version": "1.0.0",
+  "description": "This is a demo ride share application project done in my 3rd semester of my undergraduate course. The project mostly focuses on database management and handling.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/I5htiak-m01n/Ride-Share-App.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/I5htiak-m01n/Ride-Share-App/issues"
+  },
+  "homepage": "https://github.com/I5htiak-m01n/Ride-Share-App#readme",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "pg": "^8.17.2"
+  }
+}
