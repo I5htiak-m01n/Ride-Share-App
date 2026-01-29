@@ -4,7 +4,11 @@
   "description": "This is a demo ride share application project done in my 3rd semester of my undergraduate course. The project mostly focuses on database management and handling.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test-db": "node scripts/test-db.js",
+    "apply-schema": "node scripts/apply-schema.js"
   },
   "repository": {
     "type": "git",
@@ -20,6 +24,10 @@
   "homepage": "https://github.com/I5htiak-m01n/Ride-Share-App#readme",
   "dependencies": {
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
     "pg": "^8.17.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }
