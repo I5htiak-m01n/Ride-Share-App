@@ -4,7 +4,7 @@ create extension if not exists postgis; -- For Maps/Location
 -- =========================================================
 -- 2. CORE USERS (With Auth Sync)
 -- =========================================================
-create table public.users (
+create table if not exists public.users (
   user_id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
   email text unique not null,
@@ -37,19 +37,19 @@ create trigger on_auth_user_created
 -- =========================================================
 -- 3. PROFILES (Rider, Driver, Admin, Staff)
 -- =========================================================
-create table public.riders (
+create table if not exists public.riders (
   rider_id uuid primary key references public.users(user_id) on delete cascade,
   rating_avg numeric(3,2) default 5.0
 );
 
-create table public.rider_common_pickups (
+create table if not exists public.rider_common_pickups (
   rider_id uuid not null references public.riders(rider_id) on delete cascade,
   pickup_label text not null,
   location geography(Point, 4326), -- IMPROVED: PostGIS Point
   primary key (rider_id, pickup_label)
 );
 
-create table public.drivers (
+create table if not exists public.drivers (
   driver_id uuid primary key references public.users(user_id) on delete cascade,
   license_number text not null unique,
   status text not null default 'offline' check (status in ('offline','online','busy','suspended')),
@@ -59,12 +59,12 @@ create table public.drivers (
 -- Index for fast "drivers near me" queries
 create index drivers_location_idx on public.drivers using GIST (current_location);
 
-create table public.admins (
+create table if not exists public.admins (
   admin_id uuid primary key references public.users(user_id) on delete cascade,
   role text -- e.g., 'super_admin', 'manager'
 );
 
-create table public.support_staff (
+create table if not exists public.support_staff (
   support_staff_id uuid primary key references public.users(user_id) on delete cascade,
   level int not null check (level between 1 and 5),
   is_active boolean not null default true
@@ -73,7 +73,7 @@ create table public.support_staff (
 -- =========================================================
 -- 4. WALLETS (Universal)
 -- =========================================================
-create table public.wallets (
+create table if not exists public.wallets (
   -- IMPROVED: Changed from references riders(rider_id) to users(user_id)
   -- This allows Drivers to have wallets too.
   owner_id uuid primary key references public.users(user_id) on delete cascade,
@@ -81,7 +81,7 @@ create table public.wallets (
   currency text not null default 'BDT'
 );
 
-create table public.transactions (
+create table if not exists public.transactions (
   txn_id uuid primary key default gen_random_uuid(),
   wallet_owner_id uuid references public.wallets(owner_id) on delete set null,
   amount numeric(12,2) not null check (amount >= 0),
@@ -107,7 +107,7 @@ create table public.vehicles (
   is_active boolean default true
 );
 
-create table public.driver_documents (
+create table if not exists public.driver_documents (
   driver_id uuid not null references public.drivers(driver_id) on delete cascade,
   doc_type text not null,
   image_url text,
@@ -117,7 +117,7 @@ create table public.driver_documents (
   primary key (driver_id, doc_type)
 );
 
-create table public.vehicle_documents (
+create table if not exists public.vehicle_documents (
   vehicle_id uuid not null references public.vehicles(vehicle_id) on delete cascade,
   doc_type text not null,
   image_url text,
@@ -126,7 +126,7 @@ create table public.vehicle_documents (
   primary key (vehicle_id, doc_type)
 );
 
-create table public.pricing_zones (
+create table if not exists public.pricing_zones (
   zone_id uuid primary key default gen_random_uuid(),
   name text unique not null,
   base_rate numeric(12,2) not null default 0,
@@ -142,7 +142,7 @@ create index pricing_zones_idx on public.pricing_zones using GIST (area_polygon)
 --  status text not null check (status in ('scheduled','cancelled','converted'))
 -- );
 
-create table public.ride_requests (
+create table if not exists public.ride_requests (
   request_id uuid primary key default gen_random_uuid(),
   rider_id uuid not null references public.riders(rider_id) on delete cascade,
   created_at timestamptz not null default now(),
@@ -158,7 +158,7 @@ create table public.ride_requests (
   estimated_duration_min int
 );
 
-create table public.driver_responses (
+create table if not exists public.driver_responses (
   response_id uuid primary key default gen_random_uuid(),
   request_id uuid not null references public.ride_requests(request_id) on delete cascade,
   driver_id uuid not null references public.drivers(driver_id) on delete cascade,
@@ -170,7 +170,7 @@ create table public.driver_responses (
 -- =========================================================
 -- 7. RIDES & TRACKING
 -- =========================================================
-create table public.rides (
+create table if not exists public.rides (
   ride_id uuid primary key default gen_random_uuid(),
   request_id uuid unique references public.ride_requests(request_id) on delete set null,
   rider_id uuid not null references public.riders(rider_id) on delete restrict,
@@ -201,7 +201,7 @@ create table public.rides (
 );
 
 -- NEW TABLE: Missing from original but necessary for "Uber-like" apps
-create table public.ride_tracking_logs (
+create table if not exists public.ride_tracking_logs (
   log_id uuid primary key default gen_random_uuid(),
   ride_id uuid not null references public.rides(ride_id) on delete cascade,
   driver_id uuid not null references public.drivers(driver_id) on delete cascade,
@@ -209,7 +209,7 @@ create table public.ride_tracking_logs (
   recorded_at timestamptz not null default now()
 );
 
-create table public.ride_cancellations (
+create table if not exists public.ride_cancellations (
   ride_id uuid unique primary key references public.rides(ride_id) on delete cascade,
   cancelled_by_user_id uuid not null references public.users(user_id) on delete restrict,
   reason text,
@@ -220,7 +220,7 @@ create table public.ride_cancellations (
 -- =========================================================
 -- 8. FINANCE (Promos, Invoices, Refunds)
 -- =========================================================
-create table public.promos (
+create table if not exists public.promos (
   promo_id uuid primary key default gen_random_uuid(),
   promo_code text unique not null,
   discount_amount numeric(12,2) not null default 0,
@@ -228,7 +228,7 @@ create table public.promos (
   usage_per_user int not null default 1
 );
 
-create table public.promo_redemptions (
+create table if not exists public.promo_redemptions (
   redemption_id uuid primary key default gen_random_uuid(),
   promo_id uuid not null references public.promos(promo_id) on delete cascade,
   rider_id uuid not null references public.riders(rider_id) on delete cascade,
@@ -236,7 +236,7 @@ create table public.promo_redemptions (
   redeemed_at timestamptz not null default now()
 );
 
-create table public.invoices (
+create table if not exists public.invoices (
   invoice_id uuid primary key default gen_random_uuid(),
   -- ride_id uuid unique not null references public.rides(ride_id) on delete cascade,
   issued_at timestamptz not null default now(),
@@ -254,7 +254,7 @@ alter table public.transactions
 alter table public.rides
   add constraint fk_rides_invoice foreign key (invoice_id) references public.invoices(invoice_id) on delete set null;
 
-create table public.refunds (
+create table if not exists public.refunds (
   refund_id uuid primary key default gen_random_uuid(),
   invoice_id uuid unique not null references public.invoices(invoice_id) on delete cascade,
   amount numeric(12,2) not null check (amount >= 0),
@@ -266,7 +266,7 @@ create table public.refunds (
 -- =========================================================
 -- 9. RATINGS, SUPPORT & LOGS
 -- =========================================================
-create table public.ratings (
+create table if not exists public.ratings (
   rating_id uuid primary key default gen_random_uuid(),
   ride_id uuid not null references public.rides(ride_id) on delete cascade,
   rater_user_id uuid not null references public.users(user_id) on delete cascade,
@@ -277,7 +277,7 @@ create table public.ratings (
   unique (ride_id, rater_user_id, ratee_user_id)
 );
 
-create table public.support_tickets (
+create table if not exists public.support_tickets (
   ticket_id uuid primary key default gen_random_uuid(),
   created_by_user_id uuid not null references public.users(user_id) on delete cascade,
   assigned_staff_id uuid references public.support_staff(support_staff_id) on delete set null,
@@ -290,7 +290,7 @@ create table public.support_tickets (
   closed_at timestamptz
 );
 
-create table public.complaints (
+create table if not exists public.complaints (
   ticket_id uuid primary key references public.support_tickets(ticket_id) on delete cascade,
   -- filed_by_user_id uuid not null references public.users(user_id) on delete cascade,
   -- ride_id uuid references public.rides(ride_id) on delete set null,
@@ -300,7 +300,7 @@ create table public.complaints (
   filed_at timestamptz not null default now()
 );
 
-create table public.lost_item_reports (
+create table if not exists public.lost_item_reports (
   ticket_id uuid primary key references public.support_tickets(ticket_id) on delete cascade,
   -- reported_by_user_id uuid not null references public.users(user_id) on delete cascade,
   -- ride_id uuid references public.rides(ride_id) on delete set null,
@@ -309,7 +309,7 @@ create table public.lost_item_reports (
   reported_at timestamptz not null default now()
 );
 
-create table public.notifications (
+create table if not exists public.notifications (
   notif_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(user_id) on delete cascade,
   title text not null,
@@ -318,7 +318,7 @@ create table public.notifications (
   created_at timestamptz not null default now()
 );
 
-create table public.login_logs (
+create table if not exists public.login_logs (
   log_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(user_id) on delete cascade,
   login_at timestamptz not null default now(),
