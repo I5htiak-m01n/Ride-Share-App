@@ -19,7 +19,6 @@ const getNearbyRequests = async (req, res) => {
         rr.dropoff_addr,
         rr.estimated_fare,
         rr.estimated_distance_km,
-        rr.estimated_duration_min,
         rr.created_at,
         u.name AS rider_name,
         ST_Y(rr.pickup_location::geometry)  AS pickup_lat,
@@ -91,6 +90,13 @@ const createRideRequest = async (req, res) => {
   }
 
   try {
+    // Ensure rider profile exists (may be missing if user registered
+    // before rider profile creation was added to the registration flow)
+    await pool.query(
+      "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
+      [riderId]
+    );
+
     // Calculate a simple estimated fare: base 50 BDT + 15 BDT per km
     const distResult = await pool.query(
       `SELECT ROUND((ST_Distance(
@@ -107,27 +113,32 @@ const createRideRequest = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO ride_requests
         (rider_id, pickup_location, pickup_addr, dropoff_location, dropoff_addr,
-         status, estimated_fare, estimated_distance_km, estimated_duration_min, expires_at)
+         status, estimated_fare, estimated_distance_km, expires_at)
        VALUES
         ($1,
          ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4,
          ST_SetSRID(ST_MakePoint($6, $5), 4326)::geography, $7,
-         'open', $8, $9, $10,
+         'open', $8, $9,
          NOW() + INTERVAL '5 minutes')
        RETURNING request_id, status, pickup_addr, dropoff_addr,
-                 estimated_fare, estimated_distance_km, estimated_duration_min, created_at`,
+                 estimated_fare, estimated_distance_km, created_at`,
       [
         riderId,
         parseFloat(pickup_lat), parseFloat(pickup_lng), pickup_addr,
         parseFloat(dropoff_lat), parseFloat(dropoff_lng), dropoff_addr,
-        estimatedFare, distanceKm, estimatedDuration,
+        estimatedFare, distanceKm,
       ]
     );
 
-    res.status(201).json({ request: result.rows[0] });
+    res.status(201).json({
+      request: { ...result.rows[0], estimated_duration_min: estimatedDuration },
+    });
   } catch (err) {
     console.error("createRideRequest error:", err);
-    res.status(500).json({ error: "Failed to create ride request" });
+    res.status(500).json({
+      error: "Failed to create ride request",
+      details: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
   }
 };
 
@@ -176,14 +187,14 @@ const acceptRequest = async (req, res) => {
     // Create the ride
     const rideResult = await client.query(
       `INSERT INTO rides
-        (request_id, rider_id, driver_id, pickup_location, pickup_addr,
-         dropoff_location, dropoff_addr, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'driver_assigned')
-       RETURNING ride_id, status, pickup_addr, dropoff_addr`,
+        (request_id, rider_id, driver_id, pickup_location,
+         dropoff_location, status)
+       VALUES ($1, $2, $3, $4, $5, 'driver_assigned')
+       RETURNING ride_id, status`,
       [
         requestId, request.rider_id, driverId,
-        request.pickup_location, request.pickup_addr,
-        request.dropoff_location, request.dropoff_addr,
+        request.pickup_location,
+        request.dropoff_location,
       ]
     );
 
@@ -197,7 +208,11 @@ const acceptRequest = async (req, res) => {
 
     res.json({
       message: "Ride accepted",
-      ride: rideResult.rows[0],
+      ride: {
+        ...rideResult.rows[0],
+        pickup_addr: request.pickup_addr,
+        dropoff_addr: request.dropoff_addr,
+      },
       rider_name: request.rider_name,
       estimated_fare: request.estimated_fare,
     });
@@ -317,7 +332,7 @@ const getRiderActiveRide = async (req, res) => {
     const reqResult = await pool.query(
       `SELECT
         rr.request_id, rr.status, rr.pickup_addr, rr.dropoff_addr,
-        rr.estimated_fare, rr.estimated_distance_km, rr.estimated_duration_min,
+        rr.estimated_fare, rr.estimated_distance_km,
         rr.created_at, rr.expires_at,
         ST_Y(rr.pickup_location::geometry) AS pickup_lat,
         ST_X(rr.pickup_location::geometry) AS pickup_lng,
@@ -333,10 +348,10 @@ const getRiderActiveRide = async (req, res) => {
     // No active request — check for recently completed ride (for fare summary)
     if (reqResult.rows.length === 0) {
       const completedResult = await pool.query(
-        `SELECT r.ride_id, r.status, r.pickup_addr, r.dropoff_addr,
-                r.started_at, r.completed_at, r.total_fare,
+        `SELECT r.ride_id, r.status, rr.pickup_addr, rr.dropoff_addr,
+                r.started_at, r.completed_at, r.final_fare,
                 u.name AS driver_name,
-                rr.estimated_fare, rr.estimated_distance_km, rr.estimated_duration_min
+                rr.estimated_fare, rr.estimated_distance_km
         FROM rides r
         JOIN users u ON r.driver_id = u.user_id
         JOIN ride_requests rr ON r.request_id = rr.request_id
@@ -372,11 +387,11 @@ const getRiderActiveRide = async (req, res) => {
     // 4. If matched -> get the ride row + driver info
     const rideResult = await pool.query(
       `SELECT r.ride_id, r.status, r.started_at, r.completed_at,
-              r.pickup_addr, r.dropoff_addr,
+              rr.pickup_addr, rr.dropoff_addr,
               u.name AS driver_name, u.phone_number AS driver_phone,
               d.rating_avg AS driver_rating,
               v.model AS vehicle_model, v.plate_number AS vehicle_plate,
-              rr.estimated_fare, rr.estimated_distance_km, rr.estimated_duration_min
+              rr.estimated_fare, rr.estimated_distance_km
       FROM rides r
       JOIN users u ON r.driver_id = u.user_id
       JOIN drivers d ON r.driver_id = d.driver_id

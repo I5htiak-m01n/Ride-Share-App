@@ -18,24 +18,24 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check if user is logged in on mount and validate token server-side
-    const token = localStorage.getItem('access_token');
-    const savedUser = localStorage.getItem('user');
+    const token = sessionStorage.getItem('access_token');
+    const savedUser = sessionStorage.getItem('user');
 
     if (token && savedUser) {
       // Validate token by hitting a protected endpoint
       authAPI.getProfile()
         .then((response) => {
-          // Use fresh server data instead of stale localStorage
+          // Use fresh server data instead of stale sessionStorage
           const freshUser = response.data;
-          localStorage.setItem('user', JSON.stringify(freshUser));
+          sessionStorage.setItem('user', JSON.stringify(freshUser));
           setUser(freshUser);
           setLoading(false);
         })
         .catch(() => {
           // Token is invalid/expired and refresh failed (interceptor handles refresh)
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('refresh_token');
+          sessionStorage.removeItem('user');
           setUser(null);
           setLoading(false);
         });
@@ -50,9 +50,9 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login({ email, password });
       const { user, access_token, refresh_token } = response.data;
 
-      localStorage.setItem('access_token', access_token);
-      if (refresh_token) localStorage.setItem('refresh_token', refresh_token);
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('access_token', access_token);
+      if (refresh_token) sessionStorage.setItem('refresh_token', refresh_token);
+      sessionStorage.setItem('user', JSON.stringify(user));
       setUser(user);
 
       return { success: true, user };
@@ -76,9 +76,9 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Registration succeeded but no session was created. Please log in manually.');
       }
 
-      localStorage.setItem('access_token', token);
-      if (rToken) localStorage.setItem('refresh_token', rToken);
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('access_token', token);
+      if (rToken) sessionStorage.setItem('refresh_token', rToken);
+      sessionStorage.setItem('user', JSON.stringify(user));
       setUser(user);
 
       return { success: true, user };
@@ -95,9 +95,9 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('access_token');
+      sessionStorage.removeItem('refresh_token');
+      sessionStorage.removeItem('user');
       setUser(null);
     }
   };

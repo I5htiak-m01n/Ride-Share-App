@@ -109,13 +109,26 @@ function RiderDashboard() {
     return () => stopPolling();
   }, []);
 
-  // Map click handler
+  // Reverse geocode coords to address using Google Maps API
+  const reverseGeocode = useCallback((coords, callback) => {
+    if (!window.google?.maps?.Geocoder) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: coords }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        callback(results[0].formatted_address);
+      }
+    });
+  }, []);
+
+  // Map click handler — set coords and auto-fill address
   const handleMapClick = (coords) => {
     if (clickMode === 'pickup') {
       setPickupCoords(coords);
+      reverseGeocode(coords, setPickupAddr);
       setClickMode('dropoff');
     } else {
       setDropoffCoords(coords);
+      reverseGeocode(coords, setDropoffAddr);
     }
   };
 
@@ -127,8 +140,9 @@ function RiderDashboard() {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setPickupCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        if (!pickupAddr) setPickupAddr('My Current Location');
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setPickupCoords(coords);
+        reverseGeocode(coords, setPickupAddr);
         setClickMode('dropoff');
         setError(null);
       },
@@ -551,7 +565,7 @@ function RiderDashboard() {
           <div className="completion-panel">
             <h2>Ride Complete!</h2>
             <div className="fare-amount">
-              {activeRide.total_fare || activeRide.estimated_fare} BDT
+              {activeRide.final_fare || activeRide.estimated_fare} BDT
             </div>
             <p style={{ color: '#6B6B6B', fontSize: '14px', marginBottom: '4px' }}>
               Driver: {activeRide.driver_name}
