@@ -69,9 +69,11 @@ function RiderDashboard() {
           setActiveRequest(data.request);
           break;
         case 'completed':
-          setRidePhase('completed');
-          setActiveRide(data.ride);
-          stopPolling();
+          if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
+            setRidePhase('completed');
+            setActiveRide(data.ride);
+            stopPolling();
+          }
           break;
         case 'idle':
         default:
@@ -285,7 +287,7 @@ function RiderDashboard() {
                 <div className="card-icon">History</div>
                 <h3>Ride History</h3>
                 <p>View all your past rides and receipts</p>
-                <button className="card-button secondary">View History</button>
+                <button className="card-button secondary" onClick={() => navigate('/rider/history')}>View History</button>
               </div>
 
               <div className="dashboard-card">
@@ -313,7 +315,7 @@ function RiderDashboard() {
                 <div className="card-icon">Profile</div>
                 <h3>Profile Settings</h3>
                 <p>Update your account information</p>
-                <button className="card-button secondary">Edit Profile</button>
+                <button className="card-button secondary" onClick={() => navigate('/rider/profile')}>Edit Profile</button>
               </div>
             </div>
 

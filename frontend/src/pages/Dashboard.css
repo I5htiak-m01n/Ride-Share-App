@@ -581,3 +581,369 @@
   border-left: 3px solid var(--uber-blue);
   margin-bottom: 16px;
 }
+
+/* ── Profile Settings Page ───────────────────────────────── */
+
+.profile-form {
+  max-width: 560px;
+  background: var(--uber-gray-10);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 32px;
+}
+
+.profile-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.profile-form .form-group label {
+  font-weight: 500;
+  color: var(--uber-black);
+  font-size: 14px;
+}
+
+.profile-form .form-group input {
+  padding: 14px 16px;
+  border: 1px solid var(--uber-gray-30);
+  border-radius: var(--uber-radius);
+  font-size: 16px;
+  background: var(--uber-white);
+  color: var(--uber-black);
+}
+
+.profile-form .form-group input:focus {
+  outline: none;
+  border-color: var(--uber-black);
+}
+
+.profile-form .form-group input.input-disabled {
+  background: var(--uber-gray-20);
+  color: var(--uber-gray-50);
+  cursor: not-allowed;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--uber-gray-50);
+}
+
+.profile-save-btn {
+  width: 100%;
+  padding: 14px 28px;
+  background: var(--uber-black);
+  color: var(--uber-white);
+  border: none;
+  border-radius: var(--uber-radius);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  margin-top: 8px;
+}
+
+.profile-save-btn:hover:not(:disabled) {
+  background: var(--uber-gray-70);
+}
+
+.profile-save-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Driver Documents Page ───────────────────────────────── */
+
+.add-document-form {
+  max-width: 560px;
+  background: var(--uber-gray-10);
+  border: 2px solid var(--uber-black);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 28px;
+}
+
+.add-document-form h3 {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--uber-black);
+}
+
+.add-document-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.add-document-form .form-group label {
+  font-weight: 500;
+  color: var(--uber-black);
+  font-size: 14px;
+}
+
+.add-document-form .form-group input,
+.add-document-form .form-group select {
+  padding: 14px 16px;
+  border: 1px solid var(--uber-gray-30);
+  border-radius: var(--uber-radius);
+  font-size: 16px;
+  background: var(--uber-white);
+  color: var(--uber-black);
+}
+
+.add-document-form .form-group input:focus,
+.add-document-form .form-group select:focus {
+  outline: none;
+  border-color: var(--uber-black);
+}
+
+.doc-select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.document-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.document-card {
+  background: var(--uber-white);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 24px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.document-card:hover {
+  border-color: var(--uber-gray-30);
+  box-shadow: var(--uber-shadow);
+}
+
+.doc-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.doc-card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--uber-black);
+}
+
+.document-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 500px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+}
+
+.doc-card-body {
+  margin-bottom: 16px;
+}
+
+.doc-detail {
+  margin: 6px 0;
+  font-size: 14px;
+  color: var(--uber-gray-50);
+}
+
+.doc-detail span {
+  font-weight: 500;
+  color: var(--uber-black);
+}
+
+.doc-detail a {
+  color: var(--uber-blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.doc-detail a:hover {
+  text-decoration: underline;
+}
+
+.doc-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.doc-delete-btn {
+  padding: 8px 16px;
+  background: var(--uber-white);
+  color: var(--uber-red);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: var(--uber-radius);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.doc-delete-btn:hover {
+  background: #FFF0EE;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--uber-gray-50);
+}
+
+.empty-state h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--uber-black);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ── Ride History Page ───────────────────────────────────── */
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  background: var(--uber-white);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 20px 24px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.history-item:hover {
+  border-color: var(--uber-gray-30);
+  box-shadow: var(--uber-shadow);
+}
+
+.history-item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.history-route {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.history-addr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--uber-black);
+}
+
+.history-addr span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.history-dot.pickup {
+  background: var(--uber-black);
+}
+
+.history-dot.dropoff {
+  background: var(--uber-gray-50);
+}
+
+.history-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.history-date {
+  font-size: 12px;
+  color: var(--uber-gray-50);
+  white-space: nowrap;
+}
+
+.history-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 500px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.history-item-details {
+  display: flex;
+  gap: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--uber-gray-20);
+  flex-wrap: wrap;
+}
+
+.history-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-detail span {
+  font-size: 12px;
+  color: var(--uber-gray-50);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-detail strong {
+  font-size: 14px;
+  color: var(--uber-black);
+  font-weight: 600;
+}
+
+.history-detail.fare strong {
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .history-item-main {
+    flex-direction: column;
+  }
+
+  .history-meta {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .history-item-details {
+    gap: 16px;
+  }
+}

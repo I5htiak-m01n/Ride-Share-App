@@ -50,7 +50,7 @@ const getNearbyRequests = async (req, res) => {
     res.json({ requests: result.rows });
   } catch (err) {
     console.error("getNearbyRequests error:", err);
-    res.status(500).json({ error: "Failed to fetch nearby requests" });
+    res.status(500).json({ error: "Failed to fetch nearby requests", details: err.message });
   }
 };
 
@@ -75,7 +75,7 @@ const updateDriverLocation = async (req, res) => {
     res.json({ message: "Location updated" });
   } catch (err) {
     console.error("updateDriverLocation error:", err);
-    res.status(500).json({ error: "Failed to update location" });
+    res.status(500).json({ error: "Failed to update location", details: err.message });
   }
 };
 
@@ -97,18 +97,18 @@ const createRideRequest = async (req, res) => {
       [riderId]
     );
 
-    // Calculate a simple estimated fare: base 50 BDT + 15 BDT per km
-    const distResult = await pool.query(
-      `SELECT ROUND((ST_Distance(
-        ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-        ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography
-      ) / 1000)::numeric, 2) AS distance_km`,
+    // Use DB functions for distance, fare, and duration estimation
+    const calcResult = await pool.query(
+      `SELECT
+        calculate_distance_km($1, $2, $3, $4) AS distance_km,
+        estimate_fare(calculate_distance_km($1, $2, $3, $4)) AS estimated_fare,
+        estimate_duration_min(calculate_distance_km($1, $2, $3, $4)) AS estimated_duration`,
       [parseFloat(pickup_lat), parseFloat(pickup_lng), parseFloat(dropoff_lat), parseFloat(dropoff_lng)]
     );
 
-    const distanceKm = parseFloat(distResult.rows[0].distance_km);
-    const estimatedFare = Math.round(50 + distanceKm * 15);
-    const estimatedDuration = Math.round(distanceKm * 3); // ~3 min per km
+    const distanceKm = parseFloat(calcResult.rows[0].distance_km);
+    const estimatedFare = calcResult.rows[0].estimated_fare;
+    const estimatedDuration = calcResult.rows[0].estimated_duration;
 
     const result = await pool.query(
       `INSERT INTO ride_requests
@@ -219,7 +219,7 @@ const acceptRequest = async (req, res) => {
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("acceptRequest error:", err);
-    res.status(500).json({ error: "Failed to accept ride request" });
+    res.status(500).json({ error: "Failed to accept ride request", details: err.message });
   } finally {
     client.release();
   }
@@ -241,7 +241,7 @@ const rejectRequest = async (req, res) => {
     res.json({ message: "Ride request rejected" });
   } catch (err) {
     console.error("rejectRequest error:", err);
-    res.status(500).json({ error: "Failed to reject ride request" });
+    res.status(500).json({ error: "Failed to reject ride request", details: err.message });
   }
 };
 
@@ -284,7 +284,7 @@ const updateRideStatus = async (req, res) => {
     res.json({ ride: result.rows[0] });
   } catch (err) {
     console.error("updateRideStatus error:", err);
-    res.status(500).json({ error: "Failed to update ride status" });
+    res.status(500).json({ error: "Failed to update ride status", details: err.message });
   }
 };
 
@@ -298,27 +298,26 @@ const getFareEstimate = async (req, res) => {
   }
 
   try {
-    const distResult = await pool.query(
-      `SELECT ROUND((ST_Distance(
-        ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-        ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography
-      ) / 1000)::numeric, 2) AS distance_km`,
+    // Use DB functions for distance, fare, and duration estimation
+    const calcResult = await pool.query(
+      `SELECT
+        calculate_distance_km($1, $2, $3, $4) AS distance_km,
+        estimate_fare(calculate_distance_km($1, $2, $3, $4)) AS estimated_fare,
+        estimate_duration_min(calculate_distance_km($1, $2, $3, $4)) AS estimated_duration`,
       [parseFloat(pickup_lat), parseFloat(pickup_lng),
        parseFloat(dropoff_lat), parseFloat(dropoff_lng)]
     );
 
-    const distanceKm = parseFloat(distResult.rows[0].distance_km);
-    const estimatedFare = Math.round(50 + distanceKm * 15);
-    const estimatedDuration = Math.round(distanceKm * 3);
+    const { distance_km, estimated_fare, estimated_duration } = calcResult.rows[0];
 
     res.json({
-      distance_km: distanceKm,
-      estimated_fare: estimatedFare,
-      estimated_duration_min: estimatedDuration,
+      distance_km: parseFloat(distance_km),
+      estimated_fare,
+      estimated_duration_min: estimated_duration,
     });
   } catch (err) {
     console.error("getFareEstimate error:", err);
-    res.status(500).json({ error: "Failed to calculate fare estimate" });
+    res.status(500).json({ error: "Failed to calculate fare estimate", details: err.message });
   }
 };
 
@@ -348,17 +347,14 @@ const getRiderActiveRide = async (req, res) => {
     // No active request — check for recently completed ride (for fare summary)
     if (reqResult.rows.length === 0) {
       const completedResult = await pool.query(
-        `SELECT r.ride_id, r.status, rr.pickup_addr, rr.dropoff_addr,
-                r.started_at, r.completed_at, r.final_fare,
-                u.name AS driver_name,
-                rr.estimated_fare, rr.estimated_distance_km
-        FROM rides r
-        JOIN users u ON r.driver_id = u.user_id
-        JOIN ride_requests rr ON r.request_id = rr.request_id
-        WHERE r.rider_id = $1 AND r.status = 'completed'
-          AND r.completed_at > NOW() - INTERVAL '2 minutes'
-        ORDER BY r.completed_at DESC
-        LIMIT 1`,
+        `SELECT ride_id, status, pickup_addr, dropoff_addr,
+                started_at, completed_at, final_fare,
+                driver_name, estimated_fare, estimated_distance_km
+         FROM v_ride_details
+         WHERE rider_id = $1 AND status = 'completed'
+           AND completed_at > NOW() - INTERVAL '2 minutes'
+         ORDER BY completed_at DESC
+         LIMIT 1`,
         [riderId]
       );
 
@@ -386,18 +382,14 @@ const getRiderActiveRide = async (req, res) => {
 
     // 4. If matched -> get the ride row + driver info
     const rideResult = await pool.query(
-      `SELECT r.ride_id, r.status, r.started_at, r.completed_at,
-              rr.pickup_addr, rr.dropoff_addr,
-              u.name AS driver_name, u.phone_number AS driver_phone,
-              d.rating_avg AS driver_rating,
-              v.model AS vehicle_model, v.plate_number AS vehicle_plate,
-              rr.estimated_fare, rr.estimated_distance_km
-      FROM rides r
-      JOIN users u ON r.driver_id = u.user_id
-      JOIN drivers d ON r.driver_id = d.driver_id
-      LEFT JOIN vehicles v ON r.vehicle_id = v.vehicle_id
-      JOIN ride_requests rr ON r.request_id = rr.request_id
-      WHERE r.request_id = $1`,
+      `SELECT ride_id, status, started_at, completed_at,
+              pickup_addr, dropoff_addr,
+              driver_name, driver_phone,
+              driver_rating,
+              vehicle_model, vehicle_plate,
+              estimated_fare, estimated_distance_km
+       FROM v_ride_details
+       WHERE request_id = $1`,
       [request.request_id]
     );
 
@@ -418,7 +410,7 @@ const getRiderActiveRide = async (req, res) => {
     return res.json({ phase, ride, request });
   } catch (err) {
     console.error("getRiderActiveRide error:", err);
-    res.status(500).json({ error: "Failed to get active ride status" });
+    res.status(500).json({ error: "Failed to get active ride status", details: err.message });
   }
 };
 
@@ -446,7 +438,48 @@ const cancelRideRequest = async (req, res) => {
     res.json({ message: "Ride request cancelled", request: result.rows[0] });
   } catch (err) {
     console.error("cancelRideRequest error:", err);
-    res.status(500).json({ error: "Failed to cancel ride request" });
+    res.status(500).json({ error: "Failed to cancel ride request", details: err.message });
+  }
+};
+
+// GET /api/rides/rider/history
+const getRiderHistory = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT ride_id, status, started_at, completed_at, final_fare,
+              pickup_addr, dropoff_addr, estimated_fare, estimated_distance_km,
+              driver_name
+       FROM v_ride_details
+       WHERE rider_id = $1
+       ORDER BY completed_at DESC NULLS LAST, started_at DESC NULLS LAST
+       LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({ rides: result.rows });
+  } catch (err) {
+    console.error("getRiderHistory error:", err);
+    res.status(500).json({ error: "Failed to get ride history", details: err.message });
+  }
+};
+
+// GET /api/rides/driver/history
+const getDriverHistory = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT ride_id, status, started_at, completed_at, final_fare,
+              driver_earning, platform_fee,
+              pickup_addr, dropoff_addr, estimated_fare, estimated_distance_km,
+              rider_name
+       FROM v_ride_details
+       WHERE driver_id = $1
+       ORDER BY completed_at DESC NULLS LAST, started_at DESC NULLS LAST
+       LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({ rides: result.rows });
+  } catch (err) {
+    console.error("getDriverHistory error:", err);
+    res.status(500).json({ error: "Failed to get ride history", details: err.message });
   }
 };
 
@@ -460,4 +493,6 @@ module.exports = {
   getFareEstimate,
   getRiderActiveRide,
   cancelRideRequest,
+  getRiderHistory,
+  getDriverHistory,
 };

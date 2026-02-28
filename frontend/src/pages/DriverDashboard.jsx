@@ -98,7 +98,8 @@ function DriverDashboard() {
       setIsOnline(false);
       setMapError(null);
     } catch (err) {
-      setMapError(err.response?.data?.error || 'Failed to accept ride');
+      const errData = err.response?.data;
+      setMapError(errData?.details || errData?.error || 'Failed to accept ride');
     }
   };
 
@@ -266,7 +267,7 @@ function DriverDashboard() {
             <div className="card-icon">Earn</div>
             <h3>Earnings</h3>
             <p>Today: 0 BDT | Total: 0 BDT</p>
-            <button className="card-button secondary">View Earnings</button>
+            <button className="card-button secondary" onClick={() => navigate('/driver/history')}>View Earnings</button>
           </div>
 
           <div className="dashboard-card">
@@ -280,7 +281,7 @@ function DriverDashboard() {
             <div className="card-icon">Docs</div>
             <h3>Documents</h3>
             <p>Upload and verify your documents</p>
-            <button className="card-button secondary">Upload Docs</button>
+            <button className="card-button secondary" onClick={() => navigate('/driver/documents')}>Upload Docs</button>
           </div>
 
           <div className="dashboard-card">

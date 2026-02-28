@@ -143,6 +143,17 @@ export const ridesAPI = {
 
   // Rider: cancel pending ride request
   cancelRequest: (requestId) => api.post(`/rides/requests/${requestId}/cancel`),
+
+  // Ride history
+  getRiderHistory: () => api.get('/rides/rider/history'),
+  getDriverHistory: () => api.get('/rides/driver/history'),
+};
+
+// Drivers API
+export const driversAPI = {
+  getDocuments: () => api.get('/drivers/documents'),
+  addDocument: (data) => api.post('/drivers/documents', data),
+  deleteDocument: (docType) => api.delete(`/drivers/documents/${docType}`),
 };
 
 export default api;

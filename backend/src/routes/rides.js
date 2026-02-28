@@ -11,6 +11,8 @@ const {
   getFareEstimate,
   getRiderActiveRide,
   cancelRideRequest,
+  getRiderHistory,
+  getDriverHistory,
 } = require("../controllers/ridesController");
 
 // Rider: create a ride request
@@ -27,6 +29,12 @@ router.post("/requests/:id/accept", authenticateToken, authorizeRoles("driver", 
 
 // Driver: reject a specific request
 router.post("/requests/:id/reject", authenticateToken, authorizeRoles("driver", "mixed"), rejectRequest);
+
+// Rider: ride history
+router.get("/rider/history", authenticateToken, authorizeRoles("rider", "mixed"), getRiderHistory);
+
+// Driver: ride history
+router.get("/driver/history", authenticateToken, authorizeRoles("driver", "mixed"), getDriverHistory);
 
 // Driver: update ride status (started / completed / cancelled)
 router.put("/:id/status", authenticateToken, updateRideStatus);
