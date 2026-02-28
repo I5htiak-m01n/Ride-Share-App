@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ridesAPI } from '../api/client';
@@ -6,6 +6,19 @@ import BookingMap from '../components/BookingMap';
 import './Dashboard.css';
 
 const POLL_INTERVAL_MS = 5000;
+
+// Generate random nearby vehicles around a center point
+function generateNearbyVehicles(center, count = 6) {
+  const vehicles = [];
+  for (let i = 0; i < count; i++) {
+    vehicles.push({
+      lat: center.lat + (Math.random() - 0.5) * 0.02,
+      lng: center.lng + (Math.random() - 0.5) * 0.02,
+      rotation: Math.floor(Math.random() * 360),
+    });
+  }
+  return vehicles;
+}
 
 function RiderDashboard() {
   const { user, logout } = useAuth();
@@ -38,6 +51,12 @@ function RiderDashboard() {
 
   // Polling
   const pollRef = useRef(null);
+
+  // Generate fake nearby vehicles (memoized once location is known)
+  const nearbyVehicles = useMemo(() => {
+    const center = userLocation || { lat: 23.8103, lng: 90.4125 };
+    return generateNearbyVehicles(center, 7);
+  }, [userLocation]);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -254,345 +273,327 @@ function RiderDashboard() {
         </div>
       </nav>
 
-      <div className="dashboard-content">
-        {/* Error banner */}
-        {error && (
-          <div className="error-banner">{error}</div>
-        )}
-        {statusMessage && ridePhase === 'idle' && (
-          <div className="info-banner">{statusMessage}</div>
-        )}
-
-        {/* === PHASE: IDLE === */}
-        {ridePhase === 'idle' && (
-          <>
-            <div className="dashboard-header">
-              <div>
-                <h1>Where to?</h1>
-                <p>Welcome back. Book your next ride.</p>
-              </div>
+      {/* === PHASE: IDLE — Split layout === */}
+      {ridePhase === 'idle' && (
+        <div className="uber-split-layout">
+          <div className="uber-left-panel">
+            <div className="uber-greeting">
+              <h1>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name || 'Rider'}</h1>
+              <p>Where would you like to go?</p>
             </div>
 
-            <div className="dashboard-grid">
-              <div className="dashboard-card primary-card">
-                <div className="card-icon">Ride</div>
-                <h3>Request a Ride</h3>
-                <p>Find nearby drivers and book your ride in seconds</p>
-                <button className="card-button" onClick={() => { setRidePhase('booking'); setError(null); setStatusMessage(null); }}>
-                  Book Now
-                </button>
-              </div>
+            {statusMessage && (
+              <div className="uber-panel-info">{statusMessage}</div>
+            )}
 
-              <div className="dashboard-card">
-                <div className="card-icon">History</div>
-                <h3>Ride History</h3>
-                <p>View all your past rides and receipts</p>
-                <button className="card-button secondary" onClick={() => navigate('/rider/history')}>View History</button>
-              </div>
-
-              <div className="dashboard-card">
-                <div className="card-icon">Wallet</div>
-                <h3>My Wallet</h3>
-                <p>Balance: {user?.wallet?.balance || '0.00'} {user?.wallet?.currency || 'BDT'}</p>
-                <button className="card-button secondary">Add Money</button>
-              </div>
-
-              <div className="dashboard-card">
-                <div className="card-icon">Saved</div>
-                <h3>Saved Addresses</h3>
-                <p>Manage your favorite locations</p>
-                <button className="card-button secondary">Manage</button>
-              </div>
-
-              <div className="dashboard-card">
-                <div className="card-icon">Promo</div>
-                <h3>Promo Codes</h3>
-                <p>Available discounts and offers</p>
-                <button className="card-button secondary">View Promos</button>
-              </div>
-
-              <div className="dashboard-card">
-                <div className="card-icon">Profile</div>
-                <h3>Profile Settings</h3>
-                <p>Update your account information</p>
-                <button className="card-button secondary" onClick={() => navigate('/rider/profile')}>Edit Profile</button>
-              </div>
+            <div
+              className="uber-where-to-bar"
+              onClick={() => { setRidePhase('booking'); setError(null); setStatusMessage(null); }}
+            >
+              <div className="search-dot" />
+              <span>Where to?</span>
             </div>
 
-            <div className="quick-stats">
-              <div className="stat-card">
-                <div className="stat-number">0</div>
-                <div className="stat-label">Total Rides</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-number">0 BDT</div>
-                <div className="stat-label">Total Spent</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-number">5.0</div>
-                <div className="stat-label">Your Rating</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-number">Active</div>
-                <div className="stat-label">Account</div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* === PHASE: BOOKING === */}
-        {ridePhase === 'booking' && (
-          <div>
-            <div className="dashboard-header">
-              <div>
-                <h1>Book a Ride</h1>
-                <p>Set your pickup and dropoff locations</p>
-              </div>
-            </div>
-
-            <div className="booking-form">
-              <div className="form-group">
-                <label>Pickup Address</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={pickupAddr}
-                    onChange={(e) => setPickupAddr(e.target.value)}
-                    placeholder="Enter pickup address"
-                  />
-                  <button
-                    onClick={handleUseMyLocation}
-                    className="location-btn"
-                  >
-                    Use My Location
-                  </button>
+            <div className="uber-quick-actions">
+              <div
+                className="uber-quick-card primary"
+                onClick={() => { setRidePhase('booking'); setError(null); setStatusMessage(null); }}
+              >
+                <div className="card-icon">&#128663;</div>
+                <div>
+                  <h4>Book a Ride</h4>
+                  <p>Set pickup and destination</p>
                 </div>
               </div>
-              <div className="form-group">
-                <label>Dropoff Address</label>
-                <input
-                  type="text"
-                  value={dropoffAddr}
-                  onChange={(e) => setDropoffAddr(e.target.value)}
-                  placeholder="Enter dropoff address"
-                />
+              <div className="uber-quick-card" onClick={() => navigate('/rider/history')}>
+                <div className="card-icon">&#128340;</div>
+                <div>
+                  <h4>Ride History</h4>
+                  <p>View your past trips</p>
+                </div>
+              </div>
+              <div className="uber-quick-card" onClick={() => navigate('/rider/profile')}>
+                <div className="card-icon">&#128100;</div>
+                <div>
+                  <h4>Profile</h4>
+                  <p>Manage your account</p>
+                </div>
               </div>
             </div>
+          </div>
 
-            <div className="click-mode-toggle">
-              <button
-                className={clickMode === 'pickup' ? 'active' : ''}
-                onClick={() => setClickMode('pickup')}
-              >
-                Set Pickup
-              </button>
-              <button
-                className={clickMode === 'dropoff' ? 'active' : ''}
-                onClick={() => setClickMode('dropoff')}
-              >
-                Set Dropoff
-              </button>
-            </div>
-            <p className="map-hint">
-              Click on the map to set your {clickMode} location
-              {pickupCoords && !dropoffCoords && ' (now set your dropoff)'}
-            </p>
-
+          <div className="uber-right-map">
             <BookingMap
-              pickupLocation={pickupCoords}
-              dropoffLocation={dropoffCoords}
-              onMapClick={handleMapClick}
-              centerLocation={userLocation}
+              fullscreen
+              userLocation={userLocation}
+              nearbyVehicles={nearbyVehicles}
             />
+          </div>
+        </div>
+      )}
 
-            <div className="booking-actions">
-              <button onClick={resetBooking}>Back</button>
+      {/* Non-idle phases use the standard content layout */}
+      {ridePhase !== 'idle' && (
+        <div className="dashboard-content">
+          {/* Error banner */}
+          {error && (
+            <div className="error-banner">{error}</div>
+          )}
+
+          {/* === PHASE: BOOKING === */}
+          {ridePhase === 'booking' && (
+            <div>
+              <div className="dashboard-header">
+                <div>
+                  <h1>Book a Ride</h1>
+                  <p>Set your pickup and dropoff locations</p>
+                </div>
+              </div>
+
+              <div className="booking-form">
+                <div className="form-group">
+                  <label>Pickup Address</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={pickupAddr}
+                      onChange={(e) => setPickupAddr(e.target.value)}
+                      placeholder="Enter pickup address"
+                    />
+                    <button
+                      onClick={handleUseMyLocation}
+                      className="location-btn"
+                    >
+                      Use My Location
+                    </button>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Dropoff Address</label>
+                  <input
+                    type="text"
+                    value={dropoffAddr}
+                    onChange={(e) => setDropoffAddr(e.target.value)}
+                    placeholder="Enter dropoff address"
+                  />
+                </div>
+              </div>
+
+              <div className="click-mode-toggle">
+                <button
+                  className={clickMode === 'pickup' ? 'active' : ''}
+                  onClick={() => setClickMode('pickup')}
+                >
+                  Set Pickup
+                </button>
+                <button
+                  className={clickMode === 'dropoff' ? 'active' : ''}
+                  onClick={() => setClickMode('dropoff')}
+                >
+                  Set Dropoff
+                </button>
+              </div>
+              <p className="map-hint">
+                Click on the map to set your {clickMode} location
+                {pickupCoords && !dropoffCoords && ' (now set your dropoff)'}
+              </p>
+
+              <BookingMap
+                pickupLocation={pickupCoords}
+                dropoffLocation={dropoffCoords}
+                onMapClick={handleMapClick}
+                centerLocation={userLocation}
+              />
+
+              <div className="booking-actions">
+                <button onClick={resetBooking}>Back</button>
+                <button
+                  onClick={handleGetEstimate}
+                  disabled={!pickupCoords || !dropoffCoords || !pickupAddr.trim() || !dropoffAddr.trim() || loading}
+                >
+                  {loading ? 'Calculating...' : 'Get Fare Estimate'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* === PHASE: CONFIRMING === */}
+          {ridePhase === 'confirming' && fareEstimate && (
+            <div className="confirm-panel">
+              <h2>Confirm Your Ride</h2>
+              <div className="ride-summary">
+                <div className="summary-row">
+                  <span>From</span>
+                  <strong>{pickupAddr}</strong>
+                </div>
+                <div className="summary-row">
+                  <span>To</span>
+                  <strong>{dropoffAddr}</strong>
+                </div>
+                <div className="summary-row">
+                  <span>Distance</span>
+                  <strong>{fareEstimate.distance_km} km</strong>
+                </div>
+                <div className="summary-row">
+                  <span>Est. Duration</span>
+                  <strong>{fareEstimate.estimated_duration_min} min</strong>
+                </div>
+                <div className="summary-row fare">
+                  <span>Estimated Fare</span>
+                  <strong>{fareEstimate.estimated_fare} BDT</strong>
+                </div>
+              </div>
+              <div className="booking-actions">
+                <button onClick={() => setRidePhase('booking')}>Back</button>
+                <button onClick={handleConfirmRide} disabled={loading}>
+                  {loading ? 'Requesting...' : 'Confirm Ride'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* === PHASE: SEARCHING === */}
+          {ridePhase === 'searching' && (
+            <div className="searching-panel">
+              <div className="searching-animation">
+                <div className="pulse-ring" />
+              </div>
+              <h2>Looking for nearby drivers...</h2>
+              {activeRequest && (
+                <>
+                  <p style={{ color: '#6B6B6B', fontSize: '14px', marginTop: '16px' }}>
+                    From: {activeRequest.pickup_addr}
+                  </p>
+                  <p style={{ color: '#6B6B6B', fontSize: '14px' }}>
+                    To: {activeRequest.dropoff_addr}
+                  </p>
+                  <p style={{ fontWeight: 600, fontSize: '16px', marginTop: '8px' }}>
+                    {activeRequest.estimated_fare} BDT
+                  </p>
+                </>
+              )}
+              <p className="searching-hint">This may take up to 5 minutes</p>
               <button
-                onClick={handleGetEstimate}
-                disabled={!pickupCoords || !dropoffCoords || !pickupAddr.trim() || !dropoffAddr.trim() || loading}
+                onClick={handleCancelRequest}
+                style={{
+                  padding: '12px 28px',
+                  background: '#fff',
+                  color: '#E11900',
+                  border: '1px solid #E2E2E2',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                }}
               >
-                {loading ? 'Calculating...' : 'Get Fare Estimate'}
+                Cancel Request
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* === PHASE: CONFIRMING === */}
-        {ridePhase === 'confirming' && fareEstimate && (
-          <div className="confirm-panel">
-            <h2>Confirm Your Ride</h2>
-            <div className="ride-summary">
-              <div className="summary-row">
-                <span>From</span>
-                <strong>{pickupAddr}</strong>
+          {/* === PHASE: MATCHED === */}
+          {ridePhase === 'matched' && activeRide && (
+            <div className="ride-active-panel">
+              <h2>Driver Found!</h2>
+              <div className="driver-info">
+                <h3>{activeRide.driver_name}</h3>
+                {activeRide.driver_phone && (
+                  <p>Phone: {activeRide.driver_phone}</p>
+                )}
+                {activeRide.driver_rating && (
+                  <p>Rating: {activeRide.driver_rating}/5</p>
+                )}
+                {activeRide.vehicle_model && (
+                  <p>Vehicle: {activeRide.vehicle_model}</p>
+                )}
+                {activeRide.vehicle_plate && (
+                  <p>Plate: {activeRide.vehicle_plate}</p>
+                )}
               </div>
-              <div className="summary-row">
-                <span>To</span>
-                <strong>{dropoffAddr}</strong>
+              <div className="ride-summary">
+                <div className="summary-row">
+                  <span>From</span>
+                  <strong>{activeRide.pickup_addr}</strong>
+                </div>
+                <div className="summary-row">
+                  <span>To</span>
+                  <strong>{activeRide.dropoff_addr}</strong>
+                </div>
+                <div className="summary-row fare">
+                  <span>Fare</span>
+                  <strong>{activeRide.estimated_fare} BDT</strong>
+                </div>
               </div>
-              <div className="summary-row">
-                <span>Distance</span>
-                <strong>{fareEstimate.distance_km} km</strong>
-              </div>
-              <div className="summary-row">
-                <span>Est. Duration</span>
-                <strong>{fareEstimate.estimated_duration_min} min</strong>
-              </div>
-              <div className="summary-row fare">
-                <span>Estimated Fare</span>
-                <strong>{fareEstimate.estimated_fare} BDT</strong>
-              </div>
+              <span className="status-badge">Driver is on the way</span>
             </div>
-            <div className="booking-actions">
-              <button onClick={() => setRidePhase('booking')}>Back</button>
-              <button onClick={handleConfirmRide} disabled={loading}>
-                {loading ? 'Requesting...' : 'Confirm Ride'}
+          )}
+
+          {/* === PHASE: IN PROGRESS === */}
+          {ridePhase === 'in_progress' && activeRide && (
+            <div className="ride-active-panel">
+              <h2>Ride in Progress</h2>
+              <div className="driver-info">
+                <h3>{activeRide.driver_name}</h3>
+                {activeRide.driver_phone && (
+                  <p>Phone: {activeRide.driver_phone}</p>
+                )}
+                {activeRide.vehicle_model && (
+                  <p>Vehicle: {activeRide.vehicle_model}</p>
+                )}
+                {activeRide.vehicle_plate && (
+                  <p>Plate: {activeRide.vehicle_plate}</p>
+                )}
+              </div>
+              <div className="ride-summary">
+                <div className="summary-row">
+                  <span>From</span>
+                  <strong>{activeRide.pickup_addr}</strong>
+                </div>
+                <div className="summary-row">
+                  <span>To</span>
+                  <strong>{activeRide.dropoff_addr}</strong>
+                </div>
+                <div className="summary-row fare">
+                  <span>Fare</span>
+                  <strong>{activeRide.estimated_fare} BDT</strong>
+                </div>
+              </div>
+              <span className="status-badge active">Ride started</span>
+            </div>
+          )}
+
+          {/* === PHASE: COMPLETED === */}
+          {ridePhase === 'completed' && activeRide && (
+            <div className="completion-panel">
+              <h2>Ride Complete!</h2>
+              <div className="fare-amount">
+                {activeRide.final_fare || activeRide.estimated_fare} BDT
+              </div>
+              <p style={{ color: '#6B6B6B', fontSize: '14px', marginBottom: '4px' }}>
+                Driver: {activeRide.driver_name}
+              </p>
+              <p style={{ color: '#6B6B6B', fontSize: '14px', marginBottom: '24px' }}>
+                {activeRide.pickup_addr || activeRequest?.pickup_addr} → {activeRide.dropoff_addr || activeRequest?.dropoff_addr}
+              </p>
+              <button
+                onClick={resetBooking}
+                style={{
+                  padding: '14px 28px',
+                  background: '#000',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '15px',
+                }}
+              >
+                Done
               </button>
             </div>
-          </div>
-        )}
-
-        {/* === PHASE: SEARCHING === */}
-        {ridePhase === 'searching' && (
-          <div className="searching-panel">
-            <div className="searching-animation">
-              <div className="pulse-ring" />
-            </div>
-            <h2>Looking for nearby drivers...</h2>
-            {activeRequest && (
-              <>
-                <p style={{ color: '#6B6B6B', fontSize: '14px', marginTop: '16px' }}>
-                  From: {activeRequest.pickup_addr}
-                </p>
-                <p style={{ color: '#6B6B6B', fontSize: '14px' }}>
-                  To: {activeRequest.dropoff_addr}
-                </p>
-                <p style={{ fontWeight: 600, fontSize: '16px', marginTop: '8px' }}>
-                  {activeRequest.estimated_fare} BDT
-                </p>
-              </>
-            )}
-            <p className="searching-hint">This may take up to 5 minutes</p>
-            <button
-              onClick={handleCancelRequest}
-              style={{
-                padding: '12px 28px',
-                background: '#fff',
-                color: '#E11900',
-                border: '1px solid #E2E2E2',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 500,
-                fontSize: '14px',
-              }}
-            >
-              Cancel Request
-            </button>
-          </div>
-        )}
-
-        {/* === PHASE: MATCHED === */}
-        {ridePhase === 'matched' && activeRide && (
-          <div className="ride-active-panel">
-            <h2>Driver Found!</h2>
-            <div className="driver-info">
-              <h3>{activeRide.driver_name}</h3>
-              {activeRide.driver_phone && (
-                <p>Phone: {activeRide.driver_phone}</p>
-              )}
-              {activeRide.driver_rating && (
-                <p>Rating: {activeRide.driver_rating}/5</p>
-              )}
-              {activeRide.vehicle_model && (
-                <p>Vehicle: {activeRide.vehicle_model}</p>
-              )}
-              {activeRide.vehicle_plate && (
-                <p>Plate: {activeRide.vehicle_plate}</p>
-              )}
-            </div>
-            <div className="ride-summary">
-              <div className="summary-row">
-                <span>From</span>
-                <strong>{activeRide.pickup_addr}</strong>
-              </div>
-              <div className="summary-row">
-                <span>To</span>
-                <strong>{activeRide.dropoff_addr}</strong>
-              </div>
-              <div className="summary-row fare">
-                <span>Fare</span>
-                <strong>{activeRide.estimated_fare} BDT</strong>
-              </div>
-            </div>
-            <span className="status-badge">Driver is on the way</span>
-          </div>
-        )}
-
-        {/* === PHASE: IN PROGRESS === */}
-        {ridePhase === 'in_progress' && activeRide && (
-          <div className="ride-active-panel">
-            <h2>Ride in Progress</h2>
-            <div className="driver-info">
-              <h3>{activeRide.driver_name}</h3>
-              {activeRide.driver_phone && (
-                <p>Phone: {activeRide.driver_phone}</p>
-              )}
-              {activeRide.vehicle_model && (
-                <p>Vehicle: {activeRide.vehicle_model}</p>
-              )}
-              {activeRide.vehicle_plate && (
-                <p>Plate: {activeRide.vehicle_plate}</p>
-              )}
-            </div>
-            <div className="ride-summary">
-              <div className="summary-row">
-                <span>From</span>
-                <strong>{activeRide.pickup_addr}</strong>
-              </div>
-              <div className="summary-row">
-                <span>To</span>
-                <strong>{activeRide.dropoff_addr}</strong>
-              </div>
-              <div className="summary-row fare">
-                <span>Fare</span>
-                <strong>{activeRide.estimated_fare} BDT</strong>
-              </div>
-            </div>
-            <span className="status-badge active">Ride started</span>
-          </div>
-        )}
-
-        {/* === PHASE: COMPLETED === */}
-        {ridePhase === 'completed' && activeRide && (
-          <div className="completion-panel">
-            <h2>Ride Complete!</h2>
-            <div className="fare-amount">
-              {activeRide.final_fare || activeRide.estimated_fare} BDT
-            </div>
-            <p style={{ color: '#6B6B6B', fontSize: '14px', marginBottom: '4px' }}>
-              Driver: {activeRide.driver_name}
-            </p>
-            <p style={{ color: '#6B6B6B', fontSize: '14px', marginBottom: '24px' }}>
-              {activeRide.pickup_addr || activeRequest?.pickup_addr} → {activeRide.dropoff_addr || activeRequest?.dropoff_addr}
-            </p>
-            <button
-              onClick={resetBooking}
-              style={{
-                padding: '14px 28px',
-                background: '#000',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '15px',
-              }}
-            >
-              Done
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -947,3 +947,349 @@
     gap: 16px;
   }
 }
+
+/* ── Uber-style Split Layout ─────────────────────────────── */
+
+.uber-split-layout {
+  display: flex;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
+.uber-left-panel {
+  width: 420px;
+  min-width: 420px;
+  overflow-y: auto;
+  padding: 32px 28px;
+  border-right: 1px solid var(--uber-gray-20);
+  background: var(--uber-white);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.uber-right-map {
+  flex: 1;
+  height: 100%;
+  position: relative;
+}
+
+/* Greeting */
+.uber-greeting h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--uber-black);
+  margin: 0 0 4px;
+}
+
+.uber-greeting p {
+  font-size: 14px;
+  color: var(--uber-gray-50);
+  margin: 0;
+}
+
+/* "Where to?" bar */
+.uber-where-to-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--uber-gray-10);
+  border-radius: 8px;
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: background-color 0.15s, box-shadow 0.15s;
+  border: 1px solid var(--uber-gray-20);
+}
+
+.uber-where-to-bar:hover {
+  background: var(--uber-gray-20);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.uber-where-to-bar .search-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--uber-black);
+  flex-shrink: 0;
+}
+
+.uber-where-to-bar span {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--uber-gray-50);
+}
+
+/* Quick action cards */
+.uber-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uber-quick-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--uber-gray-10);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.uber-quick-card:hover {
+  background: var(--uber-gray-20);
+  border-color: var(--uber-gray-30);
+}
+
+.uber-quick-card .card-icon {
+  font-size: 24px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--uber-white);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.uber-quick-card.primary {
+  background: var(--uber-black);
+  color: var(--uber-white);
+  border-color: var(--uber-black);
+}
+
+.uber-quick-card.primary:hover {
+  background: var(--uber-gray-70);
+}
+
+.uber-quick-card.primary .card-icon {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.uber-quick-card h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.uber-quick-card p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--uber-gray-50);
+}
+
+.uber-quick-card.primary p {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Status section (driver online toggle) */
+.uber-status-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uber-status-section .status-toggle {
+  width: 100%;
+  padding: 16px 28px;
+  font-size: 15px;
+}
+
+/* Panel alert */
+.uber-panel-alert {
+  background: #FFF0EE;
+  color: var(--uber-red);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  border-left: 3px solid var(--uber-red);
+}
+
+.uber-panel-info {
+  background: #E8F4FD;
+  color: var(--uber-blue);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  border-left: 3px solid var(--uber-blue);
+}
+
+/* Request list (driver panel) */
+.uber-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uber-request-card {
+  background: var(--uber-gray-10);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 16px 20px;
+  transition: border-color 0.15s;
+}
+
+.uber-request-card:hover {
+  border-color: var(--uber-gray-30);
+}
+
+.uber-request-card h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--uber-black);
+}
+
+.uber-request-card .req-detail {
+  font-size: 13px;
+  color: var(--uber-gray-50);
+  margin: 4px 0;
+}
+
+.uber-request-card .req-fare {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--uber-black);
+  margin: 8px 0;
+}
+
+.uber-request-card .req-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.uber-request-card .req-actions button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.uber-request-card .req-actions .accept-btn {
+  background: var(--uber-black);
+  color: var(--uber-white);
+  border: none;
+}
+
+.uber-request-card .req-actions .accept-btn:hover {
+  background: var(--uber-gray-70);
+}
+
+.uber-request-card .req-actions .reject-btn {
+  background: var(--uber-white);
+  color: var(--uber-black);
+  border: 1px solid var(--uber-gray-30);
+}
+
+.uber-request-card .req-actions .reject-btn:hover {
+  background: var(--uber-gray-10);
+}
+
+/* Active ride panel in left panel */
+.uber-active-ride-panel {
+  background: var(--uber-gray-10);
+  border: 2px solid var(--uber-black);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.uber-active-ride-panel h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--uber-black);
+}
+
+.uber-active-ride-panel .ride-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--uber-gray-20);
+  font-size: 14px;
+}
+
+.uber-active-ride-panel .ride-detail-row:last-of-type {
+  border-bottom: none;
+}
+
+.uber-active-ride-panel .ride-detail-row span {
+  color: var(--uber-gray-50);
+}
+
+.uber-active-ride-panel .ride-detail-row strong {
+  color: var(--uber-black);
+  font-weight: 600;
+}
+
+.uber-active-ride-panel .ride-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.uber-active-ride-panel .ride-actions button {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+/* Waiting text */
+.uber-waiting-text {
+  color: var(--uber-gray-50);
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+  margin: 0;
+}
+
+/* RideMap wrapper */
+.uber-ridemap-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Responsive: Split to Stack ──────────────────────────── */
+@media (max-width: 768px) {
+  .uber-split-layout {
+    flex-direction: column;
+  }
+
+  .uber-left-panel {
+    width: 100%;
+    min-width: unset;
+    max-height: 50vh;
+    border-right: none;
+    border-bottom: 1px solid var(--uber-gray-20);
+    padding: 20px 16px;
+    gap: 16px;
+  }
+
+  .uber-right-map {
+    height: 50vh;
+  }
+
+  .uber-greeting h1 {
+    font-size: 22px;
+  }
+
+  .uber-where-to-bar {
+    padding: 14px 16px;
+  }
+
+  .uber-where-to-bar span {
+    font-size: 18px;
+  }
+}
+
