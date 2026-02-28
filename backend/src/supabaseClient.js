@@ -13,7 +13,10 @@ if (!supabaseServiceRoleKey) {
 }
 
 // Regular client - used for login and session management
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// persistSession: false prevents shared state mutation across concurrent requests
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false }
+});
 
 // Admin client - bypasses rate limits and email confirmation for user creation
 const supabaseAdmin = supabaseServiceRoleKey

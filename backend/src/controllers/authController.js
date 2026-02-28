@@ -72,7 +72,11 @@ const register = async (req, res) => {
     // Insert user into public.users
     await client.query(
       `INSERT INTO users (user_id, email, name, phone_number, role)
-       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id) DO NOTHING`,
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id) DO UPDATE SET
+         name = EXCLUDED.name,
+         phone_number = EXCLUDED.phone_number,
+         role = EXCLUDED.role`,
       [userId, email, `${first_name} ${last_name}`, phone_number, role]
     );
 
@@ -108,6 +112,7 @@ const register = async (req, res) => {
       user: { user_id: userId, email, name: `${first_name} ${last_name}`, role, phone_number },
       session: sessionData?.session || null,
       access_token: sessionData?.session?.access_token || null,
+      refresh_token: sessionData?.session?.refresh_token || null,
     });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -151,12 +156,41 @@ const login = async (req, res) => {
     }
 
     // Get user details from database
-    const userResult = await pool.query(
+    let userResult = await pool.query(
       `SELECT user_id, name, email, role, phone_number, created_at
        FROM users
        WHERE user_id = $1`,
       [data.user.id]
     );
+
+    // Ensure users row exists (MUST come first — wallet/rider/driver all FK-reference users)
+    if (userResult.rows.length === 0) {
+      console.warn("Users row missing for", data.user.id, "— recovering from auth metadata");
+      const meta = data.user.user_metadata || {};
+      const recoveredRole = meta.role || 'rider';
+      const recoveredName = meta.name
+        || (meta.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : 'Unknown User');
+      const recoveredPhone = meta.phone_number || '';
+      try {
+        await pool.query(
+          `INSERT INTO users (user_id, email, name, phone_number, role)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (user_id) DO UPDATE SET
+             name = EXCLUDED.name,
+             phone_number = EXCLUDED.phone_number,
+             role = EXCLUDED.role`,
+          [data.user.id, data.user.email, recoveredName, recoveredPhone, recoveredRole]
+        );
+        // Re-fetch after recovery
+        userResult = await pool.query(
+          `SELECT user_id, name, email, role, phone_number, created_at
+           FROM users WHERE user_id = $1`,
+          [data.user.id]
+        );
+      } catch (userRecoveryError) {
+        console.warn("Users row recovery failed:", userRecoveryError.message);
+      }
+    }
 
     // Ensure wallet exists for user (may not exist if trigger failed during registration)
     try {
@@ -168,11 +202,38 @@ const login = async (req, res) => {
       console.warn("Wallet creation on login failed:", walletError.message);
     }
 
-    // Log login activity
-    await pool.query(
-      "INSERT INTO login_logs (user_id) VALUES ($1)",
-      [data.user.id]
-    );
+    // Ensure rider/driver row exists (may not exist if registration partially failed)
+    const userRole = userResult.rows[0]?.role || data.user.user_metadata?.role;
+    if (userRole === 'rider' || userRole === 'mixed') {
+      try {
+        await pool.query(
+          "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
+          [data.user.id]
+        );
+      } catch (riderError) {
+        console.warn("Rider row recovery on login failed:", riderError.message);
+      }
+    }
+    if (userRole === 'driver' || userRole === 'mixed') {
+      try {
+        await pool.query(
+          "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
+          [data.user.id, `PENDING_${data.user.id.substring(0, 8)}`]
+        );
+      } catch (driverError) {
+        console.warn("Driver row recovery on login failed:", driverError.message);
+      }
+    }
+
+    // Log login activity (non-blocking — don't fail the login if this errors)
+    try {
+      await pool.query(
+        "INSERT INTO login_logs (user_id) VALUES ($1)",
+        [data.user.id]
+      );
+    } catch (logError) {
+      console.warn("Login log insert failed:", logError.message);
+    }
 
     res.json({
       message: "Login successful",
@@ -183,6 +244,7 @@ const login = async (req, res) => {
       },
       session: data.session,
       access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -230,10 +292,14 @@ const getProfile = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    // Don't call supabase.auth.signOut() on the server —
-    // it mutates the shared server-side client's session state,
-    // which can break token verification for other users.
-    // Logout is handled client-side by clearing localStorage.
+    // Revoke the user's session server-side if admin client is available
+    if (supabaseAdmin) {
+      try {
+        await supabaseAdmin.auth.admin.signOut(req.user.id, 'global');
+      } catch (signOutError) {
+        console.warn("Server-side token revocation failed:", signOutError.message);
+      }
+    }
     res.json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
@@ -243,9 +309,34 @@ const logout = async (req, res) => {
   }
 };
 
+const refreshToken = async (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      return res.status(400).json({ error: "refresh_token is required" });
+    }
+
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+
+    if (error || !data.session) {
+      return res.status(401).json({ error: "Failed to refresh session. Please log in again." });
+    }
+
+    res.json({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    res.status(500).json({ error: "Internal server error during token refresh" });
+  }
+};
+
 module.exports = {
   register,
   login,
   getProfile,
   logout,
+  refreshToken,
 };

@@ -7,7 +7,7 @@ const { authenticateToken, authorizeRoles } = require("../middleware/auth");
 router.get("/", authenticateToken, authorizeRoles("admin"), async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT user_id, first_name, last_name, email, role, phone_number, is_active, created_at FROM users ORDER BY created_at DESC"
+      "SELECT user_id, name, email, role, phone_number, avatar_url, created_at FROM users ORDER BY created_at DESC"
     );
     res.json(result.rows);
   } catch (error) {
@@ -22,15 +22,15 @@ router.get("/:userId", authenticateToken, async (req, res) => {
     const { userId } = req.params;
 
     // Users can only view their own profile unless admin
-    if (req.user.user_id !== userId && req.user.role !== "admin") {
+    if (req.user.id !== userId && req.user.dbRole !== "admin") {
       return res.status(403).json({
         error: "You can only view your own profile"
       });
     }
 
     const result = await pool.query(
-      `SELECT user_id, first_name, last_name, email, role, phone_number,
-              profile_picture_url, is_active, created_at
+      `SELECT user_id, name, email, role, phone_number,
+              avatar_url, created_at
        FROM users
        WHERE user_id = $1`,
       [userId]
@@ -51,10 +51,10 @@ router.get("/:userId", authenticateToken, async (req, res) => {
 router.put("/:userId", authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { first_name, last_name, phone_number, profile_picture_url } = req.body;
+    const { name, phone_number, avatar_url } = req.body;
 
     // Users can only update their own profile
-    if (req.user.user_id !== userId) {
+    if (req.user.id !== userId) {
       return res.status(403).json({
         error: "You can only update your own profile"
       });
@@ -64,21 +64,17 @@ router.put("/:userId", authenticateToken, async (req, res) => {
     const values = [];
     let paramCount = 1;
 
-    if (first_name) {
-      updates.push(`first_name = $${paramCount++}`);
-      values.push(first_name);
-    }
-    if (last_name) {
-      updates.push(`last_name = $${paramCount++}`);
-      values.push(last_name);
+    if (name) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
     }
     if (phone_number) {
       updates.push(`phone_number = $${paramCount++}`);
       values.push(phone_number);
     }
-    if (profile_picture_url) {
-      updates.push(`profile_picture_url = $${paramCount++}`);
-      values.push(profile_picture_url);
+    if (avatar_url) {
+      updates.push(`avatar_url = $${paramCount++}`);
+      values.push(avatar_url);
     }
 
     if (updates.length === 0) {
@@ -91,9 +87,9 @@ router.put("/:userId", authenticateToken, async (req, res) => {
 
     const result = await pool.query(
       `UPDATE users
-       SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP
+       SET ${updates.join(", ")}
        WHERE user_id = $${paramCount}
-       RETURNING user_id, first_name, last_name, email, phone_number, profile_picture_url, updated_at`,
+       RETURNING user_id, name, email, phone_number, avatar_url, created_at`,
       values
     );
 

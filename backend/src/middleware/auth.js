@@ -20,10 +20,35 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Fetch the actual role from the database (user_metadata.role can be missing)
-    const dbResult = await pool.query(
+    let dbResult = await pool.query(
       "SELECT role FROM users WHERE user_id = $1",
       [user.id]
     );
+
+    // If users row is missing, recover it from Supabase auth metadata
+    // This can happen if the DB was reset but Supabase Auth users persist
+    if (dbResult.rows.length === 0) {
+      console.warn("Users row missing for", user.id, "— auto-recovering in middleware");
+      const meta = user.user_metadata || {};
+      const recoveredRole = meta.role || 'rider';
+      const recoveredName = meta.name
+        || (meta.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : 'Unknown User');
+      try {
+        await pool.query(
+          `INSERT INTO users (user_id, email, name, phone_number, role)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (user_id) DO NOTHING`,
+          [user.id, user.email, recoveredName, meta.phone_number || '', recoveredRole]
+        );
+        dbResult = await pool.query(
+          "SELECT role FROM users WHERE user_id = $1",
+          [user.id]
+        );
+      } catch (recoveryErr) {
+        console.warn("User row auto-recovery failed:", recoveryErr.message);
+      }
+    }
+
     const dbRole = dbResult.rows[0]?.role;
 
     // Attach user to request with reliable role
@@ -49,7 +74,8 @@ const authorizeRoles = (...allowedRoles) => {
 
     if (!userRole || !allowedRoles.includes(userRole)) {
       return res.status(403).json({
-        error: "Access denied. Insufficient permissions."
+        error: "Access denied. Insufficient permissions.",
+        detail: `Role '${userRole || 'none'}' is not in allowed roles [${allowedRoles.join(', ')}]`
       });
     }
     next();
