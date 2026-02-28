@@ -1,7 +1,1 @@
-* {
-  box-sizing: border-box;
-}
-
-#root {
-  min-height: 100vh;
-}
+/* App.css — keep minimal, global handled by index.css */

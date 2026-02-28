@@ -3,6 +3,7 @@ const cors = require("cors");
 const { pool } = require("./db");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
+const ridesRoutes = require("./routes/rides");
 
 const app = express(); 
 app.use(cors({ // cors configuration to allow requests from frontend
@@ -42,6 +43,7 @@ app.get("/health/db", async (req, res) => {
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/rides", ridesRoutes);
 
 // 404 handler
 app.use((req, res) => {

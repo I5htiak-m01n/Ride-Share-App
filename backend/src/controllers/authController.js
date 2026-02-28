@@ -230,14 +230,10 @@ const getProfile = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      return res.status(500).json({
-        error: error.message
-      });
-    }
-
+    // Don't call supabase.auth.signOut() on the server —
+    // it mutates the shared server-side client's session state,
+    // which can break token verification for other users.
+    // Logout is handled client-side by clearing localStorage.
     res.json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
