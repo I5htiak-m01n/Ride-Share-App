@@ -3,8 +3,8 @@ import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from '@react-google-map
 
 const MAP_CONTAINER_STYLE = {
   width: '100%',
-  height: 'calc(100vh - 64px)',
-  borderRadius: '0',
+  height: '100%',
+  borderRadius: '12px',
 };
 
 const DEFAULT_ZOOM = 14;

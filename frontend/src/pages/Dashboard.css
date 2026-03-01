@@ -972,6 +972,8 @@
   flex: 1;
   height: 100%;
   position: relative;
+  padding: 20px;
+  background: var(--uber-gray-10);
 }
 
 /* Greeting */
@@ -1278,6 +1280,7 @@
 
   .uber-right-map {
     height: 50vh;
+    padding: 12px;
   }
 
   .uber-greeting h1 {
