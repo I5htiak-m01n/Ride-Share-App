@@ -1,5 +1,7 @@
-const { supabase, supabaseAdmin } = require("../supabaseClient");
+const jwt = require("jsonwebtoken");
 const { pool } = require("../db");
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -10,52 +12,38 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    // Use admin client for token verification (has persistSession: false,
-    // so it won't be affected by login/logout calls on the shared client)
-    const verifier = supabaseAdmin || supabase;
-    const { data: { user }, error } = await verifier.auth.getUser(token);
+    // Verify JWT signature and expiration using our own secret
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-    if (error || !user) {
-      return res.status(401).json({ error: "Invalid or expired token" });
-    }
-
-    // Fetch the actual role from the database (user_metadata.role can be missing)
-    let dbResult = await pool.query(
-      "SELECT role FROM users WHERE user_id = $1",
-      [user.id]
+    // Fetch user role from database to ensure it's current
+    const dbResult = await pool.query(
+      "SELECT user_id, email, name, role FROM users WHERE user_id = $1",
+      [decoded.user_id]
     );
 
-    // If users row is missing, recover it from Supabase auth metadata
-    // This can happen if the DB was reset but Supabase Auth users persist
     if (dbResult.rows.length === 0) {
-      console.warn("Users row missing for", user.id, "— auto-recovering in middleware");
-      const meta = user.user_metadata || {};
-      const recoveredRole = meta.role || 'rider';
-      const recoveredName = meta.name
-        || (meta.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : 'Unknown User');
-      try {
-        await pool.query(
-          `INSERT INTO users (user_id, email, name, phone_number, role)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (user_id) DO NOTHING`,
-          [user.id, user.email, recoveredName, meta.phone_number || '', recoveredRole]
-        );
-        dbResult = await pool.query(
-          "SELECT role FROM users WHERE user_id = $1",
-          [user.id]
-        );
-      } catch (recoveryErr) {
-        console.warn("User row auto-recovery failed:", recoveryErr.message);
-      }
+      return res.status(401).json({ error: "User not found" });
     }
 
-    const dbRole = dbResult.rows[0]?.role;
-
-    // Attach user to request with reliable role
-    req.user = user;
-    req.user.dbRole = dbRole || user.user_metadata?.role || null;
+    // Attach user info to request
+    // Use 'id' as alias for user_id to maintain compatibility with existing controllers
+    const dbUser = dbResult.rows[0];
+    req.user = {
+      id: dbUser.user_id,
+      user_id: dbUser.user_id,
+      email: dbUser.email,
+      name: dbUser.name,
+      role: dbUser.role,
+      dbRole: dbUser.role,
+    };
     next();
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "Token expired" });
+    }
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
     console.error("Token verification error:", error);
     return res.status(401).json({ error: "Invalid or expired token" });
   }
@@ -69,8 +57,7 @@ const authorizeRoles = (...allowedRoles) => {
       });
     }
 
-    // Check database role first, then user_metadata, then Supabase role
-    const userRole = req.user.dbRole || req.user.user_metadata?.role;
+    const userRole = req.user.role;
 
     if (!userRole || !allowedRoles.includes(userRole)) {
       return res.status(403).json({

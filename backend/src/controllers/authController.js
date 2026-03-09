@@ -1,5 +1,34 @@
-const { supabase, supabaseAdmin } = require("../supabaseClient");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const { pool } = require("../db");
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
+const ACCESS_TOKEN_EXPIRY = parseInt(process.env.ACCESS_TOKEN_EXPIRY) || 3600; // 1 hour
+const REFRESH_TOKEN_EXPIRY = parseInt(process.env.REFRESH_TOKEN_EXPIRY) || 604800; // 7 days
+const BCRYPT_SALT_ROUNDS = 10;
+
+// Helper: generate access token
+const generateAccessToken = (user) => {
+  return jwt.sign(
+    {
+      user_id: user.user_id,
+      email: user.email,
+      role: user.role,
+    },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRY }
+  );
+};
+
+// Helper: generate refresh token
+const generateRefreshToken = (user) => {
+  return jwt.sign(
+    { user_id: user.user_id },
+    REFRESH_TOKEN_SECRET,
+    { expiresIn: REFRESH_TOKEN_EXPIRY }
+  );
+};
 
 const register = async (req, res) => {
   const client = await pool.connect();
@@ -33,58 +62,45 @@ const register = async (req, res) => {
       });
     }
 
-    // Create user in Supabase Auth
-    // Admin client bypasses rate limits and auto-confirms email
-    let authData, authError;
-
-    if (supabaseAdmin) {
-      const result = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { first_name, last_name, name: `${first_name} ${last_name}`, role, phone_number }
-      });
-      authData = result.data;
-      authError = result.error;
-    } else {
-      // Fallback if service role key is not set (subject to rate limits)
-      const result = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { first_name, last_name, name: `${first_name} ${last_name}`, role, phone_number } }
-      });
-      authData = result.data;
-      authError = result.error;
+    // Check if email already exists
+    const existingUser = await pool.query(
+      "SELECT user_id FROM users WHERE email = $1",
+      [email]
+    );
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: "Email already registered" });
     }
 
-    if (authError) {
-      return res.status(400).json({ error: authError.message });
+    // Check if phone number already exists
+    const existingPhone = await pool.query(
+      "SELECT user_id FROM users WHERE phone_number = $1",
+      [phone_number]
+    );
+    if (existingPhone.rows.length > 0) {
+      return res.status(400).json({ error: "Phone number already registered" });
     }
 
-    if (!authData.user) {
-      return res.status(500).json({ error: "Failed to create user" });
-    }
-
-    const userId = authData.user.id;
+    // Hash password using bcrypt
+    const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+    const name = `${first_name} ${last_name}`;
 
     await client.query("BEGIN");
 
-    // Insert user into public.users
-    await client.query(
-      `INSERT INTO users (user_id, email, name, phone_number, role)
+    // Insert user into public.users with hashed password
+    const userResult = await client.query(
+      `INSERT INTO users (email, name, password_hash, phone_number, role)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id) DO UPDATE SET
-         name = EXCLUDED.name,
-         phone_number = EXCLUDED.phone_number,
-         role = EXCLUDED.role`,
-      [userId, email, `${first_name} ${last_name}`, phone_number, role]
+       RETURNING user_id, email, name, role, phone_number, created_at`,
+      [email, name, passwordHash, phone_number, role]
     );
+
+    const newUser = userResult.rows[0];
 
     // Create rider profile
     if (role === "rider" || role === "mixed") {
       await client.query(
         "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
-        [userId]
+        [newUser.user_id]
       );
     }
 
@@ -92,27 +108,40 @@ const register = async (req, res) => {
     if (role === "driver" || role === "mixed") {
       await client.query(
         "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
-        [userId, `PENDING_${userId.substring(0, 8)}`]
+        [newUser.user_id, `PENDING_${newUser.user_id.substring(0, 8)}`]
       );
     }
 
     // Create wallet
     await client.query(
       "INSERT INTO wallets (owner_id, balance, currency) VALUES ($1, 0, 'BDT') ON CONFLICT DO NOTHING",
-      [userId]
+      [newUser.user_id]
+    );
+
+    // Generate JWT tokens
+    const accessToken = generateAccessToken(newUser);
+    const refreshToken = generateRefreshToken(newUser);
+
+    // Store refresh token in database
+    await client.query(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '${REFRESH_TOKEN_EXPIRY} seconds')`,
+      [newUser.user_id, refreshToken]
     );
 
     await client.query("COMMIT");
 
-    // Sign in immediately to return a usable session
-    const { data: sessionData } = await supabase.auth.signInWithPassword({ email, password });
-
     res.status(201).json({
       message: "User registered successfully",
-      user: { user_id: userId, email, name: `${first_name} ${last_name}`, role, phone_number },
-      session: sessionData?.session || null,
-      access_token: sessionData?.session?.access_token || null,
-      refresh_token: sessionData?.session?.refresh_token || null,
+      user: {
+        user_id: newUser.user_id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        phone_number: newUser.phone_number,
+      },
+      access_token: accessToken,
+      refresh_token: refreshToken,
     });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -127,6 +156,8 @@ const register = async (req, res) => {
 };
 
 const login = async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { email, password } = req.body;
 
@@ -137,126 +168,95 @@ const login = async (req, res) => {
       });
     }
 
-    // Sign in with Supabase
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    await client.query("BEGIN");
 
-    if (error) {
-      return res.status(401).json({
-        error: error.message
-      });
-    }
-
-    if (!data.user || !data.session) {
-      return res.status(401).json({
-        error: "Invalid credentials"
-      });
-    }
-
-    // Get user details from database
-    let userResult = await pool.query(
-      `SELECT user_id, name, email, role, phone_number, created_at
+    // Query user by email (including password hash)
+    const userResult = await client.query(
+      `SELECT user_id, name, email, password_hash, role, phone_number, created_at
        FROM users
-       WHERE user_id = $1`,
-      [data.user.id]
+       WHERE email = $1`,
+      [email]
     );
 
-    // Ensure users row exists (MUST come first — wallet/rider/driver all FK-reference users)
     if (userResult.rows.length === 0) {
-      console.warn("Users row missing for", data.user.id, "— recovering from auth metadata");
-      const meta = data.user.user_metadata || {};
-      const recoveredRole = meta.role || 'rider';
-      const recoveredName = meta.name
-        || (meta.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : 'Unknown User');
-      const recoveredPhone = meta.phone_number || '';
-      try {
-        await pool.query(
-          `INSERT INTO users (user_id, email, name, phone_number, role)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (user_id) DO UPDATE SET
-             name = EXCLUDED.name,
-             phone_number = EXCLUDED.phone_number,
-             role = EXCLUDED.role`,
-          [data.user.id, data.user.email, recoveredName, recoveredPhone, recoveredRole]
-        );
-        // Re-fetch after recovery
-        userResult = await pool.query(
-          `SELECT user_id, name, email, role, phone_number, created_at
-           FROM users WHERE user_id = $1`,
-          [data.user.id]
-        );
-      } catch (userRecoveryError) {
-        console.warn("Users row recovery failed:", userRecoveryError.message);
-      }
+      await client.query("ROLLBACK");
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Ensure wallet exists for user (may not exist if trigger failed during registration)
-    try {
-      await pool.query(
-        "INSERT INTO wallets (owner_id, balance, currency) VALUES ($1, 0, 'BDT') ON CONFLICT DO NOTHING",
-        [data.user.id]
+    const user = userResult.rows[0];
+
+    // Verify password using bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!isPasswordValid) {
+      await client.query("ROLLBACK");
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Ensure wallet exists
+    await client.query(
+      "INSERT INTO wallets (owner_id, balance, currency) VALUES ($1, 0, 'BDT') ON CONFLICT DO NOTHING",
+      [user.user_id]
+    );
+
+    // Ensure rider/driver row exists
+    if (user.role === "rider" || user.role === "mixed") {
+      await client.query(
+        "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
+        [user.user_id]
       );
-    } catch (walletError) {
-      console.warn("Wallet creation on login failed:", walletError.message);
     }
-
-    // Ensure rider/driver row exists (may not exist if registration partially failed)
-    const userRole = userResult.rows[0]?.role || data.user.user_metadata?.role;
-    if (userRole === 'rider' || userRole === 'mixed') {
-      try {
-        await pool.query(
-          "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
-          [data.user.id]
-        );
-      } catch (riderError) {
-        console.warn("Rider row recovery on login failed:", riderError.message);
-      }
-    }
-    if (userRole === 'driver' || userRole === 'mixed') {
-      try {
-        await pool.query(
-          "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
-          [data.user.id, `PENDING_${data.user.id.substring(0, 8)}`]
-        );
-      } catch (driverError) {
-        console.warn("Driver row recovery on login failed:", driverError.message);
-      }
-    }
-
-    // Log login activity (non-blocking — don't fail the login if this errors)
-    try {
-      await pool.query(
-        "INSERT INTO login_logs (user_id) VALUES ($1)",
-        [data.user.id]
+    if (user.role === "driver" || user.role === "mixed") {
+      await client.query(
+        "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
+        [user.user_id, `PENDING_${user.user_id.substring(0, 8)}`]
       );
-    } catch (logError) {
-      console.warn("Login log insert failed:", logError.message);
     }
+
+    // Generate JWT tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    // Store refresh token in database
+    await client.query(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '${REFRESH_TOKEN_EXPIRY} seconds')`,
+      [user.user_id, refreshToken]
+    );
+
+    // Log login activity
+    await client.query(
+      "INSERT INTO login_logs (user_id) VALUES ($1)",
+      [user.user_id]
+    );
+
+    await client.query("COMMIT");
 
     res.json({
       message: "Login successful",
-      user: userResult.rows[0] || {
-        user_id: data.user.id,
-        email: data.user.email,
-        role: data.user.user_metadata?.role || "rider",
+      user: {
+        user_id: user.user_id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone_number: user.phone_number,
       },
-      session: data.session,
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
+      access_token: accessToken,
+      refresh_token: refreshToken,
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Login error:", error);
     res.status(500).json({
       error: "Internal server error during login"
     });
+  } finally {
+    client.release();
   }
 };
 
 const getProfile = async (req, res) => {
   try {
-    // req.user comes from authenticateToken middleware (contains Supabase user)
+    // req.user comes from authenticateToken middleware
     const userResult = await pool.query(
       `SELECT user_id, name, email, phone_number, role, avatar_url, created_at
        FROM users
@@ -292,14 +292,12 @@ const getProfile = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    // Revoke the user's session server-side if admin client is available
-    if (supabaseAdmin) {
-      try {
-        await supabaseAdmin.auth.admin.signOut(req.user.id, 'global');
-      } catch (signOutError) {
-        console.warn("Server-side token revocation failed:", signOutError.message);
-      }
-    }
+    // Revoke all refresh tokens for this user
+    await pool.query(
+      "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL",
+      [req.user.id]
+    );
+
     res.json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
@@ -317,15 +315,57 @@ const refreshToken = async (req, res) => {
       return res.status(400).json({ error: "refresh_token is required" });
     }
 
-    const { data, error } = await supabase.auth.refreshSession({ refresh_token });
-
-    if (error || !data.session) {
-      return res.status(401).json({ error: "Failed to refresh session. Please log in again." });
+    // Verify the refresh token signature and expiration
+    let decoded;
+    try {
+      decoded = jwt.verify(refresh_token, REFRESH_TOKEN_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: "Invalid or expired refresh token. Please log in again." });
     }
 
+    // Check if token exists in database and is not revoked
+    const tokenResult = await pool.query(
+      `SELECT token_id, user_id FROM refresh_tokens
+       WHERE token = $1 AND user_id = $2 AND revoked_at IS NULL AND expires_at > NOW()`,
+      [refresh_token, decoded.user_id]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return res.status(401).json({ error: "Refresh token has been revoked or expired. Please log in again." });
+    }
+
+    // Get current user data
+    const userResult = await pool.query(
+      "SELECT user_id, email, role FROM users WHERE user_id = $1",
+      [decoded.user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    const user = userResult.rows[0];
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(user);
+
+    // Rotate refresh token: revoke old one and issue new one
+    const newRefreshToken = generateRefreshToken(user);
+
+    await pool.query(
+      "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1",
+      [refresh_token]
+    );
+
+    await pool.query(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '${REFRESH_TOKEN_EXPIRY} seconds')`,
+      [user.user_id, newRefreshToken]
+    );
+
     res.json({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken,
     });
   } catch (error) {
     console.error("Token refresh error:", error);

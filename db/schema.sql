@@ -16,35 +16,39 @@ create extension if not exists postgis; -- For Maps/Location
 -- 2. CORE USERS (With Auth Sync)
 -- =========================================================
 create table public.users (
-  user_id uuid primary key, -- references auth.users(id) on delete cascade,
+  user_id uuid primary key default gen_random_uuid(),
   name text not null,
   email text unique not null,
+  password_hash text not null,
   phone_number text not null unique,
   role text not null check (role in ('rider','driver','admin','support','mixed')),
   avatar_url text,
   created_at timestamptz not null default now()
 );
 
--- TRIGGER: Sync Supabase Auth -> public.users
--- This trigger automatically creates a user profile when a new auth user is registered
-create or replace function public.handle_new_user() 
+-- TRIGGER: Log sensitive actions to login_logs shadow table
+-- This trigger automatically logs every login by inserting into login_logs
+create or replace function public.log_login_activity()
 returns trigger as $$
 begin
-  insert into public.users (user_id, email, name, role, phone_number)
-  values (
-    new.id, 
-    new.email, 
-    coalesce(new.raw_user_meta_data->>'name', 'New User'),
-    coalesce(new.raw_user_meta_data->>'role', 'rider'),
-    coalesce(new.raw_user_meta_data->>'phone_number', '')
-  );
+  insert into public.login_logs (user_id, login_at)
+  values (new.user_id, now());
   return new;
 end;
 $$ language plpgsql security definer;
 
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+-- Refresh tokens table for JWT token management
+create table public.refresh_tokens (
+  token_id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(user_id) on delete cascade,
+  token text not null unique,
+  expires_at timestamptz not null,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index idx_refresh_tokens_user on public.refresh_tokens(user_id);
+create index idx_refresh_tokens_token on public.refresh_tokens(token);
 
 -- =========================================================
 -- 3. PROFILES (Rider, Driver, Admin, Staff)

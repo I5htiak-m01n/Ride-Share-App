@@ -296,24 +296,40 @@ function RiderDashboard() {
 
             <div className="uber-quick-actions">
               <div
-                className="uber-quick-card primary"
+                className="uber-quick-card"
                 onClick={() => { setRidePhase('booking'); setError(null); setStatusMessage(null); }}
               >
-                <div className="card-icon">&#128663;</div>
+                <div className="card-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 17h14M5 17a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l2-3h8l2 3h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2M5 17v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1m10 0v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1" />
+                    <circle cx="7.5" cy="13" r="1.5" />
+                    <circle cx="16.5" cy="13" r="1.5" />
+                  </svg>
+                </div>
                 <div>
                   <h4>Book a Ride</h4>
                   <p>Set pickup and destination</p>
                 </div>
               </div>
               <div className="uber-quick-card" onClick={() => navigate('/rider/history')}>
-                <div className="card-icon">&#128340;</div>
+                <div className="card-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </div>
                 <div>
                   <h4>Ride History</h4>
                   <p>View your past trips</p>
                 </div>
               </div>
               <div className="uber-quick-card" onClick={() => navigate('/rider/profile')}>
-                <div className="card-icon">&#128100;</div>
+                <div className="card-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M20 21a8 8 0 1 0-16 0" />
+                  </svg>
+                </div>
                 <div>
                   <h4>Profile</h4>
                   <p>Manage your account</p>
