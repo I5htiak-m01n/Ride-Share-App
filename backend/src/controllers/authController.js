@@ -50,9 +50,9 @@ const register = async (req, res) => {
       });
     }
 
-    if (!["rider", "driver", "mixed"].includes(role)) {
+    if (!["rider", "driver"].includes(role)) {
       return res.status(400).json({
-        error: "Invalid role. Must be 'rider', 'driver', or 'mixed'"
+        error: "Invalid role. Must be 'rider' or 'driver'"
       });
     }
 
@@ -96,7 +96,7 @@ const register = async (req, res) => {
     const newUser = userResult.rows[0];
 
     // Create rider profile
-    if (role === "rider" || role === "mixed") {
+    if (role === "rider") {
       await client.query(
         "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
         [newUser.user_id]
@@ -104,7 +104,7 @@ const register = async (req, res) => {
     }
 
     // Create driver profile with temporary license number
-    if (role === "driver" || role === "mixed") {
+    if (role === "driver") {
       await client.query(
         "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
         [newUser.user_id, `PENDING_${newUser.user_id.substring(0, 8)}`]

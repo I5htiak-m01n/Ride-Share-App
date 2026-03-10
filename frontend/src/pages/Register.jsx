@@ -147,7 +147,6 @@ function Register() {
               >
                 <option value="rider">Book Rides</option>
                 <option value="driver">Drive & Earn</option>
-                <option value="mixed">Both (Rider & Driver)</option>
               </select>
             </div>
 
