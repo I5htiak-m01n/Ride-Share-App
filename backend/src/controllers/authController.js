@@ -82,16 +82,15 @@ const register = async (req, res) => {
 
     // Hash password using bcrypt
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-    const name = `${first_name} ${last_name}`;
 
     await client.query("BEGIN");
 
     // Insert user into public.users with hashed password
     const userResult = await client.query(
-      `INSERT INTO users (email, name, password_hash, phone_number, role)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING user_id, email, name, role, phone_number, created_at`,
-      [email, name, passwordHash, phone_number, role]
+      `INSERT INTO users (email, first_name, last_name, password_hash, phone_number, role)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING user_id, email, first_name, last_name, role, phone_number, created_at`,
+      [email, first_name, last_name, passwordHash, phone_number, role]
     );
 
     const newUser = userResult.rows[0];
@@ -136,7 +135,9 @@ const register = async (req, res) => {
       user: {
         user_id: newUser.user_id,
         email: newUser.email,
-        name: newUser.name,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        name: `${newUser.first_name} ${newUser.last_name}`,
         role: newUser.role,
         phone_number: newUser.phone_number,
       },
@@ -172,7 +173,7 @@ const login = async (req, res) => {
 
     // Query user by email (including password hash)
     const userResult = await client.query(
-      `SELECT user_id, name, email, password_hash, role, phone_number, created_at
+      `SELECT user_id, first_name, last_name, email, password_hash, role, phone_number, created_at
        FROM users
        WHERE email = $1`,
       [email]
@@ -236,7 +237,9 @@ const login = async (req, res) => {
       user: {
         user_id: user.user_id,
         email: user.email,
-        name: user.name,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        name: `${user.first_name} ${user.last_name}`,
         role: user.role,
         phone_number: user.phone_number,
       },
@@ -258,7 +261,7 @@ const getProfile = async (req, res) => {
   try {
     // req.user comes from authenticateToken middleware
     const userResult = await pool.query(
-      `SELECT user_id, name, email, phone_number, role, avatar_url, created_at
+      `SELECT user_id, first_name, last_name, email, phone_number, role, avatar_url, created_at
        FROM users
        WHERE user_id = $1`,
       [req.user.id]
@@ -278,6 +281,7 @@ const getProfile = async (req, res) => {
 
     const profile = {
       ...user,
+      name: `${user.first_name} ${user.last_name}`,
       wallet: walletResult.rows[0] || null,
     };
 

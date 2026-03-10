@@ -17,7 +17,7 @@ const authenticateToken = async (req, res, next) => {
 
     // Fetch user role from database to ensure it's current
     const dbResult = await pool.query(
-      "SELECT user_id, email, name, role FROM users WHERE user_id = $1",
+      "SELECT user_id, email, first_name, last_name, role FROM users WHERE user_id = $1",
       [decoded.user_id]
     );
 
@@ -32,7 +32,9 @@ const authenticateToken = async (req, res, next) => {
       id: dbUser.user_id,
       user_id: dbUser.user_id,
       email: dbUser.email,
-      name: dbUser.name,
+      first_name: dbUser.first_name,
+      last_name: dbUser.last_name,
+      name: `${dbUser.first_name} ${dbUser.last_name}`,
       role: dbUser.role,
       dbRole: dbUser.role,
     };

@@ -12,8 +12,8 @@ const email = 'testusernew@gmail.com';
 
     // Insert into users table
     await pool.query(
-      'INSERT INTO users (user_id, email, name, phone_number, role) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
-      [userId, email, 'Test User New', '+8801712345678', 'rider']
+      'INSERT INTO users (user_id, email, first_name, last_name, password_hash, phone_number, role) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING',
+      [userId, email, 'Test', 'User New', '$2b$10$placeholder', '+8801712345678', 'rider']
     );
     console.log('✅ User record created');
 

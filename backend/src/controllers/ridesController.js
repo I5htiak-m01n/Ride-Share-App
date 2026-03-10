@@ -20,7 +20,7 @@ const getNearbyRequests = async (req, res) => {
         rr.estimated_fare,
         rr.estimated_distance_km,
         rr.created_at,
-        u.name AS rider_name,
+        u.first_name || ' ' || u.last_name AS rider_name,
         ST_Y(rr.pickup_location::geometry)  AS pickup_lat,
         ST_X(rr.pickup_location::geometry)  AS pickup_lng,
         ST_Y(rr.dropoff_location::geometry) AS dropoff_lat,
@@ -154,7 +154,7 @@ const acceptRequest = async (req, res) => {
 
     // Lock the row — if another driver already accepted, status won't be 'open'
     const lockResult = await client.query(
-      `SELECT rr.*, u.name AS rider_name
+      `SELECT rr.*, u.first_name || ' ' || u.last_name AS rider_name
        FROM ride_requests rr
        JOIN riders r ON rr.rider_id = r.rider_id
        JOIN users u ON r.rider_id = u.user_id

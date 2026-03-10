@@ -17,7 +17,8 @@ create extension if not exists postgis; -- For Maps/Location
 -- =========================================================
 create table public.users (
   user_id uuid primary key default gen_random_uuid(),
-  name text not null,
+  first_name text not null,
+  last_name text not null,
   email text unique not null,
   password_hash text not null,
   phone_number text not null unique,

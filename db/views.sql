@@ -28,9 +28,9 @@ SELECT
   rr.dropoff_addr,
   rr.estimated_fare,
   rr.estimated_distance_km,
-  ud.name        AS driver_name,
+  ud.first_name || ' ' || ud.last_name AS driver_name,
   ud.phone_number AS driver_phone,
-  ur.name        AS rider_name,
+  ur.first_name || ' ' || ur.last_name AS rider_name,
   d.rating_avg   AS driver_rating,
   v.model        AS vehicle_model,
   v.plate_number AS vehicle_plate

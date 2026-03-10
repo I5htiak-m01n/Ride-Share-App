@@ -8,7 +8,8 @@ function ProfileSettings() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [name, setName] = useState(user?.name || '');
+  const [firstName, setFirstName] = useState(user?.first_name || '');
+  const [lastName, setLastName] = useState(user?.last_name || '');
   const [phone, setPhone] = useState(user?.phone_number || '');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -16,15 +17,15 @@ function ProfileSettings() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('Name is required');
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('First name and last name are required');
       return;
     }
     setError(null);
     setSuccess(null);
     setLoading(true);
     try {
-      const updates = { name: name.trim() };
+      const updates = { first_name: firstName.trim(), last_name: lastName.trim() };
       if (phone.trim()) updates.phone_number = phone.trim();
 
       const res = await userAPI.updateUser(user.user_id, updates);
@@ -85,14 +86,26 @@ function ProfileSettings() {
               <span className="form-hint">Email cannot be changed</span>
             </div>
 
-            <div className="form-group">
-              <label>Full Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
-              />
+            <div className="form-row">
+              <div className="form-group">
+                <label>First Name</label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Last Name</label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Enter your last name"
+                />
+              </div>
             </div>
 
             <div className="form-group">

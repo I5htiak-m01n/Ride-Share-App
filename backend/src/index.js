@@ -8,7 +8,14 @@ const driversRoutes = require("./routes/drivers");
 
 const app = express(); 
 app.use(cors({ // cors configuration to allow requests from frontend
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  origin: (origin, callback) => {
+    const allowed = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+    if (!origin || origin.replace(/\/$/, "") === allowed) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS not allowed"));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());
