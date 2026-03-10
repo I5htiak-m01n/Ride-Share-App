@@ -8,6 +8,7 @@ import DriverDashboard from './pages/DriverDashboard';
 import ProfileSettings from './pages/ProfileSettings';
 import DriverDocuments from './pages/DriverDocuments';
 import RideHistory from './pages/RideHistory';
+import Wallet from './pages/Wallet';
 import './App.css';
 
 function App() {
@@ -73,6 +74,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['driver', 'mixed']}>
                 <RideHistory />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Wallet - accessible by all authenticated roles */}
+          <Route
+            path="/wallet"
+            element={
+              <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
+                <Wallet />
               </ProtectedRoute>
             }
           />

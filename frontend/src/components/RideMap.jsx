@@ -48,7 +48,7 @@ function RideMap({ driverLocation, rideRequests = [], onAccept, onReject }) {
   const center = driverLocation || { lat: 23.8103, lng: 90.4125 };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', height: '100%' }}>
       <GoogleMap
         mapContainerStyle={MAP_CONTAINER_STYLE}
         center={center}

@@ -40,6 +40,11 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't intercept login or register requests — let the caller handle the error
+      if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/register')) {
+        return Promise.reject(error);
+      }
+
       // Don't retry refresh requests themselves
       if (originalRequest.url?.includes('/auth/refresh')) {
         sessionStorage.removeItem('access_token');
@@ -165,6 +170,11 @@ export const walletAPI = {
   validatePromo: (promo_code, estimated_fare) =>
     api.post('/wallet/validate-promo', { promo_code, estimated_fare }),
   getEarningsSummary: () => api.get('/wallet/earnings-summary'),
+};
+
+// Payment API (SSLCommerz)
+export const paymentAPI = {
+  initTopUp: (amount) => api.post('/payment/init', { amount }),
 };
 
 export default api;

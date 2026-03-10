@@ -1399,3 +1399,239 @@
   font-size: 16px;
 }
 
+/* ── Wallet Page ──────────────────────────────────────────── */
+
+.wallet-page-balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--uber-black);
+  color: var(--uber-white);
+  border-radius: 12px;
+  padding: 28px 32px;
+  margin-bottom: 28px;
+}
+
+.wallet-page-balance span {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.wallet-page-balance strong {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.wallet-topup-section {
+  background: var(--uber-gray-10);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 28px;
+}
+
+.wallet-topup-section h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--uber-black);
+}
+
+.wallet-topup-hint {
+  font-size: 14px;
+  color: var(--uber-gray-50);
+  margin: 0 0 20px;
+}
+
+.wallet-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.wallet-preset-btn {
+  padding: 14px;
+  background: var(--uber-white);
+  border: 1px solid var(--uber-gray-30);
+  border-radius: var(--uber-radius);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--uber-black);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.wallet-preset-btn:hover:not(:disabled) {
+  background: var(--uber-black);
+  color: var(--uber-white);
+  border-color: var(--uber-black);
+}
+
+.wallet-preset-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.wallet-custom-row {
+  display: flex;
+  gap: 10px;
+}
+
+.wallet-custom-row input {
+  flex: 1;
+  padding: 14px 16px;
+  border: 1px solid var(--uber-gray-30);
+  border-radius: var(--uber-radius);
+  font-size: 16px;
+  background: var(--uber-white);
+  color: var(--uber-black);
+}
+
+.wallet-custom-row input:focus {
+  outline: none;
+  border-color: var(--uber-black);
+}
+
+.wallet-custom-btn {
+  padding: 14px 28px;
+  background: var(--uber-black);
+  color: var(--uber-white);
+  border: none;
+  border-radius: var(--uber-radius);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+}
+
+.wallet-custom-btn:hover:not(:disabled) {
+  background: var(--uber-gray-70);
+}
+
+.wallet-custom-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.wallet-txn-section {
+  margin-bottom: 28px;
+}
+
+.wallet-txn-section h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--uber-black);
+}
+
+.wallet-txn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wallet-txn-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--uber-white);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+
+.wallet-txn-item:hover {
+  border-color: var(--uber-gray-30);
+}
+
+.wallet-txn-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wallet-txn-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--uber-black);
+}
+
+.wallet-txn-date {
+  font-size: 12px;
+  color: var(--uber-gray-50);
+}
+
+.wallet-txn-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.wallet-txn-amount {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.wallet-txn-amount.credit {
+  color: var(--uber-green);
+}
+
+.wallet-txn-amount.debit {
+  color: var(--uber-black);
+}
+
+.wallet-txn-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 500px;
+}
+
+.wallet-txn-status.succeeded {
+  background: #E6F4EA;
+  color: var(--uber-green);
+}
+
+.wallet-txn-status.pending {
+  background: #FFF8E1;
+  color: #F59E0B;
+}
+
+.wallet-txn-status.failed {
+  background: #FFF0EE;
+  color: var(--uber-red);
+}
+
+.wallet-txn-status.reversed {
+  background: #E8F4FD;
+  color: var(--uber-blue);
+}
+
+@media (max-width: 768px) {
+  .wallet-preset-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .wallet-page-balance {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+    padding: 24px;
+  }
+
+  .wallet-page-balance strong {
+    font-size: 28px;
+  }
+
+  .wallet-custom-row {
+    flex-direction: column;
+  }
+}
+

@@ -6,6 +6,7 @@ const userRoutes = require("./routes/users");
 const ridesRoutes = require("./routes/rides");
 const driversRoutes = require("./routes/drivers");
 const walletRoutes = require("./routes/wallet");
+const paymentRoutes = require("./routes/payment");
 
 const app = express(); 
 app.use(cors({ // cors configuration to allow requests from frontend
@@ -55,6 +56,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/rides", ridesRoutes);
 app.use("/api/drivers", driversRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // 404 handler
 app.use((req, res) => {
