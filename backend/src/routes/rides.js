@@ -14,6 +14,12 @@ const {
   getRiderHistory,
   getDriverHistory,
 } = require("../controllers/ridesController");
+const {
+  getDirections,
+  getRouteForRide,
+  rerouteRide,
+  checkAndReroute,
+} = require("../controllers/directionsController");
 
 // Rider: create a ride request
 router.post("/request", authenticateToken, authorizeRoles("rider", "mixed"), createRideRequest);
@@ -47,5 +53,17 @@ router.get("/rider/active", authenticateToken, authorizeRoles("rider", "mixed"),
 
 // Rider: cancel a pending ride request
 router.post("/requests/:id/cancel", authenticateToken, authorizeRoles("rider", "mixed"), cancelRideRequest);
+
+// Directions: get route preview between two points
+router.post("/directions", authenticateToken, getDirections);
+
+// Directions: get stored route for a ride
+router.get("/:id/route", authenticateToken, getRouteForRide);
+
+// Directions: force reroute from driver's current position
+router.post("/:id/reroute", authenticateToken, rerouteRide);
+
+// Directions: check if driver is off-route and auto-reroute
+router.post("/:id/check-route", authenticateToken, checkAndReroute);
 
 module.exports = router;

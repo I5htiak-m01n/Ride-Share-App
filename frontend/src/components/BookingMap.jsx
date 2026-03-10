@@ -1,5 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
+import RoutePolyline from './RoutePolyline';
+import RouteInfo from './RouteInfo';
 
 // Stable reference so useJsApiLoader doesn't reload on every render
 const LIBRARIES = ['places'];
@@ -64,6 +66,11 @@ function BookingMap({
   fullscreen = false,
   userLocation,
   nearbyVehicles = [],
+  routePath = [],
+  routeInfo = null,
+  routeLoading = false,
+  eta = null,
+  wasRerouted = false,
 }) {
   const mapRef = useRef(null);
 
@@ -79,6 +86,15 @@ function BookingMap({
       mapRef.current.setZoom(15);
     }
   }, [panTo]);
+
+  // Fit bounds to route when routePath changes
+  useEffect(() => {
+    if (routePath.length > 1 && mapRef.current) {
+      const bounds = new window.google.maps.LatLngBounds();
+      routePath.forEach((point) => bounds.extend(point));
+      mapRef.current.fitBounds(bounds, { top: 60, bottom: 60, left: 40, right: 40 });
+    }
+  }, [routePath]);
 
   const handleLoad = useCallback((map) => {
     mapRef.current = map;
@@ -111,8 +127,9 @@ function BookingMap({
   const center = centerLocation || userLocation || pickupLocation || { lat: 23.8103, lng: 90.4125 };
 
   return (
+  <div style={{ position: 'relative', ...containerStyle }}>
     <GoogleMap
-      mapContainerStyle={containerStyle}
+      mapContainerStyle={{ width: '100%', height: '100%', borderRadius: '12px' }}
       center={center}
       zoom={fullscreen ? 15 : 14}
       onClick={handleClick}
@@ -143,6 +160,11 @@ function BookingMap({
         <Marker position={dropoffLocation} icon={DROPOFF_ICON} title="Dropoff" zIndex={9} />
       )}
 
+      {/* Route polyline */}
+      {routePath.length > 1 && (
+        <RoutePolyline path={routePath} active />
+      )}
+
       {/* Nearby vehicle markers */}
       {nearbyVehicles.map((v, i) => (
         <Marker
@@ -154,6 +176,25 @@ function BookingMap({
         />
       ))}
     </GoogleMap>
+
+    {/* Route info overlay */}
+    {(routeInfo || routeLoading) && (
+      <RouteInfo
+        routeInfo={routeInfo}
+        eta={eta}
+        wasRerouted={wasRerouted}
+        loading={routeLoading}
+        compact={fullscreen}
+        style={{
+          position: 'absolute',
+          bottom: fullscreen ? '16px' : '12px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 5,
+        }}
+      />
+    )}
+  </div>
   );
 }
 

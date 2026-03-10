@@ -149,6 +149,21 @@ export const ridesAPI = {
   // Rider: cancel pending ride request
   cancelRequest: (requestId) => api.post(`/rides/requests/${requestId}/cancel`),
 
+  // Directions: get route preview between two points
+  getDirections: (origin_lat, origin_lng, dest_lat, dest_lng, travel_mode = 'driving') =>
+    api.post('/rides/directions', { origin_lat, origin_lng, dest_lat, dest_lng, travel_mode }),
+
+  // Directions: get stored route for a ride
+  getRideRoute: (rideId) => api.get(`/rides/${rideId}/route`),
+
+  // Directions: force reroute from driver's current position
+  reroute: (rideId, driver_lat, driver_lng) =>
+    api.post(`/rides/${rideId}/reroute`, { driver_lat, driver_lng }),
+
+  // Directions: check if driver is off-route and auto-reroute if needed
+  checkRoute: (rideId, driver_lat, driver_lng) =>
+    api.post(`/rides/${rideId}/check-route`, { driver_lat, driver_lng }),
+
   // Ride history
   getRiderHistory: () => api.get('/rides/rider/history'),
   getDriverHistory: () => api.get('/rides/driver/history'),

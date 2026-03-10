@@ -1,4 +1,5 @@
 const { pool } = require("../db");
+const { fetchGoogleDirections, storeRoute } = require("./directionsController");
 
 // GET /api/rides/nearby?lat=&lng=&radius=
 // Driver: get all open ride requests within radius (meters, default 5km)
@@ -206,6 +207,46 @@ const acceptRequest = async (req, res) => {
 
     await client.query("COMMIT");
 
+    // Compute and store route directions (non-blocking — don't fail ride acceptance)
+    let routeData = null;
+    try {
+      const pickupLat = parseFloat(request.pickup_addr ? await getCoord(request.pickup_location, 'lat') : 0);
+      const pickupLng = parseFloat(request.pickup_addr ? await getCoord(request.pickup_location, 'lng') : 0);
+      const dropoffLat = parseFloat(request.dropoff_addr ? await getCoord(request.dropoff_location, 'lat') : 0);
+      const dropoffLng = parseFloat(request.dropoff_addr ? await getCoord(request.dropoff_location, 'lng') : 0);
+
+      // Re-query actual coordinates from the request
+      const coordResult = await pool.query(
+        `SELECT
+          ST_Y(pickup_location::geometry) AS pickup_lat,
+          ST_X(pickup_location::geometry) AS pickup_lng,
+          ST_Y(dropoff_location::geometry) AS dropoff_lat,
+          ST_X(dropoff_location::geometry) AS dropoff_lng
+        FROM ride_requests WHERE request_id = $1`,
+        [requestId]
+      );
+      if (coordResult.rows.length > 0) {
+        const coords = coordResult.rows[0];
+        const directions = await fetchGoogleDirections({
+          origin_lat: parseFloat(coords.pickup_lat),
+          origin_lng: parseFloat(coords.pickup_lng),
+          dest_lat: parseFloat(coords.dropoff_lat),
+          dest_lng: parseFloat(coords.dropoff_lng),
+          travel_mode: "driving",
+        });
+        if (directions) {
+          routeData = await storeRoute({
+            ride_id: rideResult.rows[0].ride_id,
+            request_id: requestId,
+            directions,
+            travel_mode: "DRIVING",
+          });
+        }
+      }
+    } catch (routeErr) {
+      console.error("Non-critical: failed to store route on accept:", routeErr.message);
+    }
+
     res.json({
       message: "Ride accepted",
       ride: {
@@ -215,6 +256,7 @@ const acceptRequest = async (req, res) => {
       },
       rider_name: request.rider_name,
       estimated_fare: request.estimated_fare,
+      route: routeData,
     });
   } catch (err) {
     await client.query("ROLLBACK");

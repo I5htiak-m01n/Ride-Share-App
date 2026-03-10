@@ -227,6 +227,31 @@ create table public.ride_tracking_logs (
   recorded_at timestamptz not null default now()
 );
 
+-- Route data for rides: stores Google Directions polyline + metadata
+create table public.ride_routes (
+  route_id uuid primary key default gen_random_uuid(),
+  ride_id uuid references public.rides(ride_id) on delete cascade,
+  request_id uuid references public.ride_requests(request_id) on delete cascade,
+  overview_polyline text not null,                          -- encoded polyline string from Google Directions
+  distance_meters integer not null,
+  distance_text text not null,                              -- e.g. "12.3 km"
+  duration_seconds integer not null,
+  duration_text text not null,                              -- e.g. "18 mins"
+  start_location_lat numeric(10,7),
+  start_location_lng numeric(10,7),
+  end_location_lat numeric(10,7),
+  end_location_lng numeric(10,7),
+  bounds_ne_lat numeric(10,7),
+  bounds_ne_lng numeric(10,7),
+  bounds_sw_lat numeric(10,7),
+  bounds_sw_lng numeric(10,7),
+  travel_mode text not null default 'DRIVING',
+  is_reroute boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index idx_ride_routes_ride on public.ride_routes(ride_id);
+create index idx_ride_routes_request on public.ride_routes(request_id);
+
 create table public.ride_cancellations (
   ride_id uuid unique primary key references public.rides(ride_id) on delete cascade,
   cancelled_by_user_id uuid not null references public.users(user_id) on delete restrict,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useRoute } from '../context/RouteContext';
 import { ridesAPI, walletAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import RideMap from '../components/RideMap';
@@ -25,6 +26,10 @@ function generateNearbyVehicles(center, count = 5) {
 function DriverDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const {
+    routePath, routeInfo, routeLoading, eta, wasRerouted,
+    fetchRideRoute, clearRoute, startRouteChecking, stopRouteChecking,
+  } = useRoute();
 
   const [isOnline, setIsOnline]             = useState(false);
   const [driverLocation, setDriverLocation] = useState(null);
@@ -142,6 +147,12 @@ function DriverDashboard() {
       stopOnlineMode();
       setIsOnline(false);
       setMapError(null);
+      // Fetch the route stored on acceptance
+      if (res.data?.ride?.ride_id) {
+        await fetchRideRoute(res.data.ride.ride_id);
+        // Start periodic route checking (every 30s) for dynamic rerouting
+        startRouteChecking(res.data.ride.ride_id, () => currentLocationRef.current);
+      }
     } catch (err) {
       const errData = err.response?.data;
       setMapError(errData?.details || errData?.error || 'Failed to accept ride');
@@ -164,6 +175,8 @@ function DriverDashboard() {
       if (status === 'completed' || status === 'cancelled') {
         setActiveRide(null);
         fetchWalletBalance();
+        stopRouteChecking();
+        clearRoute();
       } else {
         setActiveRide((prev) => ({ ...prev, ride: res.data.ride }));
       }
@@ -174,6 +187,8 @@ function DriverDashboard() {
 
   const handleLogout = async () => {
     stopOnlineMode();
+    stopRouteChecking();
+    clearRoute();
     await logout();
     navigate('/login');
   };
@@ -366,9 +381,16 @@ function DriverDashboard() {
               {driverLocation ? (
                 <RideMap
                   driverLocation={driverLocation}
-                  rideRequests={nearbyRequests}
+                  rideRequests={activeRide ? [] : nearbyRequests}
                   onAccept={handleAccept}
                   onReject={handleReject}
+                  routePath={routePath}
+                  routeInfo={routeInfo}
+                  routeLoading={routeLoading}
+                  eta={eta}
+                  wasRerouted={wasRerouted}
+                  pickupLocation={activeRide?.ride?.pickup_addr ? undefined : null}
+                  dropoffLocation={activeRide?.ride?.dropoff_addr ? undefined : null}
                 />
               ) : (
                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F6F6F6', color: '#6B6B6B', fontSize: '14px' }}>

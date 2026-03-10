@@ -1,5 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from '@react-google-maps/api';
+import RoutePolyline from './RoutePolyline';
+import RouteInfo from './RouteInfo';
 
 const MAP_CONTAINER_STYLE = {
   width: '100%',
@@ -18,8 +20,21 @@ const DRIVER_ICON = {
   scale: 1,
 };
 
-function RideMap({ driverLocation, rideRequests = [], onAccept, onReject }) {
+function RideMap({
+  driverLocation,
+  rideRequests = [],
+  onAccept,
+  onReject,
+  routePath = [],
+  routeInfo = null,
+  routeLoading = false,
+  eta = null,
+  wasRerouted = false,
+  pickupLocation = null,
+  dropoffLocation = null,
+}) {
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const mapRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
@@ -28,6 +43,20 @@ function RideMap({ driverLocation, rideRequests = [], onAccept, onReject }) {
   const handleMapClick = useCallback(() => {
     setSelectedRequest(null);
   }, []);
+
+  const handleMapLoad = useCallback((map) => {
+    mapRef.current = map;
+  }, []);
+
+  // Fit bounds to route when routePath changes
+  useEffect(() => {
+    if (routePath.length > 1 && mapRef.current) {
+      const bounds = new window.google.maps.LatLngBounds();
+      routePath.forEach((point) => bounds.extend(point));
+      if (driverLocation) bounds.extend(driverLocation);
+      mapRef.current.fitBounds(bounds, { top: 60, bottom: 80, left: 40, right: 40 });
+    }
+  }, [routePath, driverLocation]);
 
   if (loadError) {
     return (
@@ -54,6 +83,7 @@ function RideMap({ driverLocation, rideRequests = [], onAccept, onReject }) {
         center={center}
         zoom={DEFAULT_ZOOM}
         onClick={handleMapClick}
+        onLoad={handleMapLoad}
         options={{
           streetViewControl: false,
           mapTypeControl: false,
@@ -151,7 +181,67 @@ function RideMap({ driverLocation, rideRequests = [], onAccept, onReject }) {
             </div>
           </InfoWindow>
         )}
+
+        {/* Route polyline */}
+        {routePath.length > 1 && (
+          <RoutePolyline path={routePath} active />
+        )}
+
+        {/* Pickup marker for active ride */}
+        {pickupLocation && (
+          <Marker
+            position={pickupLocation}
+            icon={{
+              path: 'M 0,0 m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0',
+              fillColor: '#05944F',
+              fillOpacity: 1,
+              strokeColor: '#FFFFFF',
+              strokeWeight: 3,
+              scale: 1.2,
+            }}
+            title="Pickup"
+            zIndex={8}
+          />
+        )}
+
+        {/* Dropoff marker for active ride */}
+        {dropoffLocation && (
+          <Marker
+            position={dropoffLocation}
+            icon={{
+              path: 'M 0,0 m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0',
+              fillColor: '#E11900',
+              fillOpacity: 1,
+              strokeColor: '#FFFFFF',
+              strokeWeight: 3,
+              scale: 1.2,
+            }}
+            title="Dropoff"
+            zIndex={8}
+          />
+        )}
       </GoogleMap>
+
+      {/* Route polyline */}
+      {/* We render it outside GoogleMap children workaround — actually it must be inside */}
+
+      {/* Route info overlay */}
+      {(routeInfo || routeLoading) && (
+        <RouteInfo
+          routeInfo={routeInfo}
+          eta={eta}
+          wasRerouted={wasRerouted}
+          loading={routeLoading}
+          compact
+          style={{
+            position: 'absolute',
+            top: '14px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 5,
+          }}
+        />
+      )}
 
       {/* Legend */}
       <div style={{

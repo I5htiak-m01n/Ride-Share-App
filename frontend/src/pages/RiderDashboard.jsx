@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useRoute } from '../context/RouteContext';
 import { ridesAPI, walletAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import PlacesAutocomplete from '../components/PlacesAutocomplete';
@@ -24,6 +25,11 @@ function generateNearbyVehicles(center, count = 6) {
 function RiderDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const {
+    routePath, routeInfo, routeLoading, eta, wasRerouted,
+    fetchRoutePreview, fetchRideRoute, clearRoute,
+    stopRouteChecking,
+  } = useRoute();
 
   // Ride flow state machine
   const [ridePhase, setRidePhase] = useState('idle');
@@ -98,11 +104,19 @@ function RiderDashboard() {
           setRidePhase('matched');
           setActiveRide(data.ride);
           setActiveRequest(data.request);
+          // Load stored route for this ride
+          if (data.ride?.ride_id) {
+            fetchRideRoute(data.ride.ride_id);
+          }
           break;
         case 'in_progress':
           setRidePhase('in_progress');
           setActiveRide(data.ride);
           setActiveRequest(data.request);
+          // Load stored route and start tracking progress
+          if (data.ride?.ride_id) {
+            fetchRideRoute(data.ride.ride_id);
+          }
           break;
         case 'completed':
           if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
@@ -114,6 +128,8 @@ function RiderDashboard() {
               fetchWalletBalance();
             }
             stopPolling();
+            stopRouteChecking();
+            clearRoute();
           }
           break;
         case 'idle':
@@ -129,7 +145,7 @@ function RiderDashboard() {
     } catch (err) {
       console.error('checkActiveRide error:', err);
     }
-  }, [stopPolling]);
+  }, [stopPolling, clearRoute, fetchRideRoute, fetchWalletBalance, stopRouteChecking]);
 
   const startPolling = useCallback(() => {
     stopPolling();
@@ -202,7 +218,7 @@ function RiderDashboard() {
     );
   };
 
-  // Get fare estimate
+  // Get fare estimate + route preview
   const handleGetEstimate = async () => {
     if (!pickupCoords || !dropoffCoords) {
       setError('Please set both pickup and dropoff on the map');
@@ -215,11 +231,28 @@ function RiderDashboard() {
     setError(null);
     setLoading(true);
     try {
-      const res = await ridesAPI.getFareEstimate(
-        pickupCoords.lat, pickupCoords.lng,
-        dropoffCoords.lat, dropoffCoords.lng
-      );
-      setFareEstimate(res.data);
+      // Fetch fare estimate and route preview in parallel
+      const [fareRes, routeResult] = await Promise.all([
+        ridesAPI.getFareEstimate(
+          pickupCoords.lat, pickupCoords.lng,
+          dropoffCoords.lat, dropoffCoords.lng
+        ),
+        fetchRoutePreview(
+          pickupCoords.lat, pickupCoords.lng,
+          dropoffCoords.lat, dropoffCoords.lng
+        ),
+      ]);
+
+      const fareData = fareRes.data;
+      // If we got a route, use its distance/duration instead of the DB estimate
+      if (routeResult) {
+        fareData.distance_km = (routeResult.distance_meters / 1000).toFixed(1);
+        fareData.estimated_duration_min = Math.round(routeResult.duration_seconds / 60);
+        fareData.route_distance_text = routeResult.distance_text;
+        fareData.route_duration_text = routeResult.duration_text;
+      }
+
+      setFareEstimate(fareData);
       setRidePhase('confirming');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to get fare estimate');
@@ -260,7 +293,7 @@ function RiderDashboard() {
     try {
       const res = await walletAPI.validatePromo(promoCode, fareEstimate.estimated_fare);
       setPromoResult(res.data);
-    } catch (err) {
+    } catch {
       setPromoResult({ valid: false });
     } finally {
       setPromoLoading(false);
@@ -295,6 +328,7 @@ function RiderDashboard() {
     setPromoCode('');
     setPromoResult(null);
     stopPolling();
+    clearRoute();
     fetchWalletBalance();
   };
 
@@ -493,6 +527,9 @@ function RiderDashboard() {
                 onMapClick={handleMapClick}
                 centerLocation={userLocation}
                 panTo={mapCenter}
+                routePath={routePath}
+                routeInfo={routeInfo}
+                routeLoading={routeLoading}
               />
 
               <div className="booking-actions">
@@ -511,6 +548,20 @@ function RiderDashboard() {
           {ridePhase === 'confirming' && fareEstimate && (
             <div className="confirm-panel">
               <h2>Confirm Your Ride</h2>
+
+              {/* Route preview map */}
+              {routePath.length > 1 && (
+                <BookingMap
+                  pickupLocation={pickupCoords}
+                  dropoffLocation={dropoffCoords}
+                  routePath={routePath}
+                  routeInfo={routeInfo}
+                  eta={eta}
+                  wasRerouted={wasRerouted}
+                  routeLoading={routeLoading}
+                />
+              )}
+
               <div className="ride-summary">
                 <div className="summary-row">
                   <span>From</span>
@@ -522,11 +573,11 @@ function RiderDashboard() {
                 </div>
                 <div className="summary-row">
                   <span>Distance</span>
-                  <strong>{fareEstimate.distance_km} km</strong>
+                  <strong>{fareEstimate.route_distance_text || `${fareEstimate.distance_km} km`}</strong>
                 </div>
                 <div className="summary-row">
                   <span>Est. Duration</span>
-                  <strong>{fareEstimate.estimated_duration_min} min</strong>
+                  <strong>{fareEstimate.route_duration_text || `${fareEstimate.estimated_duration_min} min`}</strong>
                 </div>
                 <div className="summary-row fare">
                   <span>Estimated Fare</span>
@@ -613,6 +664,19 @@ function RiderDashboard() {
           {ridePhase === 'matched' && activeRide && (
             <div className="ride-active-panel">
               <h2>Driver Found!</h2>
+
+              {/* Route map */}
+              {routePath.length > 1 && (
+                <BookingMap
+                  pickupLocation={activeRequest ? { lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) } : null}
+                  dropoffLocation={activeRequest ? { lat: parseFloat(activeRequest.dropoff_lat), lng: parseFloat(activeRequest.dropoff_lng) } : null}
+                  routePath={routePath}
+                  routeInfo={routeInfo}
+                  eta={eta}
+                  wasRerouted={wasRerouted}
+                  routeLoading={routeLoading}
+                />
+              )}
               <div className="driver-info">
                 <h3>{activeRide.driver_name}</h3>
                 {activeRide.driver_phone && (
@@ -650,6 +714,19 @@ function RiderDashboard() {
           {ridePhase === 'in_progress' && activeRide && (
             <div className="ride-active-panel">
               <h2>Ride in Progress</h2>
+
+              {/* Route map with ETA */}
+              {routePath.length > 1 && (
+                <BookingMap
+                  pickupLocation={activeRequest ? { lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) } : null}
+                  dropoffLocation={activeRequest ? { lat: parseFloat(activeRequest.dropoff_lat), lng: parseFloat(activeRequest.dropoff_lng) } : null}
+                  routePath={routePath}
+                  routeInfo={routeInfo}
+                  eta={eta}
+                  wasRerouted={wasRerouted}
+                  routeLoading={routeLoading}
+                />
+              )}
               <div className="driver-info">
                 <h3>{activeRide.driver_name}</h3>
                 {activeRide.driver_phone && (
