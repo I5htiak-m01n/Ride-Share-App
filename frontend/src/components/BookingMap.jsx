@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 
+// Stable reference so useJsApiLoader doesn't reload on every render
+const LIBRARIES = ['places'];
+
 const DEFAULT_STYLE = {
   width: '100%',
   height: '400px',
@@ -63,6 +66,7 @@ function BookingMap({
 }) {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    libraries: LIBRARIES,
   });
 
   const handleClick = useCallback((e) => {

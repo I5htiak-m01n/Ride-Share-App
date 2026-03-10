@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ridesAPI, walletAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
+import PlacesAutocomplete from '../components/PlacesAutocomplete';
 import './Dashboard.css';
 
 const POLL_INTERVAL_MS = 5000;
@@ -416,11 +417,15 @@ function RiderDashboard() {
                 <div className="form-group">
                   <label>Pickup Address</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                      type="text"
+                    <PlacesAutocomplete
                       value={pickupAddr}
-                      onChange={(e) => setPickupAddr(e.target.value)}
-                      placeholder="Enter pickup address"
+                      onChange={setPickupAddr}
+                      onPlaceSelect={({ address, lat, lng }) => {
+                        setPickupAddr(address);
+                        setPickupCoords({ lat, lng });
+                        setClickMode('dropoff');
+                      }}
+                      placeholder="Search pickup address"
                     />
                     <button
                       onClick={handleUseMyLocation}
@@ -432,11 +437,14 @@ function RiderDashboard() {
                 </div>
                 <div className="form-group">
                   <label>Dropoff Address</label>
-                  <input
-                    type="text"
+                  <PlacesAutocomplete
                     value={dropoffAddr}
-                    onChange={(e) => setDropoffAddr(e.target.value)}
-                    placeholder="Enter dropoff address"
+                    onChange={setDropoffAddr}
+                    onPlaceSelect={({ address, lat, lng }) => {
+                      setDropoffAddr(address);
+                      setDropoffCoords({ lat, lng });
+                    }}
+                    placeholder="Search dropoff address"
                   />
                 </div>
               </div>
