@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ridesAPI } from '../api/client';
+import { ridesAPI, walletAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import RideMap from '../components/RideMap';
 import './Dashboard.css';
@@ -32,6 +32,7 @@ function DriverDashboard() {
   const [activeRide, setActiveRide]         = useState(null);
   const [locationError, setLocationError]   = useState(null);
   const [mapError, setMapError]             = useState(null);
+  const [walletBalance, setWalletBalance]   = useState(null);
 
   const watchIdRef          = useRef(null);
   const nearbyIntervalRef   = useRef(null);
@@ -63,6 +64,15 @@ function DriverDashboard() {
       await ridesAPI.updateLocation(loc.lat, loc.lng);
     } catch (err) {
       console.error('syncLocation error:', err);
+    }
+  }, []);
+
+  const fetchWalletBalance = useCallback(async () => {
+    try {
+      const res = await walletAPI.getBalance();
+      setWalletBalance(parseFloat(res.data.wallet.balance));
+    } catch (err) {
+      console.error('fetchWalletBalance error:', err);
     }
   }, []);
 
@@ -103,8 +113,9 @@ function DriverDashboard() {
 
   useEffect(() => () => stopOnlineMode(), [stopOnlineMode]);
 
-  // Get location on mount even when offline (for idle map)
+  // Get location on mount even when offline (for idle map) + fetch wallet
   useEffect(() => {
+    fetchWalletBalance();
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -152,6 +163,7 @@ function DriverDashboard() {
       const res = await ridesAPI.updateStatus(activeRide.ride.ride_id, status);
       if (status === 'completed' || status === 'cancelled') {
         setActiveRide(null);
+        fetchWalletBalance();
       } else {
         setActiveRide((prev) => ({ ...prev, ride: res.data.ride }));
       }
@@ -190,6 +202,13 @@ function DriverDashboard() {
             <h1>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name || 'Driver'}</h1>
             <p>{isOnline ? 'You are online and accepting rides' : 'Go online to start accepting rides'}</p>
           </div>
+
+          {walletBalance !== null && (
+            <div className="wallet-balance-display">
+              <span>Earnings</span>
+              <strong>{walletBalance.toFixed(2)} BDT</strong>
+            </div>
+          )}
 
           {/* Alerts */}
           {locationError && (

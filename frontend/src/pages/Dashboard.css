@@ -1296,3 +1296,106 @@
   }
 }
 
+/* ── Wallet Balance Display ─────────────────────────────── */
+.wallet-balance-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--uber-gray-10);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.wallet-balance-display span {
+  font-size: 14px;
+  color: var(--uber-gray-50);
+  font-weight: 500;
+}
+
+.wallet-balance-display strong {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--uber-black);
+}
+
+/* ── Promo Code Input ───────────────────────────────────── */
+.promo-input-section {
+  margin: 16px 0;
+}
+
+.promo-input-section label {
+  display: block;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--uber-black);
+  margin-bottom: 8px;
+}
+
+.promo-input-section input {
+  padding: 12px 16px;
+  border: 1px solid var(--uber-gray-30);
+  border-radius: var(--uber-radius);
+  font-size: 15px;
+  background: var(--uber-gray-10);
+  color: var(--uber-black);
+  flex: 1;
+}
+
+.promo-input-section input:focus {
+  outline: none;
+  border-color: var(--uber-black);
+  background: var(--uber-white);
+}
+
+.promo-success {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #E6F4EA;
+  color: var(--uber-green);
+  border-radius: var(--uber-radius);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.promo-error {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #FFF0EE;
+  color: var(--uber-red);
+  border-radius: var(--uber-radius);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ── Payment Summary ────────────────────────────────────── */
+.payment-summary {
+  margin: 20px 0;
+}
+
+.payment-summary .summary-row.discount strong {
+  color: var(--uber-green);
+}
+
+.payment-wallet-info {
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: var(--uber-white);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.payment-wallet-info p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: var(--uber-gray-50);
+}
+
+.payment-wallet-info .wallet-after {
+  font-weight: 600;
+  color: var(--uber-black);
+  font-size: 16px;
+}
+

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ridesAPI } from '../api/client';
+import { ridesAPI, walletAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import './Dashboard.css';
 
@@ -49,6 +49,12 @@ function RiderDashboard() {
   const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
 
+  // Wallet & Promo
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoResult, setPromoResult] = useState(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+
   // Polling
   const pollRef = useRef(null);
 
@@ -62,6 +68,15 @@ function RiderDashboard() {
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
+    }
+  }, []);
+
+  const fetchWalletBalance = useCallback(async () => {
+    try {
+      const res = await walletAPI.getBalance();
+      setWalletBalance(parseFloat(res.data.wallet.balance));
+    } catch (err) {
+      console.error('fetchWalletBalance error:', err);
     }
   }, []);
 
@@ -91,6 +106,11 @@ function RiderDashboard() {
           if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
             setRidePhase('completed');
             setActiveRide(data.ride);
+            if (data.wallet_balance !== undefined) {
+              setWalletBalance(parseFloat(data.wallet_balance));
+            } else {
+              fetchWalletBalance();
+            }
             stopPolling();
           }
           break;
@@ -114,8 +134,9 @@ function RiderDashboard() {
     pollRef.current = setInterval(checkActiveRide, POLL_INTERVAL_MS);
   }, [stopPolling, checkActiveRide]);
 
-  // On mount: check for existing active ride + get user location
+  // On mount: check for existing active ride + get user location + fetch wallet
   useEffect(() => {
+    fetchWalletBalance();
     checkActiveRide().then(() => {
       if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
         startPolling();
@@ -216,6 +237,7 @@ function RiderDashboard() {
         dropoff_lat: dropoffCoords.lat,
         dropoff_lng: dropoffCoords.lng,
         dropoff_addr: dropoffAddr,
+        promo_code: promoCode || undefined,
       });
       setActiveRequest(res.data.request);
       setRidePhase('searching');
@@ -224,6 +246,20 @@ function RiderDashboard() {
       setError(err.response?.data?.error || 'Failed to create ride request');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Validate promo code
+  const handleValidatePromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true);
+    try {
+      const res = await walletAPI.validatePromo(promoCode, fareEstimate.estimated_fare);
+      setPromoResult(res.data);
+    } catch (err) {
+      setPromoResult({ valid: false });
+    } finally {
+      setPromoLoading(false);
     }
   };
 
@@ -252,7 +288,10 @@ function RiderDashboard() {
     setActiveRide(null);
     setError(null);
     setStatusMessage(null);
+    setPromoCode('');
+    setPromoResult(null);
     stopPolling();
+    fetchWalletBalance();
   };
 
   const handleLogout = async () => {
@@ -281,6 +320,13 @@ function RiderDashboard() {
               <h1>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name || 'Rider'}</h1>
               <p>Where would you like to go?</p>
             </div>
+
+            {walletBalance !== null && (
+              <div className="wallet-balance-display">
+                <span>Wallet Balance</span>
+                <strong>{walletBalance.toFixed(2)} BDT</strong>
+              </div>
+            )}
 
             {statusMessage && (
               <div className="uber-panel-info">{statusMessage}</div>
@@ -456,9 +502,37 @@ function RiderDashboard() {
                 </div>
                 <div className="summary-row fare">
                   <span>Estimated Fare</span>
-                  <strong>{fareEstimate.estimated_fare} BDT</strong>
+                  <strong>{promoResult?.valid ? promoResult.discounted_fare : fareEstimate.estimated_fare} BDT</strong>
                 </div>
               </div>
+
+              <div className="promo-input-section">
+                <label>Have a discount coupon?</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); }}
+                    placeholder="Enter promo code"
+                  />
+                  <button
+                    onClick={handleValidatePromo}
+                    disabled={!promoCode.trim() || promoLoading}
+                    className="location-btn"
+                  >
+                    {promoLoading ? 'Checking...' : 'Apply'}
+                  </button>
+                </div>
+                {promoResult && promoResult.valid && (
+                  <div className="promo-success">
+                    Discount: {promoResult.discount_amount} BDT off! New fare: {promoResult.discounted_fare} BDT
+                  </div>
+                )}
+                {promoResult && !promoResult.valid && (
+                  <div className="promo-error">Invalid or expired promo code</div>
+                )}
+              </div>
+
               <div className="booking-actions">
                 <button onClick={() => setRidePhase('booking')}>Back</button>
                 <button onClick={handleConfirmRide} disabled={loading}>
@@ -578,19 +652,49 @@ function RiderDashboard() {
             </div>
           )}
 
-          {/* === PHASE: COMPLETED === */}
+          {/* === PHASE: COMPLETED (Payment Summary) === */}
           {ridePhase === 'completed' && activeRide && (
             <div className="completion-panel">
               <h2>Ride Complete!</h2>
-              <div className="fare-amount">
-                {activeRide.final_fare || activeRide.estimated_fare} BDT
+
+              <div className="payment-summary">
+                <div className="summary-row">
+                  <span>Base Fare</span>
+                  <strong>{activeRide.estimated_fare} BDT</strong>
+                </div>
+                {activeRide.final_fare && activeRide.estimated_fare &&
+                  Number(activeRide.estimated_fare) !== Number(activeRide.final_fare) && (
+                  <div className="summary-row discount">
+                    <span>Promo Discount</span>
+                    <strong>-{(Number(activeRide.estimated_fare) - Number(activeRide.final_fare)).toFixed(0)} BDT</strong>
+                  </div>
+                )}
+                {activeRide.platform_fee && (
+                  <div className="summary-row">
+                    <span>Platform Fee (15%)</span>
+                    <strong>{activeRide.platform_fee} BDT</strong>
+                  </div>
+                )}
+                <div className="summary-row fare">
+                  <span>Total Charged</span>
+                  <strong>{activeRide.final_fare || activeRide.estimated_fare} BDT</strong>
+                </div>
               </div>
+
+              <div className="payment-wallet-info">
+                <p>Paid from wallet</p>
+                {walletBalance !== null && (
+                  <p className="wallet-after">Wallet Balance: {walletBalance.toFixed(2)} BDT</p>
+                )}
+              </div>
+
               <p style={{ color: '#6B6B6B', fontSize: '14px', marginBottom: '4px' }}>
                 Driver: {activeRide.driver_name}
               </p>
               <p style={{ color: '#6B6B6B', fontSize: '14px', marginBottom: '24px' }}>
-                {activeRide.pickup_addr || activeRequest?.pickup_addr} → {activeRide.dropoff_addr || activeRequest?.dropoff_addr}
+                {activeRide.pickup_addr || activeRequest?.pickup_addr} &rarr; {activeRide.dropoff_addr || activeRequest?.dropoff_addr}
               </p>
+
               <button
                 onClick={resetBooking}
                 style={{

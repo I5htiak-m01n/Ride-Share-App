@@ -39,3 +39,61 @@ CREATE OR REPLACE FUNCTION estimate_duration_min(distance_km numeric)
 RETURNS integer AS $$
   SELECT ROUND(distance_km * 3)::integer;
 $$ LANGUAGE SQL IMMUTABLE;
+
+-- ---------------------------------------------------------
+-- apply_promo_discount(p_fare, p_promo_code, p_rider_id)
+-- Validates a promo code, checks usage limits per rider,
+-- and returns the discounted fare.
+-- Returns the original fare unchanged if the promo is
+-- invalid, inactive, or usage limit reached.
+-- ---------------------------------------------------------
+CREATE OR REPLACE FUNCTION apply_promo_discount(
+  p_fare numeric,
+  p_promo_code text,
+  p_rider_id uuid
+) RETURNS TABLE(
+  discounted_fare numeric,
+  discount_applied numeric,
+  promo_id uuid,
+  promo_valid boolean
+) AS $$
+DECLARE
+  v_promo RECORD;
+  v_usage_count int;
+BEGIN
+  -- If no promo code provided, return original fare
+  IF p_promo_code IS NULL OR TRIM(p_promo_code) = '' THEN
+    RETURN QUERY SELECT p_fare, 0::numeric, NULL::uuid, false;
+    RETURN;
+  END IF;
+
+  -- Look up the promo
+  SELECT p.promo_id, p.discount_amount, p.is_active, p.usage_per_user
+  INTO v_promo
+  FROM promos p
+  WHERE UPPER(p.promo_code) = UPPER(TRIM(p_promo_code));
+
+  -- Promo not found or inactive
+  IF NOT FOUND OR NOT v_promo.is_active THEN
+    RETURN QUERY SELECT p_fare, 0::numeric, NULL::uuid, false;
+    RETURN;
+  END IF;
+
+  -- Check usage limit for this rider
+  SELECT COUNT(*) INTO v_usage_count
+  FROM promo_redemptions pr
+  WHERE pr.promo_id = v_promo.promo_id AND pr.rider_id = p_rider_id;
+
+  IF v_usage_count >= v_promo.usage_per_user THEN
+    RETURN QUERY SELECT p_fare, 0::numeric, NULL::uuid, false;
+    RETURN;
+  END IF;
+
+  -- Apply discount (floor at 0)
+  RETURN QUERY SELECT
+    GREATEST(p_fare - v_promo.discount_amount, 0::numeric),
+    LEAST(v_promo.discount_amount, p_fare),
+    v_promo.promo_id,
+    true;
+END;
+$$ LANGUAGE plpgsql;

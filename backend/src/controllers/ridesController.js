@@ -83,7 +83,7 @@ const updateDriverLocation = async (req, res) => {
 // Rider: create a new ride request
 const createRideRequest = async (req, res) => {
   const riderId = req.user.id;
-  const { pickup_lat, pickup_lng, pickup_addr, dropoff_lat, dropoff_lng, dropoff_addr } = req.body;
+  const { pickup_lat, pickup_lng, pickup_addr, dropoff_lat, dropoff_lng, dropoff_addr, promo_code } = req.body;
 
   if (!pickup_lat || !pickup_lng || !pickup_addr || !dropoff_lat || !dropoff_lng || !dropoff_addr) {
     return res.status(400).json({ error: "pickup and dropoff location and address are required" });
@@ -113,20 +113,20 @@ const createRideRequest = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO ride_requests
         (rider_id, pickup_location, pickup_addr, dropoff_location, dropoff_addr,
-         status, estimated_fare, estimated_distance_km, expires_at)
+         status, estimated_fare, estimated_distance_km, expires_at, promo_code)
        VALUES
         ($1,
          ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4,
          ST_SetSRID(ST_MakePoint($6, $5), 4326)::geography, $7,
          'open', $8, $9,
-         NOW() + INTERVAL '5 minutes')
+         NOW() + INTERVAL '5 minutes', $10)
        RETURNING request_id, status, pickup_addr, dropoff_addr,
                  estimated_fare, estimated_distance_km, created_at`,
       [
         riderId,
         parseFloat(pickup_lat), parseFloat(pickup_lng), pickup_addr,
         parseFloat(dropoff_lat), parseFloat(dropoff_lng), dropoff_addr,
-        estimatedFare, distanceKm,
+        estimatedFare, distanceKm, promo_code || null,
       ]
     );
 
@@ -247,6 +247,7 @@ const rejectRequest = async (req, res) => {
 
 // PUT /api/rides/:id/status
 // Driver: update ride status (started / completed)
+// When completed, calls process_ride_payment stored procedure
 const updateRideStatus = async (req, res) => {
   const driverId = req.user.id;
   const { id: rideId } = req.params;
@@ -257,34 +258,80 @@ const updateRideStatus = async (req, res) => {
     return res.status(400).json({ error: `Status must be one of: ${allowed.join(", ")}` });
   }
 
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    // Update ride status (trigger handles timestamps and driver status)
+    const result = await client.query(
       `UPDATE rides
-       SET
-         status = $1,
-         started_at   = CASE WHEN $1 = 'started'   THEN NOW() ELSE started_at   END,
-         completed_at = CASE WHEN $1 = 'completed'  THEN NOW() ELSE completed_at END
+       SET status = $1
        WHERE ride_id = $2 AND driver_id = $3
        RETURNING *`,
       [status, rideId, driverId]
     );
 
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Ride not found or not yours" });
     }
 
-    // If completed, free the driver back to online
-    if (status === "completed" || status === "cancelled") {
-      await pool.query(
-        `UPDATE drivers SET status = 'online' WHERE driver_id = $1`,
-        [driverId]
+    let paymentDetails = null;
+
+    // Process payment when ride is completed
+    if (status === "completed") {
+      // Get the promo code from the ride request
+      const promoResult = await client.query(
+        `SELECT rr.promo_code FROM ride_requests rr
+         JOIN rides r ON r.request_id = rr.request_id
+         WHERE r.ride_id = $1`,
+        [rideId]
       );
+      const promoCode = promoResult.rows[0]?.promo_code || null;
+
+      // Call the stored procedure for payment processing
+      const payResult = await client.query(
+        `CALL process_ride_payment($1, $2, NULL, NULL, NULL, NULL, NULL, NULL)`,
+        [rideId, promoCode]
+      );
+
+      paymentDetails = {
+        total_fare: payResult.rows[0].p_total_fare,
+        discount: payResult.rows[0].p_discount,
+        platform_fee: payResult.rows[0].p_platform_fee,
+        driver_earning: payResult.rows[0].p_driver_earning,
+        invoice_id: payResult.rows[0].p_invoice_id,
+        rider_balance_after: payResult.rows[0].p_rider_balance,
+      };
     }
 
-    res.json({ ride: result.rows[0] });
+    await client.query("COMMIT");
+
+    // Re-fetch the updated ride to include financial columns
+    const updatedRide = await pool.query(
+      `SELECT * FROM rides WHERE ride_id = $1`,
+      [rideId]
+    );
+
+    res.json({
+      ride: updatedRide.rows[0],
+      payment: paymentDetails,
+    });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("updateRideStatus error:", err);
+
+    // Surface insufficient balance errors clearly
+    if (err.message?.includes("Insufficient wallet balance")) {
+      return res.status(402).json({
+        error: "Insufficient wallet balance",
+        details: err.message,
+      });
+    }
+
     res.status(500).json({ error: "Failed to update ride status", details: err.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -349,6 +396,7 @@ const getRiderActiveRide = async (req, res) => {
       const completedResult = await pool.query(
         `SELECT ride_id, status, pickup_addr, dropoff_addr,
                 started_at, completed_at, final_fare,
+                driver_earning, platform_fee,
                 driver_name, estimated_fare, estimated_distance_km
          FROM v_ride_details
          WHERE rider_id = $1 AND status = 'completed'
@@ -359,7 +407,16 @@ const getRiderActiveRide = async (req, res) => {
       );
 
       if (completedResult.rows.length > 0) {
-        return res.json({ phase: "completed", ride: completedResult.rows[0] });
+        // Fetch rider wallet balance
+        const walletResult = await pool.query(
+          "SELECT balance FROM wallets WHERE owner_id = $1",
+          [riderId]
+        );
+        return res.json({
+          phase: "completed",
+          ride: completedResult.rows[0],
+          wallet_balance: walletResult.rows[0]?.balance || 0,
+        });
       }
       return res.json({ phase: "idle" });
     }
@@ -387,7 +444,8 @@ const getRiderActiveRide = async (req, res) => {
               driver_name, driver_phone,
               driver_rating,
               vehicle_model, vehicle_plate,
-              estimated_fare, estimated_distance_km
+              estimated_fare, estimated_distance_km,
+              final_fare, driver_earning, platform_fee
        FROM v_ride_details
        WHERE request_id = $1`,
       [request.request_id]
@@ -400,7 +458,17 @@ const getRiderActiveRide = async (req, res) => {
     const ride = rideResult.rows[0];
 
     if (ride.status === "completed") {
-      return res.json({ phase: "completed", ride, request });
+      // Fetch rider wallet balance
+      const walletResult = await pool.query(
+        "SELECT balance FROM wallets WHERE owner_id = $1",
+        [riderId]
+      );
+      return res.json({
+        phase: "completed",
+        ride,
+        request,
+        wallet_balance: walletResult.rows[0]?.balance || 0,
+      });
     }
     if (ride.status === "cancelled") {
       return res.json({ phase: "idle", message: "Ride was cancelled" });

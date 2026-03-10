@@ -89,3 +89,42 @@ BEGIN
   RETURN expired_count;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------
+-- 4. log_payment_completed()
+-- AFTER UPDATE trigger on rides: when invoice_id changes
+-- from NULL to a value (payment processed), insert
+-- notification records for both rider and driver.
+-- ---------------------------------------------------------
+CREATE OR REPLACE FUNCTION log_payment_completed()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only fire when invoice_id is newly set (payment just processed)
+  IF OLD.invoice_id IS NULL AND NEW.invoice_id IS NOT NULL THEN
+    -- Notify rider
+    INSERT INTO notifications (user_id, title, body)
+    VALUES (
+      NEW.rider_id,
+      'Payment Processed',
+      'Your ride payment of ' || NEW.total_fare || ' BDT has been processed.'
+    );
+
+    -- Notify driver
+    INSERT INTO notifications (user_id, title, body)
+    VALUES (
+      NEW.driver_id,
+      'Earnings Received',
+      'You earned ' || NEW.driver_earning || ' BDT from your completed ride.'
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_payment_completed ON rides;
+CREATE TRIGGER trg_payment_completed
+  AFTER UPDATE OF invoice_id ON rides
+  FOR EACH ROW
+  WHEN (OLD.invoice_id IS NULL AND NEW.invoice_id IS NOT NULL)
+  EXECUTE FUNCTION log_payment_completed();

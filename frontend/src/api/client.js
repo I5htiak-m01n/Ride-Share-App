@@ -156,4 +156,15 @@ export const driversAPI = {
   deleteDocument: (docType) => api.delete(`/drivers/documents/${docType}`),
 };
 
+// Wallet API
+export const walletAPI = {
+  getBalance: () => api.get('/wallet/balance'),
+  getTransactions: (limit = 20, offset = 0) =>
+    api.get(`/wallet/transactions?limit=${limit}&offset=${offset}`),
+  topUp: (amount) => api.post('/wallet/topup', { amount }),
+  validatePromo: (promo_code, estimated_fare) =>
+    api.post('/wallet/validate-promo', { promo_code, estimated_fare }),
+  getEarningsSummary: () => api.get('/wallet/earnings-summary'),
+};
+
 export default api;

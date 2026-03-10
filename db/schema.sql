@@ -172,7 +172,8 @@ create table public.ride_requests (
   dropoff_location geography(Point, 4326), -- IMPROVED
   estimated_fare numeric(12,2),
   estimated_distance_km numeric(10,2),
-  estimated_duration_min int
+  estimated_duration_min int,
+  promo_code text
 );
 
 create table public.driver_responses (
