@@ -1,342 +1,45 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useRoute } from '../context/RouteContext';
-import { ridesAPI, walletAPI } from '../api/client';
+import { useRide } from '../context/RideContext';
 import BookingMap from '../components/BookingMap';
-import PlacesAutocomplete from '../components/PlacesAutocomplete';
 import './Dashboard.css';
-
-const POLL_INTERVAL_MS = 5000;
-
-// Generate random nearby vehicles around a center point
-function generateNearbyVehicles(center, count = 6) {
-  const vehicles = [];
-  for (let i = 0; i < count; i++) {
-    vehicles.push({
-      lat: center.lat + (Math.random() - 0.5) * 0.02,
-      lng: center.lng + (Math.random() - 0.5) * 0.02,
-      rotation: Math.floor(Math.random() * 360),
-    });
-  }
-  return vehicles;
-}
 
 function RiderDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const {
-    routePath, routeInfo, routeLoading, eta, wasRerouted,
-    fetchRoutePreview, fetchRideRoute, clearRoute,
-    stopRouteChecking,
-  } = useRoute();
+    ridePhase,
+    walletBalance, statusMessage, userLocation, nearbyVehicles,
+    activeRequest, activeRide,
+    resetBooking, error, stopPolling,
+    routePath, routeInfo, eta, wasRerouted, routeLoading,
+  } = useRide();
 
-  // Ride flow state machine
-  const [ridePhase, setRidePhase] = useState('idle');
-  const ridePhaseRef = useRef('idle');
-  useEffect(() => { ridePhaseRef.current = ridePhase; }, [ridePhase]);
-
-  // Booking form
-  const [pickupAddr, setPickupAddr] = useState('');
-  const [dropoffAddr, setDropoffAddr] = useState('');
-  const [pickupCoords, setPickupCoords] = useState(null);
-  const [dropoffCoords, setDropoffCoords] = useState(null);
-  const [clickMode, setClickMode] = useState('pickup');
-
-  // Fare estimate
-  const [fareEstimate, setFareEstimate] = useState(null);
-
-  // Active ride tracking
-  const [activeRequest, setActiveRequest] = useState(null);
-  const [activeRide, setActiveRide] = useState(null);
-  const [statusMessage, setStatusMessage] = useState(null);
-
-  // UI
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
-  const [mapCenter, setMapCenter] = useState(null);
-
-  // Wallet & Promo
-  const [walletBalance, setWalletBalance] = useState(null);
-  const [promoCode, setPromoCode] = useState('');
-  const [promoResult, setPromoResult] = useState(null);
-  const [promoLoading, setPromoLoading] = useState(false);
-
-  // Polling
-  const pollRef = useRef(null);
-
-  // Generate fake nearby vehicles (memoized once location is known)
-  const nearbyVehicles = useMemo(() => {
-    const center = userLocation || { lat: 23.8103, lng: 90.4125 };
-    return generateNearbyVehicles(center, 7);
-  }, [userLocation]);
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
-  const fetchWalletBalance = useCallback(async () => {
-    try {
-      const res = await walletAPI.getBalance();
-      setWalletBalance(parseFloat(res.data.wallet.balance));
-    } catch (err) {
-      console.error('fetchWalletBalance error:', err);
-    }
-  }, []);
-
-  const checkActiveRide = useCallback(async () => {
-    try {
-      const res = await ridesAPI.getRiderActive();
-      const data = res.data;
-
-      if (data.message) setStatusMessage(data.message);
-
-      switch (data.phase) {
-        case 'searching':
-          setRidePhase('searching');
-          setActiveRequest(data.request);
-          break;
-        case 'matched':
-          setRidePhase('matched');
-          setActiveRide(data.ride);
-          setActiveRequest(data.request);
-          // Load stored route for this ride
-          if (data.ride?.ride_id) {
-            fetchRideRoute(data.ride.ride_id);
-          }
-          break;
-        case 'in_progress':
-          setRidePhase('in_progress');
-          setActiveRide(data.ride);
-          setActiveRequest(data.request);
-          // Load stored route and start tracking progress
-          if (data.ride?.ride_id) {
-            fetchRideRoute(data.ride.ride_id);
-          }
-          break;
-        case 'completed':
-          if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
-            setRidePhase('completed');
-            setActiveRide(data.ride);
-            if (data.wallet_balance !== undefined) {
-              setWalletBalance(parseFloat(data.wallet_balance));
-            } else {
-              fetchWalletBalance();
-            }
-            stopPolling();
-            stopRouteChecking();
-            clearRoute();
-          }
-          break;
-        case 'idle':
-        default:
-          if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
-            setRidePhase('idle');
-            setActiveRequest(null);
-            setActiveRide(null);
-            stopPolling();
-          }
-          break;
-      }
-    } catch (err) {
-      console.error('checkActiveRide error:', err);
-    }
-  }, [stopPolling, clearRoute, fetchRideRoute, fetchWalletBalance, stopRouteChecking]);
-
-  const startPolling = useCallback(() => {
-    stopPolling();
-    pollRef.current = setInterval(checkActiveRide, POLL_INTERVAL_MS);
-  }, [stopPolling, checkActiveRide]);
-
-  // On mount: check for existing active ride + get user location + fetch wallet
+  // If we're in a booking/confirming/searching phase, redirect to the correct page
   useEffect(() => {
-    fetchWalletBalance();
-    checkActiveRide().then(() => {
-      if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
-        startPolling();
-      }
-    });
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {}
-      );
+    if (ridePhase === 'booking') {
+      navigate('/rider/book', { replace: true });
+    } else if (ridePhase === 'confirming') {
+      navigate('/rider/confirm', { replace: true });
+    } else if (ridePhase === 'searching') {
+      navigate('/rider/searching', { replace: true });
     }
-    return () => stopPolling();
-  }, []);
-
-  // Reverse geocode coords to address using Google Maps API
-  const reverseGeocode = useCallback((coords, callback) => {
-    if (!window.google?.maps?.Geocoder) return;
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ location: coords }, (results, status) => {
-      if (status === 'OK' && results[0]) {
-        callback(results[0].formatted_address);
-      }
-    });
-  }, []);
-
-  // Map click handler — set coords and auto-fill address
-  const handleMapClick = (coords) => {
-    if (clickMode === 'pickup') {
-      setPickupCoords(coords);
-      reverseGeocode(coords, setPickupAddr);
-      setMapCenter(coords);
-      setClickMode('dropoff');
-    } else {
-      setDropoffCoords(coords);
-      reverseGeocode(coords, setDropoffAddr);
-      setMapCenter(coords);
-    }
-  };
-
-  // Use My Location
-  const handleUseMyLocation = () => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by this browser. Click on the map to set your pickup instead.');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setPickupCoords(coords);
-        reverseGeocode(coords, setPickupAddr);
-        setClickMode('dropoff');
-        setError(null);
-      },
-      (err) => {
-        if (err.code === 1) {
-          setError('Location access denied. Allow location in your browser settings, or click on the map to set your pickup manually.');
-        } else {
-          setError('Could not get your location. Click on the map to set your pickup instead.');
-        }
-      }
-    );
-  };
-
-  // Get fare estimate + route preview
-  const handleGetEstimate = async () => {
-    if (!pickupCoords || !dropoffCoords) {
-      setError('Please set both pickup and dropoff on the map');
-      return;
-    }
-    if (!pickupAddr.trim() || !dropoffAddr.trim()) {
-      setError('Please enter both pickup and dropoff addresses');
-      return;
-    }
-    setError(null);
-    setLoading(true);
-    try {
-      // Fetch fare estimate and route preview in parallel
-      const [fareRes, routeResult] = await Promise.all([
-        ridesAPI.getFareEstimate(
-          pickupCoords.lat, pickupCoords.lng,
-          dropoffCoords.lat, dropoffCoords.lng
-        ),
-        fetchRoutePreview(
-          pickupCoords.lat, pickupCoords.lng,
-          dropoffCoords.lat, dropoffCoords.lng
-        ),
-      ]);
-
-      const fareData = fareRes.data;
-      // If we got a route, use its distance/duration instead of the DB estimate
-      if (routeResult) {
-        fareData.distance_km = (routeResult.distance_meters / 1000).toFixed(1);
-        fareData.estimated_duration_min = Math.round(routeResult.duration_seconds / 60);
-        fareData.route_distance_text = routeResult.distance_text;
-        fareData.route_duration_text = routeResult.duration_text;
-      }
-
-      setFareEstimate(fareData);
-      setRidePhase('confirming');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to get fare estimate');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Confirm ride request
-  const handleConfirmRide = async () => {
-    if (ridePhaseRef.current !== 'confirming') return;
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await ridesAPI.createRequest({
-        pickup_lat: pickupCoords.lat,
-        pickup_lng: pickupCoords.lng,
-        pickup_addr: pickupAddr,
-        dropoff_lat: dropoffCoords.lat,
-        dropoff_lng: dropoffCoords.lng,
-        dropoff_addr: dropoffAddr,
-        promo_code: promoCode || undefined,
-      });
-      setActiveRequest(res.data.request);
-      setRidePhase('searching');
-      startPolling();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create ride request');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Validate promo code
-  const handleValidatePromo = async () => {
-    if (!promoCode.trim()) return;
-    setPromoLoading(true);
-    try {
-      const res = await walletAPI.validatePromo(promoCode, fareEstimate.estimated_fare);
-      setPromoResult(res.data);
-    } catch {
-      setPromoResult({ valid: false });
-    } finally {
-      setPromoLoading(false);
-    }
-  };
-
-  // Cancel ride request
-  const handleCancelRequest = async () => {
-    if (!activeRequest?.request_id) return;
-    try {
-      await ridesAPI.cancelRequest(activeRequest.request_id);
-      stopPolling();
-      resetBooking();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to cancel request');
-    }
-  };
-
-  // Reset to idle
-  const resetBooking = () => {
-    setRidePhase('idle');
-    setPickupAddr('');
-    setDropoffAddr('');
-    setPickupCoords(null);
-    setDropoffCoords(null);
-    setClickMode('pickup');
-    setFareEstimate(null);
-    setActiveRequest(null);
-    setActiveRide(null);
-    setError(null);
-    setStatusMessage(null);
-    setPromoCode('');
-    setPromoResult(null);
-    stopPolling();
-    clearRoute();
-    fetchWalletBalance();
-  };
+  }, [ridePhase, navigate]);
 
   const handleLogout = async () => {
     stopPolling();
     await logout();
     navigate('/login');
   };
+
+  const startBooking = () => {
+    navigate('/rider/book');
+  };
+
+  // Show idle or active ride phases
+  const showIdle = ridePhase === 'idle';
+  const showActiveRide = ['matched', 'in_progress', 'completed'].includes(ridePhase);
 
   return (
     <div className="dashboard-container">
@@ -350,8 +53,8 @@ function RiderDashboard() {
         </div>
       </nav>
 
-      {/* === PHASE: IDLE — Split layout === */}
-      {ridePhase === 'idle' && (
+      {/* === IDLE — Split layout === */}
+      {showIdle && (
         <div className="uber-split-layout">
           <div className="uber-left-panel">
             <div className="uber-greeting">
@@ -370,19 +73,13 @@ function RiderDashboard() {
               <div className="uber-panel-info">{statusMessage}</div>
             )}
 
-            <div
-              className="uber-where-to-bar"
-              onClick={() => { setRidePhase('booking'); setError(null); setStatusMessage(null); }}
-            >
+            <div className="uber-where-to-bar" onClick={startBooking}>
               <div className="search-dot" />
               <span>Where to?</span>
             </div>
 
             <div className="uber-quick-actions">
-              <div
-                className="uber-quick-card"
-                onClick={() => { setRidePhase('booking'); setError(null); setStatusMessage(null); }}
-              >
+              <div className="uber-quick-card" onClick={startBooking}>
                 <div className="card-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 17h14M5 17a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l2-3h8l2 3h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2M5 17v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1m10 0v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1" />
@@ -444,228 +141,16 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* Non-idle phases use the standard content layout */}
-      {ridePhase !== 'idle' && (
+      {/* === Active ride phases === */}
+      {showActiveRide && (
         <div className="dashboard-content">
-          {/* Error banner */}
-          {error && (
-            <div className="error-banner">{error}</div>
-          )}
+          {error && <div className="error-banner">{error}</div>}
 
-          {/* === PHASE: BOOKING === */}
-          {ridePhase === 'booking' && (
-            <div>
-              <div className="dashboard-header">
-                <div>
-                  <h1>Book a Ride</h1>
-                  <p>Set your pickup and dropoff locations</p>
-                </div>
-              </div>
-
-              <div className="booking-form">
-                <div className="form-group">
-                  <label>Pickup Address</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <PlacesAutocomplete
-                      value={pickupAddr}
-                      onChange={setPickupAddr}
-                      onPlaceSelect={({ address, lat, lng }) => {
-                        setPickupAddr(address);
-                        setPickupCoords({ lat, lng });
-                        setMapCenter({ lat, lng });
-                        setClickMode('dropoff');
-                      }}
-                      placeholder="Search pickup address"
-                      userLocation={userLocation}
-                    />
-                    <button
-                      onClick={handleUseMyLocation}
-                      className="location-btn"
-                    >
-                      Use My Location
-                    </button>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Dropoff Address</label>
-                  <PlacesAutocomplete
-                    value={dropoffAddr}
-                    onChange={setDropoffAddr}
-                    onPlaceSelect={({ address, lat, lng }) => {
-                      setDropoffAddr(address);
-                      setDropoffCoords({ lat, lng });
-                      setMapCenter({ lat, lng });
-                    }}
-                    placeholder="Search dropoff address"
-                    userLocation={userLocation}
-                  />
-                </div>
-              </div>
-
-              <div className="click-mode-toggle">
-                <button
-                  className={clickMode === 'pickup' ? 'active' : ''}
-                  onClick={() => setClickMode('pickup')}
-                >
-                  Set Pickup
-                </button>
-                <button
-                  className={clickMode === 'dropoff' ? 'active' : ''}
-                  onClick={() => setClickMode('dropoff')}
-                >
-                  Set Dropoff
-                </button>
-              </div>
-              <p className="map-hint">
-                Click on the map to set your {clickMode} location
-                {pickupCoords && !dropoffCoords && ' (now set your dropoff)'}
-              </p>
-
-              <BookingMap
-                pickupLocation={pickupCoords}
-                dropoffLocation={dropoffCoords}
-                onMapClick={handleMapClick}
-                centerLocation={userLocation}
-                panTo={mapCenter}
-                routePath={routePath}
-                routeInfo={routeInfo}
-                routeLoading={routeLoading}
-              />
-
-              <div className="booking-actions">
-                <button onClick={resetBooking}>Back</button>
-                <button
-                  onClick={handleGetEstimate}
-                  disabled={!pickupCoords || !dropoffCoords || !pickupAddr.trim() || !dropoffAddr.trim() || loading}
-                >
-                  {loading ? 'Calculating...' : 'Get Fare Estimate'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* === PHASE: CONFIRMING === */}
-          {ridePhase === 'confirming' && fareEstimate && (
-            <div className="confirm-panel">
-              <h2>Confirm Your Ride</h2>
-
-              {/* Route preview map */}
-              {routePath.length > 1 && (
-                <BookingMap
-                  pickupLocation={pickupCoords}
-                  dropoffLocation={dropoffCoords}
-                  routePath={routePath}
-                  routeInfo={routeInfo}
-                  eta={eta}
-                  wasRerouted={wasRerouted}
-                  routeLoading={routeLoading}
-                />
-              )}
-
-              <div className="ride-summary">
-                <div className="summary-row">
-                  <span>From</span>
-                  <strong>{pickupAddr}</strong>
-                </div>
-                <div className="summary-row">
-                  <span>To</span>
-                  <strong>{dropoffAddr}</strong>
-                </div>
-                <div className="summary-row">
-                  <span>Distance</span>
-                  <strong>{fareEstimate.route_distance_text || `${fareEstimate.distance_km} km`}</strong>
-                </div>
-                <div className="summary-row">
-                  <span>Est. Duration</span>
-                  <strong>{fareEstimate.route_duration_text || `${fareEstimate.estimated_duration_min} min`}</strong>
-                </div>
-                <div className="summary-row fare">
-                  <span>Estimated Fare</span>
-                  <strong>{promoResult?.valid ? promoResult.discounted_fare : fareEstimate.estimated_fare} BDT</strong>
-                </div>
-              </div>
-
-              <div className="promo-input-section">
-                <label>Have a discount coupon?</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={promoCode}
-                    onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); }}
-                    placeholder="Enter promo code"
-                  />
-                  <button
-                    onClick={handleValidatePromo}
-                    disabled={!promoCode.trim() || promoLoading}
-                    className="location-btn"
-                  >
-                    {promoLoading ? 'Checking...' : 'Apply'}
-                  </button>
-                </div>
-                {promoResult && promoResult.valid && (
-                  <div className="promo-success">
-                    Discount: {promoResult.discount_amount} BDT off! New fare: {promoResult.discounted_fare} BDT
-                  </div>
-                )}
-                {promoResult && !promoResult.valid && (
-                  <div className="promo-error">Invalid or expired promo code</div>
-                )}
-              </div>
-
-              <div className="booking-actions">
-                <button onClick={() => setRidePhase('booking')}>Back</button>
-                <button onClick={handleConfirmRide} disabled={loading}>
-                  {loading ? 'Requesting...' : 'Confirm Ride'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* === PHASE: SEARCHING === */}
-          {ridePhase === 'searching' && (
-            <div className="searching-panel">
-              <div className="searching-animation">
-                <div className="pulse-ring" />
-              </div>
-              <h2>Looking for nearby drivers...</h2>
-              {activeRequest && (
-                <>
-                  <p style={{ color: '#6B6B6B', fontSize: '14px', marginTop: '16px' }}>
-                    From: {activeRequest.pickup_addr}
-                  </p>
-                  <p style={{ color: '#6B6B6B', fontSize: '14px' }}>
-                    To: {activeRequest.dropoff_addr}
-                  </p>
-                  <p style={{ fontWeight: 600, fontSize: '16px', marginTop: '8px' }}>
-                    {activeRequest.estimated_fare} BDT
-                  </p>
-                </>
-              )}
-              <p className="searching-hint">This may take up to 5 minutes</p>
-              <button
-                onClick={handleCancelRequest}
-                style={{
-                  padding: '12px 28px',
-                  background: '#fff',
-                  color: '#E11900',
-                  border: '1px solid #E2E2E2',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  fontSize: '14px',
-                }}
-              >
-                Cancel Request
-              </button>
-            </div>
-          )}
-
-          {/* === PHASE: MATCHED === */}
+          {/* MATCHED */}
           {ridePhase === 'matched' && activeRide && (
             <div className="ride-active-panel">
               <h2>Driver Found!</h2>
 
-              {/* Route map */}
               {routePath.length > 1 && (
                 <BookingMap
                   pickupLocation={activeRequest ? { lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) } : null}
@@ -679,18 +164,10 @@ function RiderDashboard() {
               )}
               <div className="driver-info">
                 <h3>{activeRide.driver_name}</h3>
-                {activeRide.driver_phone && (
-                  <p>Phone: {activeRide.driver_phone}</p>
-                )}
-                {activeRide.driver_rating && (
-                  <p>Rating: {activeRide.driver_rating}/5</p>
-                )}
-                {activeRide.vehicle_model && (
-                  <p>Vehicle: {activeRide.vehicle_model}</p>
-                )}
-                {activeRide.vehicle_plate && (
-                  <p>Plate: {activeRide.vehicle_plate}</p>
-                )}
+                {activeRide.driver_phone && <p>Phone: {activeRide.driver_phone}</p>}
+                {activeRide.driver_rating && <p>Rating: {activeRide.driver_rating}/5</p>}
+                {activeRide.vehicle_model && <p>Vehicle: {activeRide.vehicle_model}</p>}
+                {activeRide.vehicle_plate && <p>Plate: {activeRide.vehicle_plate}</p>}
               </div>
               <div className="ride-summary">
                 <div className="summary-row">
@@ -710,12 +187,11 @@ function RiderDashboard() {
             </div>
           )}
 
-          {/* === PHASE: IN PROGRESS === */}
+          {/* IN PROGRESS */}
           {ridePhase === 'in_progress' && activeRide && (
             <div className="ride-active-panel">
               <h2>Ride in Progress</h2>
 
-              {/* Route map with ETA */}
               {routePath.length > 1 && (
                 <BookingMap
                   pickupLocation={activeRequest ? { lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) } : null}
@@ -729,15 +205,9 @@ function RiderDashboard() {
               )}
               <div className="driver-info">
                 <h3>{activeRide.driver_name}</h3>
-                {activeRide.driver_phone && (
-                  <p>Phone: {activeRide.driver_phone}</p>
-                )}
-                {activeRide.vehicle_model && (
-                  <p>Vehicle: {activeRide.vehicle_model}</p>
-                )}
-                {activeRide.vehicle_plate && (
-                  <p>Plate: {activeRide.vehicle_plate}</p>
-                )}
+                {activeRide.driver_phone && <p>Phone: {activeRide.driver_phone}</p>}
+                {activeRide.vehicle_model && <p>Vehicle: {activeRide.vehicle_model}</p>}
+                {activeRide.vehicle_plate && <p>Plate: {activeRide.vehicle_plate}</p>}
               </div>
               <div className="ride-summary">
                 <div className="summary-row">
@@ -757,7 +227,7 @@ function RiderDashboard() {
             </div>
           )}
 
-          {/* === PHASE: COMPLETED (Payment Summary) === */}
+          {/* COMPLETED */}
           {ridePhase === 'completed' && activeRide && (
             <div className="completion-panel">
               <h2>Ride Complete!</h2>

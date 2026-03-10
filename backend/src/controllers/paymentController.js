@@ -17,6 +17,12 @@ const initPayment = async (req, res) => {
     return res.status(400).json({ error: "Amount must be positive" });
   }
 
+  if (!store_id || !store_passwd || store_id.includes("your_")) {
+    return res.status(500).json({
+      error: "SSLCommerz credentials not configured. Update SSLCOMMERZ_STORE_ID and SSLCOMMERZ_STORE_PASSWORD in backend/.env"
+    });
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -72,12 +78,14 @@ const initPayment = async (req, res) => {
       );
       res.json({ url: apiResponse.GatewayPageURL, txn_id: txnId });
     } else {
+      console.error("SSLCommerz init response:", JSON.stringify(apiResponse));
       // Mark transaction as failed
       await pool.query(
         `UPDATE transactions SET status = 'failed' WHERE txn_id = $1`,
         [txnId]
       );
-      res.status(500).json({ error: "Failed to initialize payment gateway" });
+      const reason = apiResponse?.failedreason || apiResponse?.status || "Unknown error";
+      res.status(500).json({ error: `Payment gateway error: ${reason}` });
     }
   } catch (err) {
     await client.query("ROLLBACK");

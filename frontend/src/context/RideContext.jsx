@@ -1,0 +1,406 @@
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Outlet } from 'react-router-dom';
+import { useRoute } from './RouteContext';
+import { ridesAPI, walletAPI } from '../api/client';
+
+const RideContext = createContext(null);
+
+const POLL_INTERVAL_MS = 5000;
+const STORAGE_KEY = 'ride_booking_state';
+
+function generateNearbyVehicles(center, count = 7) {
+  const vehicles = [];
+  for (let i = 0; i < count; i++) {
+    vehicles.push({
+      lat: center.lat + (Math.random() - 0.5) * 0.02,
+      lng: center.lng + (Math.random() - 0.5) * 0.02,
+      rotation: Math.floor(Math.random() * 360),
+    });
+  }
+  return vehicles;
+}
+
+function loadSavedState() {
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function RideProvider({ children }) {
+  const {
+    routePath, routeInfo, routeLoading, eta, wasRerouted,
+    fetchRoutePreview, fetchRideRoute, clearRoute,
+    stopRouteChecking,
+  } = useRoute();
+
+  const saved = useMemo(() => loadSavedState(), []);
+
+  // Ride flow state machine
+  const [ridePhase, setRidePhase] = useState(saved?.ridePhase || 'idle');
+  const ridePhaseRef = useRef(saved?.ridePhase || 'idle');
+  useEffect(() => { ridePhaseRef.current = ridePhase; }, [ridePhase]);
+
+  // Booking form
+  const [pickupAddr, setPickupAddr] = useState(saved?.pickupAddr || '');
+  const [dropoffAddr, setDropoffAddr] = useState(saved?.dropoffAddr || '');
+  const [pickupCoords, setPickupCoords] = useState(saved?.pickupCoords || null);
+  const [dropoffCoords, setDropoffCoords] = useState(saved?.dropoffCoords || null);
+  const [clickMode, setClickMode] = useState('pickup');
+
+  // Fare estimate
+  const [fareEstimate, setFareEstimate] = useState(saved?.fareEstimate || null);
+
+  // Active ride tracking
+  const [activeRequest, setActiveRequest] = useState(saved?.activeRequest || null);
+  const [activeRide, setActiveRide] = useState(saved?.activeRide || null);
+  const [statusMessage, setStatusMessage] = useState(null);
+
+  // UI
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [mapCenter, setMapCenter] = useState(null);
+
+  // Wallet & Promo
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [promoCode, setPromoCode] = useState(saved?.promoCode || '');
+  const [promoResult, setPromoResult] = useState(saved?.promoResult || null);
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  // Polling
+  const pollRef = useRef(null);
+
+  // Fake nearby vehicles for idle map
+  const nearbyVehicles = useMemo(() => {
+    const center = userLocation || { lat: 23.8103, lng: 90.4125 };
+    return generateNearbyVehicles(center, 7);
+  }, [userLocation]);
+
+  // Persist booking state to sessionStorage
+  useEffect(() => {
+    const persistable = {
+      ridePhase,
+      pickupAddr, dropoffAddr,
+      pickupCoords, dropoffCoords,
+      fareEstimate,
+      activeRequest, activeRide,
+      promoCode, promoResult,
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+  }, [ridePhase, pickupAddr, dropoffAddr, pickupCoords, dropoffCoords,
+      fareEstimate, activeRequest, activeRide, promoCode, promoResult]);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const fetchWalletBalance = useCallback(async () => {
+    try {
+      const res = await walletAPI.getBalance();
+      setWalletBalance(parseFloat(res.data.wallet.balance));
+    } catch (err) {
+      console.error('fetchWalletBalance error:', err);
+    }
+  }, []);
+
+  const checkActiveRide = useCallback(async () => {
+    try {
+      const res = await ridesAPI.getRiderActive();
+      const data = res.data;
+
+      if (data.message) setStatusMessage(data.message);
+
+      switch (data.phase) {
+        case 'searching':
+          setRidePhase('searching');
+          setActiveRequest(data.request);
+          break;
+        case 'matched':
+          setRidePhase('matched');
+          setActiveRide(data.ride);
+          setActiveRequest(data.request);
+          if (data.ride?.ride_id) {
+            fetchRideRoute(data.ride.ride_id);
+          }
+          break;
+        case 'in_progress':
+          setRidePhase('in_progress');
+          setActiveRide(data.ride);
+          setActiveRequest(data.request);
+          if (data.ride?.ride_id) {
+            fetchRideRoute(data.ride.ride_id);
+          }
+          break;
+        case 'completed':
+          if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
+            setRidePhase('completed');
+            setActiveRide(data.ride);
+            if (data.wallet_balance !== undefined) {
+              setWalletBalance(parseFloat(data.wallet_balance));
+            } else {
+              fetchWalletBalance();
+            }
+            stopPolling();
+            stopRouteChecking();
+            clearRoute();
+          }
+          break;
+        case 'idle':
+        default:
+          if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
+            setRidePhase('idle');
+            setActiveRequest(null);
+            setActiveRide(null);
+            stopPolling();
+          }
+          break;
+      }
+    } catch (err) {
+      console.error('checkActiveRide error:', err);
+    }
+  }, [stopPolling, clearRoute, fetchRideRoute, fetchWalletBalance, stopRouteChecking]);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = setInterval(checkActiveRide, POLL_INTERVAL_MS);
+  }, [stopPolling, checkActiveRide]);
+
+  // Reverse geocode coords to address
+  const reverseGeocode = useCallback((coords, callback) => {
+    if (!window.google?.maps?.Geocoder) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: coords }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        callback(results[0].formatted_address);
+      }
+    });
+  }, []);
+
+  // Map click handler
+  const handleMapClick = useCallback((coords) => {
+    if (clickMode === 'pickup') {
+      setPickupCoords(coords);
+      reverseGeocode(coords, setPickupAddr);
+      setMapCenter(coords);
+      setClickMode('dropoff');
+    } else {
+      setDropoffCoords(coords);
+      reverseGeocode(coords, setDropoffAddr);
+      setMapCenter(coords);
+    }
+  }, [clickMode, reverseGeocode]);
+
+  // Use My Location
+  const handleUseMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setPickupCoords(coords);
+        reverseGeocode(coords, setPickupAddr);
+        setClickMode('dropoff');
+        setError(null);
+      },
+      (err) => {
+        if (err.code === 1) {
+          setError('Location access denied. Allow location in your browser settings, or click on the map.');
+        } else {
+          setError('Could not get your location. Click on the map instead.');
+        }
+      }
+    );
+  }, [reverseGeocode]);
+
+  // Get fare estimate + route preview
+  const handleGetEstimate = useCallback(async () => {
+    if (!pickupCoords || !dropoffCoords) {
+      setError('Please set both pickup and dropoff on the map');
+      return false;
+    }
+    if (!pickupAddr.trim() || !dropoffAddr.trim()) {
+      setError('Please enter both pickup and dropoff addresses');
+      return false;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const [fareRes, routeResult] = await Promise.all([
+        ridesAPI.getFareEstimate(
+          pickupCoords.lat, pickupCoords.lng,
+          dropoffCoords.lat, dropoffCoords.lng
+        ),
+        fetchRoutePreview(
+          pickupCoords.lat, pickupCoords.lng,
+          dropoffCoords.lat, dropoffCoords.lng
+        ),
+      ]);
+
+      const fareData = fareRes.data;
+      if (routeResult) {
+        fareData.distance_km = (routeResult.distance_meters / 1000).toFixed(1);
+        fareData.estimated_duration_min = Math.round(routeResult.duration_seconds / 60);
+        fareData.route_distance_text = routeResult.distance_text;
+        fareData.route_duration_text = routeResult.duration_text;
+      }
+
+      setFareEstimate(fareData);
+      setRidePhase('confirming');
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to get fare estimate');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [pickupCoords, dropoffCoords, pickupAddr, dropoffAddr, fetchRoutePreview]);
+
+  // Confirm ride request
+  const handleConfirmRide = useCallback(async () => {
+    if (ridePhaseRef.current !== 'confirming') return false;
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await ridesAPI.createRequest({
+        pickup_lat: pickupCoords.lat,
+        pickup_lng: pickupCoords.lng,
+        pickup_addr: pickupAddr,
+        dropoff_lat: dropoffCoords.lat,
+        dropoff_lng: dropoffCoords.lng,
+        dropoff_addr: dropoffAddr,
+        promo_code: promoCode || undefined,
+      });
+      setActiveRequest(res.data.request);
+      setRidePhase('searching');
+      startPolling();
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create ride request');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [pickupCoords, dropoffCoords, pickupAddr, dropoffAddr, promoCode, startPolling]);
+
+  // Validate promo code
+  const handleValidatePromo = useCallback(async () => {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true);
+    try {
+      const res = await walletAPI.validatePromo(promoCode, fareEstimate.estimated_fare);
+      setPromoResult(res.data);
+    } catch {
+      setPromoResult({ valid: false });
+    } finally {
+      setPromoLoading(false);
+    }
+  }, [promoCode, fareEstimate]);
+
+  // Cancel ride request
+  const handleCancelRequest = useCallback(async () => {
+    if (!activeRequest?.request_id) return;
+    try {
+      await ridesAPI.cancelRequest(activeRequest.request_id);
+      stopPolling();
+      resetBooking();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to cancel request');
+    }
+  }, [activeRequest, stopPolling]);
+
+  // Reset to idle
+  const resetBooking = useCallback(() => {
+    setRidePhase('idle');
+    setPickupAddr('');
+    setDropoffAddr('');
+    setPickupCoords(null);
+    setDropoffCoords(null);
+    setClickMode('pickup');
+    setFareEstimate(null);
+    setActiveRequest(null);
+    setActiveRide(null);
+    setError(null);
+    setStatusMessage(null);
+    setPromoCode('');
+    setPromoResult(null);
+    stopPolling();
+    clearRoute();
+    fetchWalletBalance();
+    sessionStorage.removeItem(STORAGE_KEY);
+  }, [stopPolling, clearRoute, fetchWalletBalance]);
+
+  // On mount: check for existing active ride + geolocation + wallet
+  useEffect(() => {
+    fetchWalletBalance();
+    checkActiveRide().then(() => {
+      if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
+        startPolling();
+      }
+    });
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}
+      );
+    }
+    return () => stopPolling();
+  }, []);
+
+  const value = {
+    // Phase
+    ridePhase, setRidePhase, ridePhaseRef,
+    // Booking form
+    pickupAddr, setPickupAddr, dropoffAddr, setDropoffAddr,
+    pickupCoords, setPickupCoords, dropoffCoords, setDropoffCoords,
+    clickMode, setClickMode, mapCenter, setMapCenter,
+    // Fare
+    fareEstimate,
+    // Active ride
+    activeRequest, activeRide, statusMessage,
+    // UI
+    error, setError, loading, userLocation,
+    // Wallet & Promo
+    walletBalance, promoCode, setPromoCode, promoResult, setPromoResult, promoLoading,
+    // Nearby vehicles
+    nearbyVehicles,
+    // Actions
+    handleMapClick, handleUseMyLocation, handleGetEstimate,
+    handleConfirmRide, handleValidatePromo, handleCancelRequest,
+    resetBooking, fetchWalletBalance, stopPolling,
+    startPolling, checkActiveRide,
+    // Route (re-exported for convenience)
+    routePath, routeInfo, routeLoading, eta, wasRerouted,
+  };
+
+  return (
+    <RideContext.Provider value={value}>
+      {children}
+    </RideContext.Provider>
+  );
+}
+
+// Layout route wrapper that renders child routes inside the provider
+export function RideProviderLayout() {
+  return (
+    <RideProvider>
+      <Outlet />
+    </RideProvider>
+  );
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useRide() {
+  const ctx = useContext(RideContext);
+  if (!ctx) throw new Error('useRide must be used within a RideProvider');
+  return ctx;
+}
+
+export default RideContext;

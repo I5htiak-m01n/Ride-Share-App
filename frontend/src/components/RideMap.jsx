@@ -9,6 +9,9 @@ const MAP_CONTAINER_STYLE = {
   borderRadius: '12px',
 };
 
+// Must match the LIBRARIES array in BookingMap so useJsApiLoader gets identical options
+const LIBRARIES = ['places'];
+
 const DEFAULT_ZOOM = 14;
 
 const DRIVER_ICON = {
@@ -38,6 +41,7 @@ function RideMap({
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    libraries: LIBRARIES,
   });
 
   const handleMapClick = useCallback(() => {

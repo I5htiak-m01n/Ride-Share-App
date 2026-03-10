@@ -1,10 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { RouteProvider } from './context/RouteContext';
+import { RideProviderLayout } from './context/RideContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RiderDashboard from './pages/RiderDashboard';
+import RideBookingPage from './pages/RideBookingPage';
+import RideConfirmPage from './pages/RideConfirmPage';
+import RideSearchingPage from './pages/RideSearchingPage';
 import DriverDashboard from './pages/DriverDashboard';
 import ProfileSettings from './pages/ProfileSettings';
 import DriverDocuments from './pages/DriverDocuments';
@@ -22,15 +26,17 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected routes - Rider */}
-          <Route
-            path="/rider/dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['rider', 'mixed']}>
-                <RiderDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* Rider routes — wrapped in RideProvider layout */}
+          <Route element={
+            <ProtectedRoute allowedRoles={['rider', 'mixed']}>
+              <RideProviderLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/rider/dashboard" element={<RiderDashboard />} />
+            <Route path="/rider/book" element={<RideBookingPage />} />
+            <Route path="/rider/confirm" element={<RideConfirmPage />} />
+            <Route path="/rider/searching" element={<RideSearchingPage />} />
+          </Route>
 
           {/* Protected routes - Driver */}
           <Route
