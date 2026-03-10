@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 
 // Stable reference so useJsApiLoader doesn't reload on every render
@@ -60,14 +60,29 @@ function BookingMap({
   dropoffLocation,
   onMapClick,
   centerLocation,
+  panTo,
   fullscreen = false,
   userLocation,
   nearbyVehicles = [],
 }) {
+  const mapRef = useRef(null);
+
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
     libraries: LIBRARIES,
   });
+
+  // Pan the map when panTo changes
+  useEffect(() => {
+    if (panTo && mapRef.current) {
+      mapRef.current.panTo(panTo);
+      mapRef.current.setZoom(15);
+    }
+  }, [panTo]);
+
+  const handleLoad = useCallback((map) => {
+    mapRef.current = map;
+  }, []);
 
   const handleClick = useCallback((e) => {
     if (onMapClick) {
@@ -101,6 +116,7 @@ function BookingMap({
       center={center}
       zoom={fullscreen ? 15 : 14}
       onClick={handleClick}
+      onLoad={handleLoad}
       options={{
         streetViewControl: false,
         mapTypeControl: false,

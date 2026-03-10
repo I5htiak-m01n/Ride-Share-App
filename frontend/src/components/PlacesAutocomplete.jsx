@@ -13,7 +13,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
  *   placeholder   – input placeholder text
  *   disabled      – disable the input
  */
-function PlacesAutocomplete({ value, onChange, onPlaceSelect, placeholder, disabled }) {
+function PlacesAutocomplete({ value, onChange, onPlaceSelect, placeholder, disabled, userLocation }) {
   const inputRef = useRef(null);
   const autocompleteRef = useRef(null);
   const [isReady, setIsReady] = useState(
@@ -55,6 +55,18 @@ function PlacesAutocomplete({ value, onChange, onPlaceSelect, placeholder, disab
 
     autocompleteRef.current = ac;
   }, [isReady, onChange, onPlaceSelect]);
+
+  // Set / update bounds to ~100 km radius from user location
+  useEffect(() => {
+    if (!autocompleteRef.current || !userLocation) return;
+    const OFFSET = 0.9;
+    const bounds = new window.google.maps.LatLngBounds(
+      { lat: userLocation.lat - OFFSET, lng: userLocation.lng - OFFSET },
+      { lat: userLocation.lat + OFFSET, lng: userLocation.lng + OFFSET },
+    );
+    autocompleteRef.current.setBounds(bounds);
+    autocompleteRef.current.setOptions({ strictBounds: true });
+  }, [userLocation]);
 
   const handleInput = useCallback(
     (e) => onChange(e.target.value),

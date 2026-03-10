@@ -49,6 +49,7 @@ function RiderDashboard() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
+  const [mapCenter, setMapCenter] = useState(null);
 
   // Wallet & Promo
   const [walletBalance, setWalletBalance] = useState(null);
@@ -168,10 +169,12 @@ function RiderDashboard() {
     if (clickMode === 'pickup') {
       setPickupCoords(coords);
       reverseGeocode(coords, setPickupAddr);
+      setMapCenter(coords);
       setClickMode('dropoff');
     } else {
       setDropoffCoords(coords);
       reverseGeocode(coords, setDropoffAddr);
+      setMapCenter(coords);
     }
   };
 
@@ -435,9 +438,11 @@ function RiderDashboard() {
                       onPlaceSelect={({ address, lat, lng }) => {
                         setPickupAddr(address);
                         setPickupCoords({ lat, lng });
+                        setMapCenter({ lat, lng });
                         setClickMode('dropoff');
                       }}
                       placeholder="Search pickup address"
+                      userLocation={userLocation}
                     />
                     <button
                       onClick={handleUseMyLocation}
@@ -455,8 +460,10 @@ function RiderDashboard() {
                     onPlaceSelect={({ address, lat, lng }) => {
                       setDropoffAddr(address);
                       setDropoffCoords({ lat, lng });
+                      setMapCenter({ lat, lng });
                     }}
                     placeholder="Search dropoff address"
+                    userLocation={userLocation}
                   />
                 </div>
               </div>
@@ -485,6 +492,7 @@ function RiderDashboard() {
                 dropoffLocation={dropoffCoords}
                 onMapClick={handleMapClick}
                 centerLocation={userLocation}
+                panTo={mapCenter}
               />
 
               <div className="booking-actions">
