@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useRoute } from './RouteContext';
-import { ridesAPI, walletAPI } from '../api/client';
+import { ridesAPI, walletAPI, ratingsAPI } from '../api/client';
 
 const RideContext = createContext(null);
 
@@ -72,6 +72,12 @@ export function RideProvider({ children }) {
 
   // Polling
   const pollRef = useRef(null);
+
+  // Rating
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingTarget, setRatingTarget] = useState(null); // { rideId, rateeUserId, rateeName }
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [userRating, setUserRating] = useState({ rating_avg: null, rating_count: 0 });
 
   // Fake nearby vehicles for idle map
   const nearbyVehicles = useMemo(() => {
@@ -149,6 +155,15 @@ export function RideProvider({ children }) {
             stopPolling();
             stopRouteChecking();
             clearRoute();
+            // Trigger rating modal for the driver
+            if (data.ride?.ride_id && data.ride?.driver_id) {
+              setRatingTarget({
+                rideId: data.ride.ride_id,
+                rateeUserId: data.ride.driver_id,
+                rateeName: data.ride.driver_name || 'your driver',
+              });
+              setShowRatingModal(true);
+            }
           }
           break;
         case 'idle':
@@ -337,9 +352,46 @@ export function RideProvider({ children }) {
     sessionStorage.removeItem(STORAGE_KEY);
   }, [stopPolling, clearRoute, fetchWalletBalance]);
 
-  // On mount: check for existing active ride + geolocation + wallet
+  // Rating actions
+  const fetchMyRating = useCallback(async () => {
+    try {
+      const res = await ratingsAPI.getMyRating();
+      setUserRating({
+        rating_avg: res.data.rating_avg,
+        rating_count: res.data.rating_count,
+      });
+    } catch (err) {
+      console.error('fetchMyRating error:', err);
+    }
+  }, []);
+
+  const handleSubmitRating = useCallback(async (score) => {
+    if (!ratingTarget) return;
+    setRatingLoading(true);
+    try {
+      await ratingsAPI.submit(ratingTarget.rideId, ratingTarget.rateeUserId, score);
+      // Brief delay to show success state
+      setTimeout(() => {
+        setShowRatingModal(false);
+        setRatingTarget(null);
+        setRatingLoading(false);
+        fetchMyRating();
+      }, 1200);
+    } catch (err) {
+      setRatingLoading(false);
+      throw new Error(err.response?.data?.error || 'Failed to submit rating');
+    }
+  }, [ratingTarget, fetchMyRating]);
+
+  const handleSkipRating = useCallback(() => {
+    setShowRatingModal(false);
+    setRatingTarget(null);
+  }, []);
+
+  // On mount: check for existing active ride + geolocation + wallet + rating
   useEffect(() => {
     fetchWalletBalance();
+    fetchMyRating();
     checkActiveRide().then(() => {
       if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
         startPolling();
@@ -378,6 +430,9 @@ export function RideProvider({ children }) {
     startPolling, checkActiveRide,
     // Route (re-exported for convenience)
     routePath, routeInfo, routeLoading, eta, wasRerouted,
+    // Rating
+    showRatingModal, ratingTarget, ratingLoading, userRating,
+    handleSubmitRating, handleSkipRating, fetchMyRating,
   };
 
   return (

@@ -192,4 +192,12 @@ export const paymentAPI = {
   initTopUp: (amount) => api.post('/payment/init', { amount }),
 };
 
+// Ratings API
+export const ratingsAPI = {
+  submit: (ride_id, ratee_user_id, score, comment) =>
+    api.post('/ratings', { ride_id, ratee_user_id, score, comment }),
+  getForRide: (rideId) => api.get(`/ratings/${rideId}`),
+  getMyRating: () => api.get('/ratings/user/me'),
+};
+
 export default api;

@@ -128,3 +128,41 @@ CREATE TRIGGER trg_payment_completed
   FOR EACH ROW
   WHEN (OLD.invoice_id IS NULL AND NEW.invoice_id IS NOT NULL)
   EXECUTE FUNCTION log_payment_completed();
+
+-- ---------------------------------------------------------
+-- 5. update_rating_avg()
+-- AFTER INSERT on ratings: recalculate the ratee's
+-- rating_avg in the riders or drivers profile table.
+-- Uses NULL when no ratings exist (instead of default 5.0).
+-- ---------------------------------------------------------
+CREATE OR REPLACE FUNCTION update_rating_avg()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_new_avg NUMERIC(3,2);
+  v_role TEXT;
+BEGIN
+  -- Calculate the new average for the ratee
+  SELECT ROUND(AVG(score)::numeric, 2) INTO v_new_avg
+  FROM ratings
+  WHERE ratee_user_id = NEW.ratee_user_id;
+
+  -- Determine the ratee's role
+  SELECT role INTO v_role FROM users WHERE user_id = NEW.ratee_user_id;
+
+  -- Update the appropriate profile table
+  IF v_role IN ('rider', 'mixed') THEN
+    UPDATE riders SET rating_avg = v_new_avg WHERE rider_id = NEW.ratee_user_id;
+  END IF;
+
+  IF v_role IN ('driver', 'mixed') THEN
+    UPDATE drivers SET rating_avg = v_new_avg WHERE driver_id = NEW.ratee_user_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_update_rating_avg ON ratings;
+CREATE TRIGGER trg_update_rating_avg
+  AFTER INSERT ON ratings
+  FOR EACH ROW EXECUTE FUNCTION update_rating_avg();

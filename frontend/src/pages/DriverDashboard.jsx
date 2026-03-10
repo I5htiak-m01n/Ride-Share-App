@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRoute } from '../context/RouteContext';
-import { ridesAPI, walletAPI } from '../api/client';
+import { ridesAPI, walletAPI, ratingsAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import RideMap from '../components/RideMap';
+import RatingModal from '../components/RatingModal';
+import RatingBadge from '../components/RatingBadge';
 import './Dashboard.css';
 
 const NEARBY_POLL_MS   = 10000;
@@ -38,6 +40,12 @@ function DriverDashboard() {
   const [locationError, setLocationError]   = useState(null);
   const [mapError, setMapError]             = useState(null);
   const [walletBalance, setWalletBalance]   = useState(null);
+
+  // Rating state
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingTarget, setRatingTarget]       = useState(null);
+  const [ratingLoading, setRatingLoading]     = useState(false);
+  const [userRating, setUserRating]           = useState({ rating_avg: null, rating_count: 0 });
 
   const watchIdRef          = useRef(null);
   const nearbyIntervalRef   = useRef(null);
@@ -81,6 +89,15 @@ function DriverDashboard() {
     }
   }, []);
 
+  const fetchMyRating = useCallback(async () => {
+    try {
+      const res = await ratingsAPI.getMyRating();
+      setUserRating({ rating_avg: res.data.rating_avg, rating_count: res.data.rating_count });
+    } catch (err) {
+      console.error('fetchMyRating error:', err);
+    }
+  }, []);
+
   const startOnlineMode = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by this browser.');
@@ -118,9 +135,10 @@ function DriverDashboard() {
 
   useEffect(() => () => stopOnlineMode(), [stopOnlineMode]);
 
-  // Get location on mount even when offline (for idle map) + fetch wallet
+  // Get location on mount even when offline (for idle map) + fetch wallet + rating
   useEffect(() => {
     fetchWalletBalance();
+    fetchMyRating();
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -173,6 +191,15 @@ function DriverDashboard() {
     try {
       const res = await ridesAPI.updateStatus(activeRide.ride.ride_id, status);
       if (status === 'completed' || status === 'cancelled') {
+        // Trigger rating modal for the rider before clearing ride
+        if (status === 'completed' && activeRide?.ride?.rider_id) {
+          setRatingTarget({
+            rideId: activeRide.ride.ride_id,
+            rateeUserId: activeRide.ride.rider_id,
+            rateeName: activeRide.rider_name || 'the rider',
+          });
+          setShowRatingModal(true);
+        }
         setActiveRide(null);
         fetchWalletBalance();
         stopRouteChecking();
@@ -205,6 +232,7 @@ function DriverDashboard() {
           <h2>RideShare Driver</h2>
         </div>
         <div className="nav-user">
+          <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
           <span>Hi, {user?.name || 'Driver'}</span>
           <button onClick={handleLogout} className="logout-btn">Log out</button>
         </div>
@@ -407,6 +435,33 @@ function DriverDashboard() {
           )}
         </div>
       </div>
+
+      {/* Rating Modal */}
+      {showRatingModal && ratingTarget && (
+        <RatingModal
+          rateeName={ratingTarget.rateeName}
+          onSubmit={async (score) => {
+            setRatingLoading(true);
+            try {
+              await ratingsAPI.submit(ratingTarget.rideId, ratingTarget.rateeUserId, score);
+              setTimeout(() => {
+                setShowRatingModal(false);
+                setRatingTarget(null);
+                setRatingLoading(false);
+                fetchMyRating();
+              }, 1200);
+            } catch (err) {
+              setRatingLoading(false);
+              throw new Error(err.response?.data?.error || 'Failed to submit rating');
+            }
+          }}
+          onSkip={() => {
+            setShowRatingModal(false);
+            setRatingTarget(null);
+          }}
+          loading={ratingLoading}
+        />
+      )}
     </div>
   );
 }

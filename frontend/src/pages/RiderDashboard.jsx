@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 import BookingMap from '../components/BookingMap';
+import RatingModal from '../components/RatingModal';
+import RatingBadge from '../components/RatingBadge';
 import './Dashboard.css';
 
 function RiderDashboard() {
@@ -14,6 +16,8 @@ function RiderDashboard() {
     activeRequest, activeRide,
     resetBooking, error, stopPolling,
     routePath, routeInfo, eta, wasRerouted, routeLoading,
+    showRatingModal, ratingTarget, ratingLoading, userRating,
+    handleSubmitRating, handleSkipRating,
   } = useRide();
 
   // If we're in a booking/confirming/searching phase, redirect to the correct page
@@ -48,6 +52,7 @@ function RiderDashboard() {
           <h2>RideShare</h2>
         </div>
         <div className="nav-user">
+          <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
           <span>Hi, {user?.name || 'Rider'}</span>
           <button onClick={handleLogout} className="logout-btn">Log out</button>
         </div>
@@ -286,6 +291,16 @@ function RiderDashboard() {
                 Done
               </button>
             </div>
+          )}
+
+          {/* Rating Modal */}
+          {showRatingModal && ratingTarget && (
+            <RatingModal
+              rateeName={ratingTarget.rateeName}
+              onSubmit={handleSubmitRating}
+              onSkip={handleSkipRating}
+              loading={ratingLoading}
+            />
           )}
         </div>
       )}

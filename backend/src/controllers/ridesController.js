@@ -439,7 +439,7 @@ const getRiderActiveRide = async (req, res) => {
         `SELECT ride_id, status, pickup_addr, dropoff_addr,
                 started_at, completed_at, final_fare,
                 driver_earning, platform_fee,
-                driver_name, estimated_fare, estimated_distance_km
+                driver_id, driver_name, estimated_fare, estimated_distance_km
          FROM v_ride_details
          WHERE rider_id = $1 AND status = 'completed'
            AND completed_at > NOW() - INTERVAL '2 minutes'
@@ -483,7 +483,7 @@ const getRiderActiveRide = async (req, res) => {
     const rideResult = await pool.query(
       `SELECT ride_id, status, started_at, completed_at,
               pickup_addr, dropoff_addr,
-              driver_name, driver_phone,
+              driver_id, driver_name, driver_phone,
               driver_rating,
               vehicle_model, vehicle_plate,
               estimated_fare, estimated_distance_km,
