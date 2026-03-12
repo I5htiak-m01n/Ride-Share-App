@@ -10,6 +10,7 @@ const paymentRoutes = require("./routes/payment");
 const ratingsRoutes = require("./routes/ratings");
 const chatRoutes = require("./routes/chat");
 const adminRoutes = require("./routes/admin");
+const complaintRoutes = require("./routes/complaints");
 
 const app = express(); 
 app.use(cors({ // cors configuration to allow requests from frontend
@@ -63,6 +64,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/ratings", ratingsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/complaints", complaintRoutes);
 
 // 404 handler
 app.use((req, res) => {

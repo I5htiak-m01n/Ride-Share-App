@@ -13,6 +13,7 @@ const {
   cancelRideRequest,
   getRiderHistory,
   getDriverHistory,
+  getRideDetail,
 } = require("../controllers/ridesController");
 const {
   getDirections,
@@ -44,6 +45,9 @@ router.get("/driver/history", authenticateToken, authorizeRoles("driver", "mixed
 
 // Driver: update ride status (started / completed / cancelled)
 router.put("/:id/status", authenticateToken, updateRideStatus);
+
+// Ride detail: full ride info + chat history + ratings (for both rider and driver)
+router.get("/:id/detail", authenticateToken, getRideDetail);
 
 // Rider: get fare estimate without creating request
 router.get("/fare-estimate", authenticateToken, authorizeRoles("rider", "mixed"), getFareEstimate);

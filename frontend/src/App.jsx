@@ -15,6 +15,7 @@ import DriverDocuments from './pages/DriverDocuments';
 import RideHistory from './pages/RideHistory';
 import Wallet from './pages/Wallet';
 import AdminDashboard from './pages/AdminDashboard';
+import Complaints from './pages/Complaints';
 import './App.css';
 
 function App() {
@@ -93,6 +94,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
                 <Wallet />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Complaints - accessible by riders and drivers */}
+          <Route
+            path="/complaints"
+            element={
+              <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
+                <Complaints />
               </ProtectedRoute>
             }
           />

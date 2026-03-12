@@ -167,6 +167,9 @@ export const ridesAPI = {
   // Ride history
   getRiderHistory: () => api.get('/rides/rider/history'),
   getDriverHistory: () => api.get('/rides/driver/history'),
+
+  // Ride detail (full info + chat + ratings)
+  getRideDetail: (rideId) => api.get(`/rides/${rideId}/detail`),
 };
 
 // Drivers API
@@ -227,6 +230,13 @@ export const adminAPI = {
     api.put(`/admin/complaints/${ticketId}`, { status }),
   getUsers: () => api.get('/admin/users'),
   toggleBanUser: (userId) => api.put(`/admin/users/${userId}/ban`),
+};
+
+// Complaints API (user-facing)
+export const complaintsAPI = {
+  file: (ride_id, category, details) =>
+    api.post('/complaints', { ride_id, category, details }),
+  getMine: () => api.get('/complaints/mine'),
 };
 
 export default api;

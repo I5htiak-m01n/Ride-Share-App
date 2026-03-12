@@ -556,9 +556,10 @@ const cancelRideRequest = async (req, res) => {
 const getRiderHistory = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT ride_id, status, started_at, completed_at, final_fare,
+      `SELECT ride_id, request_id, rider_id, driver_id, status,
+              started_at, completed_at, final_fare,
               pickup_addr, dropoff_addr, estimated_fare, estimated_distance_km,
-              driver_name
+              driver_name, driver_phone, driver_rating, vehicle_model, vehicle_plate
        FROM v_ride_details
        WHERE rider_id = $1
        ORDER BY completed_at DESC NULLS LAST, started_at DESC NULLS LAST
@@ -576,10 +577,11 @@ const getRiderHistory = async (req, res) => {
 const getDriverHistory = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT ride_id, status, started_at, completed_at, final_fare,
+      `SELECT ride_id, request_id, rider_id, driver_id, status,
+              started_at, completed_at, final_fare,
               driver_earning, platform_fee,
               pickup_addr, dropoff_addr, estimated_fare, estimated_distance_km,
-              rider_name
+              rider_name, vehicle_model, vehicle_plate
        FROM v_ride_details
        WHERE driver_id = $1
        ORDER BY completed_at DESC NULLS LAST, started_at DESC NULLS LAST
@@ -590,6 +592,61 @@ const getDriverHistory = async (req, res) => {
   } catch (err) {
     console.error("getDriverHistory error:", err);
     res.status(500).json({ error: "Failed to get ride history", details: err.message });
+  }
+};
+
+// GET /api/rides/:id/detail
+const getRideDetail = async (req, res) => {
+  try {
+    const rideId = req.params.id;
+    const userId = req.user.id;
+
+    // Fetch ride details — only if user is a participant
+    const rideResult = await pool.query(
+      `SELECT ride_id, request_id, rider_id, driver_id, status,
+              started_at, completed_at, final_fare, driver_earning, platform_fee,
+              pickup_addr, dropoff_addr, estimated_fare, estimated_distance_km,
+              driver_name, driver_phone, rider_name, driver_rating,
+              vehicle_model, vehicle_plate
+       FROM v_ride_details
+       WHERE ride_id = $1 AND (rider_id = $2 OR driver_id = $2)`,
+      [rideId, userId]
+    );
+
+    if (rideResult.rows.length === 0) {
+      return res.status(404).json({ error: "Ride not found" });
+    }
+
+    // Fetch chat messages
+    const messagesResult = await pool.query(
+      `SELECT m.message_id, m.sender_id, m.content, m.created_at,
+              u.first_name || ' ' || u.last_name AS sender_name
+       FROM chat_messages m
+       JOIN users u ON u.user_id = m.sender_id
+       WHERE m.ride_id = $1
+       ORDER BY m.created_at ASC`,
+      [rideId]
+    );
+
+    // Fetch ratings
+    const ratingsResult = await pool.query(
+      `SELECT r.rating_id, r.score, r.comment, r.created_at,
+              r.rater_user_id, r.ratee_user_id,
+              u.first_name || ' ' || u.last_name AS rater_name
+       FROM ratings r
+       JOIN users u ON u.user_id = r.rater_user_id
+       WHERE r.ride_id = $1`,
+      [rideId]
+    );
+
+    res.json({
+      ride: rideResult.rows[0],
+      messages: messagesResult.rows,
+      ratings: ratingsResult.rows,
+    });
+  } catch (err) {
+    console.error("getRideDetail error:", err);
+    res.status(500).json({ error: "Failed to get ride detail", details: err.message });
   }
 };
 
@@ -605,4 +662,5 @@ module.exports = {
   cancelRideRequest,
   getRiderHistory,
   getDriverHistory,
+  getRideDetail,
 };
