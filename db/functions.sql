@@ -60,6 +60,7 @@ CREATE OR REPLACE FUNCTION apply_promo_discount(
 DECLARE
   v_promo RECORD;
   v_usage_count int;
+  v_total_usage int;
 BEGIN
   -- If no promo code provided, return original fare
   IF p_promo_code IS NULL OR TRIM(p_promo_code) = '' THEN
@@ -68,7 +69,8 @@ BEGIN
   END IF;
 
   -- Look up the promo
-  SELECT p.promo_id, p.discount_amount, p.is_active, p.usage_per_user
+  SELECT p.promo_id, p.discount_amount, p.is_active, p.usage_per_user,
+         p.total_usage_limit, p.expiry_date
   INTO v_promo
   FROM promos p
   WHERE UPPER(p.promo_code) = UPPER(TRIM(p_promo_code));
@@ -77,6 +79,24 @@ BEGIN
   IF NOT FOUND OR NOT v_promo.is_active THEN
     RETURN QUERY SELECT p_fare, 0::numeric, NULL::uuid, false;
     RETURN;
+  END IF;
+
+  -- Check expiry date
+  IF v_promo.expiry_date IS NOT NULL AND v_promo.expiry_date < NOW() THEN
+    RETURN QUERY SELECT p_fare, 0::numeric, NULL::uuid, false;
+    RETURN;
+  END IF;
+
+  -- Check global usage limit
+  IF v_promo.total_usage_limit IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_total_usage
+    FROM promo_redemptions pr
+    WHERE pr.promo_id = v_promo.promo_id;
+
+    IF v_total_usage >= v_promo.total_usage_limit THEN
+      RETURN QUERY SELECT p_fare, 0::numeric, NULL::uuid, false;
+      RETURN;
+    END IF;
   END IF;
 
   -- Check usage limit for this rider

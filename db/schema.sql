@@ -281,7 +281,10 @@ create table public.promos (
   promo_code text unique not null,
   discount_amount numeric(12,2) not null default 0,
   is_active boolean not null default true,
-  usage_per_user int not null default 1
+  usage_per_user int not null default 1,
+  total_usage_limit int,                          -- NULL = unlimited
+  expiry_date timestamptz,                        -- NULL = no expiry
+  created_at timestamptz not null default now()
 );
 
 create table public.promo_redemptions (

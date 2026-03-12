@@ -149,6 +149,9 @@ export const ridesAPI = {
   // Rider: cancel pending ride request
   cancelRequest: (requestId) => api.post(`/rides/requests/${requestId}/cancel`),
 
+  // Rider: get available promo codes
+  getAvailablePromos: () => api.get('/rides/rider/promos'),
+
   // Directions: get route preview between two points
   getDirections: (origin_lat, origin_lng, dest_lat, dest_lng, travel_mode = 'driving') =>
     api.post('/rides/directions', { origin_lat, origin_lng, dest_lat, dest_lng, travel_mode }),
@@ -231,6 +234,12 @@ export const adminAPI = {
     api.put(`/admin/complaints/${ticketId}`, { status }),
   getUsers: () => api.get('/admin/users'),
   toggleBanUser: (userId) => api.put(`/admin/users/${userId}/ban`),
+  // Promos
+  getPromos: () => api.get('/admin/promos'),
+  getPromoStats: () => api.get('/admin/promos/stats'),
+  createPromo: (data) => api.post('/admin/promos', data),
+  updatePromo: (promoId, data) => api.put(`/admin/promos/${promoId}`, data),
+  deletePromo: (promoId) => api.delete(`/admin/promos/${promoId}`),
 };
 
 // Complaints API (user-facing)

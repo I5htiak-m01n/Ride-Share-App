@@ -13,7 +13,9 @@ const getDashboardStats = async (req, res) => {
         (SELECT COUNT(*) FROM support_tickets WHERE status IN ('open','in_progress')) AS open_tickets,
         (SELECT COUNT(*) FROM driver_documents WHERE status = 'pending') AS pending_documents,
         (SELECT COUNT(*) FROM complaints WHERE status IN ('filed','under_review')) AS open_complaints,
-        (SELECT COUNT(*) FROM users WHERE is_banned = true) AS banned_users
+        (SELECT COUNT(*) FROM users WHERE is_banned = true) AS banned_users,
+        (SELECT COUNT(*) FROM promos WHERE is_active = true
+          AND (expiry_date IS NULL OR expiry_date > NOW())) AS active_promos
     `);
     res.json({ stats: stats.rows[0] });
   } catch (err) {

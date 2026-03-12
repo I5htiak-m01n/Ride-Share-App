@@ -15,6 +15,8 @@ import DriverDocuments from './pages/DriverDocuments';
 import RideHistory from './pages/RideHistory';
 import Wallet from './pages/Wallet';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminPromos from './pages/AdminPromos';
+import RiderPromos from './pages/RiderPromos';
 import Complaints from './pages/Complaints';
 import './App.css';
 
@@ -114,6 +116,26 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Promos Management */}
+          <Route
+            path="/admin/promos"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminPromos />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Rider Promos */}
+          <Route
+            path="/rider/promos"
+            element={
+              <ProtectedRoute allowedRoles={['rider', 'mixed']}>
+                <RiderPromos />
               </ProtectedRoute>
             }
           />

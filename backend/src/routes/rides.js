@@ -22,6 +22,7 @@ const {
   rerouteRide,
   checkAndReroute,
 } = require("../controllers/directionsController");
+const { getAvailablePromos } = require("../controllers/promoController");
 
 // Rider: create a ride request
 router.post("/request", authenticateToken, authorizeRoles("rider", "mixed"), createRideRequest);
@@ -61,6 +62,9 @@ router.get("/rider/active", authenticateToken, authorizeRoles("rider", "mixed"),
 
 // Rider: cancel a pending ride request
 router.post("/requests/:id/cancel", authenticateToken, authorizeRoles("rider", "mixed"), cancelRideRequest);
+
+// Rider: get available promo codes
+router.get("/rider/promos", authenticateToken, authorizeRoles("rider", "mixed"), getAvailablePromos);
 
 // Directions: get route preview between two points
 router.post("/directions", authenticateToken, getDirections);

@@ -10,6 +10,7 @@ const TABS = [
   { key: 'tickets', label: 'Support Tickets' },
   { key: 'complaints', label: 'Complaints' },
   { key: 'users', label: 'Users' },
+  { key: 'promos', label: 'Promos' },
 ];
 
 export default function AdminDashboard() {
@@ -122,6 +123,10 @@ export default function AdminDashboard() {
     setError(null);
     setSelectedTicketId(null);
     setTicketDetail(null);
+    if (activeTab === 'promos') {
+      navigate('/admin/promos');
+      return;
+    }
     switch (activeTab) {
       case 'overview': fetchStats(); break;
       case 'documents': fetchDocuments(); break;
@@ -129,7 +134,7 @@ export default function AdminDashboard() {
       case 'complaints': fetchComplaints(); break;
       case 'users': fetchUsers(); break;
     }
-  }, [activeTab, fetchStats, fetchDocuments, fetchTickets, fetchComplaints, fetchUsers]);
+  }, [activeTab, fetchStats, fetchDocuments, fetchTickets, fetchComplaints, fetchUsers, navigate]);
 
   // Refetch on filter change
   useEffect(() => { if (activeTab === 'documents') fetchDocuments(); }, [docFilter, fetchDocuments, activeTab]);
@@ -225,6 +230,10 @@ export default function AdminDashboard() {
             <div className="stat-card"><div className="stat-number">{stats.pending_documents}</div><div className="stat-label">Pending Docs</div></div>
             <div className="stat-card"><div className="stat-number">{stats.open_complaints}</div><div className="stat-label">Open Complaints</div></div>
             <div className="stat-card"><div className="stat-number">{stats.banned_users}</div><div className="stat-label">Banned Users</div></div>
+            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/promos')}>
+              <div className="stat-number">{stats.active_promos || 0}</div>
+              <div className="stat-label">Active Promos</div>
+            </div>
           </div>
         )}
         {activeTab === 'overview' && !stats && !loading && (

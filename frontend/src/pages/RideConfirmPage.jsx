@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
+import { ridesAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import './Dashboard.css';
 
@@ -17,6 +18,27 @@ function RideConfirmPage() {
     error, loading, stopPolling,
     routePath, routeInfo, eta, wasRerouted, routeLoading,
   } = useRide();
+
+  const [availablePromos, setAvailablePromos] = useState([]);
+  const [promosLoading, setPromosLoading] = useState(false);
+
+  // Fetch available promos on mount
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPromos = async () => {
+      setPromosLoading(true);
+      try {
+        const { data } = await ridesAPI.getAvailablePromos();
+        if (!cancelled) setAvailablePromos(data.promos);
+      } catch {
+        // silently fail — promos are optional
+      } finally {
+        if (!cancelled) setPromosLoading(false);
+      }
+    };
+    fetchPromos();
+    return () => { cancelled = true; };
+  }, []);
 
   // Route guard: must have fare estimate and be in confirming phase
   useEffect(() => {
@@ -101,12 +123,33 @@ function RideConfirmPage() {
           <div className="promo-input-section">
             <label>Have a discount coupon?</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={promoCode}
-                onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); }}
-                placeholder="Enter promo code"
-              />
+              {availablePromos.length > 0 ? (
+                <select
+                  value={promoCode}
+                  onChange={(e) => {
+                    setPromoCode(e.target.value);
+                    setPromoResult(null);
+                  }}
+                  style={{
+                    flex: 1, padding: '10px 12px', border: '1px solid #ccc',
+                    borderRadius: 8, fontSize: 14, background: '#fff',
+                  }}
+                >
+                  <option value="">Select a promo code</option>
+                  {availablePromos.map(p => (
+                    <option key={p.promo_id} value={p.promo_code}>
+                      {p.promo_code} — {parseFloat(p.discount_amount).toFixed(0)} BDT off ({p.remaining_uses} use{p.remaining_uses !== 1 ? 's' : ''} left)
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); }}
+                  placeholder={promosLoading ? 'Loading promos...' : 'Enter promo code'}
+                />
+              )}
               <button
                 onClick={handleValidatePromo}
                 disabled={!promoCode.trim() || promoLoading}
