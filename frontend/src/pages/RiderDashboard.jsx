@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 import BookingMap from '../components/BookingMap';
+import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
 import RatingBadge from '../components/RatingBadge';
 import './Dashboard.css';
@@ -189,6 +190,11 @@ function RiderDashboard() {
                 </div>
               </div>
               <span className="status-badge">Driver is on the way</span>
+              <ChatPanel
+                rideId={activeRide.ride_id}
+                currentUserId={user.user_id}
+                otherName={activeRide.driver_name}
+              />
             </div>
           )}
 
@@ -229,6 +235,11 @@ function RiderDashboard() {
                 </div>
               </div>
               <span className="status-badge active">Ride started</span>
+              <ChatPanel
+                rideId={activeRide.ride_id}
+                currentUserId={user.user_id}
+                otherName={activeRide.driver_name}
+              />
             </div>
           )}
 

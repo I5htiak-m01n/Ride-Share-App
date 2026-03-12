@@ -14,6 +14,7 @@ import ProfileSettings from './pages/ProfileSettings';
 import DriverDocuments from './pages/DriverDocuments';
 import RideHistory from './pages/RideHistory';
 import Wallet from './pages/Wallet';
+import AdminDashboard from './pages/AdminDashboard';
 import './App.css';
 
 function App() {
@@ -92,6 +93,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
                 <Wallet />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Dashboard */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />

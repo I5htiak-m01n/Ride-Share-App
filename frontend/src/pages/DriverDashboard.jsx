@@ -5,6 +5,7 @@ import { useRoute } from '../context/RouteContext';
 import { ridesAPI, walletAPI, ratingsAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import RideMap from '../components/RideMap';
+import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
 import RatingBadge from '../components/RatingBadge';
 import './Dashboard.css';
@@ -319,6 +320,11 @@ function DriverDashboard() {
                   Cancel Ride
                 </button>
               </div>
+              <ChatPanel
+                rideId={activeRide.ride.ride_id}
+                currentUserId={user.user_id}
+                otherName={activeRide.rider_name}
+              />
             </div>
           )}
 

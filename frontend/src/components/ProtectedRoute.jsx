@@ -27,6 +27,8 @@ function ProtectedRoute({ children, allowedRoles }) {
       return <Navigate to="/rider/dashboard" replace />;
     } else if (user?.role === 'driver') {
       return <Navigate to="/driver/dashboard" replace />;
+    } else if (user?.role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />;
     } else {
       return <Navigate to="/dashboard" replace />;
     }

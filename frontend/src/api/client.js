@@ -200,4 +200,33 @@ export const ratingsAPI = {
   getMyRating: () => api.get('/ratings/user/me'),
 };
 
+// Chat API
+export const chatAPI = {
+  getMessages: (rideId, since) =>
+    api.get(`/chat/${rideId}/messages${since ? `?since=${encodeURIComponent(since)}` : ''}`),
+  sendMessage: (rideId, content) =>
+    api.post(`/chat/${rideId}/messages`, { content }),
+};
+
+// Admin API
+export const adminAPI = {
+  getStats: () => api.get('/admin/stats'),
+  getDocuments: (status) =>
+    api.get(`/admin/documents${status ? `?status=${status}` : ''}`),
+  verifyDocument: (driverId, docType, status) =>
+    api.put(`/admin/documents/${driverId}/${encodeURIComponent(docType)}`, { status }),
+  getTickets: (status) =>
+    api.get(`/admin/tickets${status ? `?status=${status}` : ''}`),
+  getTicketDetail: (ticketId) =>
+    api.get(`/admin/tickets/${ticketId}`),
+  respondToTicket: (ticketId, message, status) =>
+    api.post(`/admin/tickets/${ticketId}/respond`, { message, status }),
+  getComplaints: (status) =>
+    api.get(`/admin/complaints${status ? `?status=${status}` : ''}`),
+  resolveComplaint: (ticketId, status) =>
+    api.put(`/admin/complaints/${ticketId}`, { status }),
+  getUsers: () => api.get('/admin/users'),
+  toggleBanUser: (userId) => api.put(`/admin/users/${userId}/ban`),
+};
+
 export default api;

@@ -173,7 +173,7 @@ const login = async (req, res) => {
 
     // Query user by email (including password hash)
     const userResult = await client.query(
-      `SELECT user_id, first_name, last_name, email, password_hash, role, phone_number, created_at
+      `SELECT user_id, first_name, last_name, email, password_hash, role, phone_number, is_banned, created_at
        FROM users
        WHERE email = $1`,
       [email]
@@ -191,6 +191,12 @@ const login = async (req, res) => {
     if (!isPasswordValid) {
       await client.query("ROLLBACK");
       return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Check if user is banned
+    if (user.is_banned) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "Your account has been suspended. Contact support." });
     }
 
     // Ensure wallet exists

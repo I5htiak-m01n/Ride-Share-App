@@ -17,12 +17,19 @@ const authenticateToken = async (req, res, next) => {
 
     // Fetch user role from database to ensure it's current
     const dbResult = await pool.query(
-      "SELECT user_id, email, first_name, last_name, role FROM users WHERE user_id = $1",
+      "SELECT user_id, email, first_name, last_name, role, is_banned FROM users WHERE user_id = $1",
       [decoded.user_id]
     );
 
     if (dbResult.rows.length === 0) {
       return res.status(401).json({ error: "User not found" });
+    }
+
+    if (dbResult.rows[0].is_banned) {
+      return res.status(403).json({
+        error: "Account suspended",
+        detail: "Your account has been banned. Contact support."
+      });
     }
 
     // Attach user info to request

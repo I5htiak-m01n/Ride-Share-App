@@ -24,6 +24,7 @@ create table public.users (
   phone_number text not null unique,
   role text not null check (role in ('rider','driver','admin','support','mixed')),
   avatar_url text,
+  is_banned boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -133,6 +134,18 @@ create table public.driver_documents (
   unique (driver_id, doc_type),
   primary key (driver_id, doc_type)
 );
+
+-- Chat messages between rider and driver during an active ride
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  message_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ride_id uuid NOT NULL REFERENCES public.rides(ride_id) ON DELETE CASCADE,
+  sender_id uuid NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
+  content text NOT NULL CHECK (char_length(content) > 0 AND char_length(content) <= 500),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_ride_created ON public.chat_messages(ride_id, created_at);
+
 
 create table public.vehicle_documents (
   vehicle_id uuid not null references public.vehicles(vehicle_id) on delete cascade,
@@ -351,6 +364,15 @@ create table public.lost_item_reports (
   description text,
   reported_at timestamptz not null default now()
 );
+
+create table public.ticket_responses (
+  response_id uuid primary key default gen_random_uuid(),
+  ticket_id uuid not null references public.support_tickets(ticket_id) on delete cascade,
+  responder_id uuid not null references public.users(user_id) on delete cascade,
+  message text not null check (char_length(message) > 0),
+  created_at timestamptz not null default now()
+);
+create index idx_ticket_responses_ticket on public.ticket_responses(ticket_id, created_at);
 
 create table public.notifications (
   notif_id uuid primary key default gen_random_uuid(),
