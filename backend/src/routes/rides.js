@@ -10,6 +10,7 @@ const {
   updateRideStatus,
   getFareEstimate,
   getRiderActiveRide,
+  getDriverActiveRide,
   cancelRideRequest,
   getRiderHistory,
   getDriverHistory,
@@ -42,6 +43,9 @@ router.get("/rider/history", authenticateToken, authorizeRoles("rider", "mixed")
 
 // Driver: ride history
 router.get("/driver/history", authenticateToken, authorizeRoles("driver", "mixed"), getDriverHistory);
+
+// Driver: poll for active ride (state restoration on login/refresh)
+router.get("/driver/active", authenticateToken, authorizeRoles("driver", "mixed"), getDriverActiveRide);
 
 // Driver: update ride status (started / completed / cancelled)
 router.put("/:id/status", authenticateToken, updateRideStatus);

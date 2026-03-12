@@ -167,6 +167,7 @@ export const ridesAPI = {
   // Ride history
   getRiderHistory: () => api.get('/rides/rider/history'),
   getDriverHistory: () => api.get('/rides/driver/history'),
+  getDriverActive: () => api.get('/rides/driver/active'),
 
   // Ride detail (full info + chat + ratings)
   getRideDetail: (rideId) => api.get(`/rides/${rideId}/detail`),

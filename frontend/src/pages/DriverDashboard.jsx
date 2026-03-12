@@ -136,8 +136,25 @@ function DriverDashboard() {
 
   useEffect(() => () => stopOnlineMode(), [stopOnlineMode]);
 
-  // Get location on mount even when offline (for idle map) + fetch wallet + rating
+  // Get location on mount even when offline (for idle map) + fetch wallet + rating + restore active ride
   useEffect(() => {
+    // Restore active ride state if driver has an in-progress ride (handles refresh / re-login)
+    const restoreActiveRide = async () => {
+      try {
+        const res = await ridesAPI.getDriverActive();
+        if (res.data.active && res.data.ride) {
+          setActiveRide(res.data);
+          if (res.data.ride.ride_id) {
+            await fetchRideRoute(res.data.ride.ride_id);
+            startRouteChecking(res.data.ride.ride_id, () => currentLocationRef.current);
+          }
+        }
+      } catch (err) {
+        console.error('restoreActiveRide error:', err);
+      }
+    };
+    restoreActiveRide();
+
     fetchWalletBalance();
     fetchMyRating();
     if (navigator.geolocation) {

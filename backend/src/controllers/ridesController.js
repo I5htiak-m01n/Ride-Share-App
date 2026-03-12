@@ -524,6 +524,46 @@ const getRiderActiveRide = async (req, res) => {
   }
 };
 
+// GET /api/rides/driver/active
+// Driver: check for an active ride (state restoration on login/refresh)
+const getDriverActiveRide = async (req, res) => {
+  const driverId = req.user.id;
+
+  try {
+    const result = await pool.query(
+      `SELECT ride_id, request_id, rider_id, driver_id, status,
+              pickup_addr, dropoff_addr, rider_name, estimated_fare
+       FROM v_ride_details
+       WHERE driver_id = $1 AND status IN ('driver_assigned', 'started')
+       ORDER BY ride_id DESC
+       LIMIT 1`,
+      [driverId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ active: false });
+    }
+
+    const row = result.rows[0];
+
+    res.json({
+      active: true,
+      ride: {
+        ride_id: row.ride_id,
+        status: row.status,
+        pickup_addr: row.pickup_addr,
+        dropoff_addr: row.dropoff_addr,
+        rider_id: row.rider_id,
+      },
+      rider_name: row.rider_name,
+      estimated_fare: row.estimated_fare,
+    });
+  } catch (err) {
+    console.error("getDriverActiveRide error:", err);
+    res.status(500).json({ error: "Failed to get active ride", details: err.message });
+  }
+};
+
 // POST /api/rides/requests/:id/cancel
 // Rider: cancel their own pending ride request
 const cancelRideRequest = async (req, res) => {
@@ -659,6 +699,7 @@ module.exports = {
   updateRideStatus,
   getFareEstimate,
   getRiderActiveRide,
+  getDriverActiveRide,
   cancelRideRequest,
   getRiderHistory,
   getDriverHistory,
