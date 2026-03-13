@@ -84,7 +84,7 @@ const updateDriverLocation = async (req, res) => {
 // Rider: create a new ride request
 const createRideRequest = async (req, res) => {
   const riderId = req.user.id;
-  const { pickup_lat, pickup_lng, pickup_addr, dropoff_lat, dropoff_lng, dropoff_addr, promo_code } = req.body;
+  const { pickup_lat, pickup_lng, pickup_addr, dropoff_lat, dropoff_lng, dropoff_addr, promo_code, vehicle_type } = req.body;
 
   if (!pickup_lat || !pickup_lng || !pickup_addr || !dropoff_lat || !dropoff_lng || !dropoff_addr) {
     return res.status(400).json({ error: "pickup and dropoff location and address are required" });
@@ -108,26 +108,37 @@ const createRideRequest = async (req, res) => {
     );
 
     const distanceKm = parseFloat(calcResult.rows[0].distance_km);
-    const estimatedFare = calcResult.rows[0].estimated_fare;
+    let estimatedFare = parseFloat(calcResult.rows[0].estimated_fare);
     const estimatedDuration = calcResult.rows[0].estimated_duration;
+
+    // Apply vehicle type fare multiplier
+    const vType = vehicle_type || 'economy';
+    const multiplierResult = await pool.query(
+      `SELECT fare_multiplier FROM vehicle_types WHERE type_key = $1`,
+      [vType]
+    );
+    const fareMultiplier = multiplierResult.rows.length > 0
+      ? parseFloat(multiplierResult.rows[0].fare_multiplier)
+      : 1.0;
+    estimatedFare = Math.round(estimatedFare * fareMultiplier * 100) / 100;
 
     const result = await pool.query(
       `INSERT INTO ride_requests
         (rider_id, pickup_location, pickup_addr, dropoff_location, dropoff_addr,
-         status, estimated_fare, estimated_distance_km, expires_at, promo_code)
+         status, estimated_fare, estimated_distance_km, expires_at, promo_code, vehicle_type)
        VALUES
         ($1,
          ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4,
          ST_SetSRID(ST_MakePoint($6, $5), 4326)::geography, $7,
          'open', $8, $9,
-         NOW() + INTERVAL '5 minutes', $10)
+         NOW() + INTERVAL '5 minutes', $10, $11)
        RETURNING request_id, status, pickup_addr, dropoff_addr,
-                 estimated_fare, estimated_distance_km, created_at`,
+                 estimated_fare, estimated_distance_km, created_at, vehicle_type`,
       [
         riderId,
         parseFloat(pickup_lat), parseFloat(pickup_lng), pickup_addr,
         parseFloat(dropoff_lat), parseFloat(dropoff_lng), dropoff_addr,
-        estimatedFare, distanceKm, promo_code || null,
+        estimatedFare, distanceKm, promo_code || null, vType,
       ]
     );
 
@@ -185,15 +196,24 @@ const acceptRequest = async (req, res) => {
       [requestId]
     );
 
+    // Find the driver's active vehicle (match ride request vehicle type if present)
+    const requestedType = request.vehicle_type || null;
+    const vehicleQuery = requestedType
+      ? `SELECT vehicle_id FROM vehicles WHERE driver_id = $1 AND is_active = true AND type = $2 LIMIT 1`
+      : `SELECT vehicle_id FROM vehicles WHERE driver_id = $1 AND is_active = true LIMIT 1`;
+    const vehicleParams = requestedType ? [driverId, requestedType] : [driverId];
+    const vehicleResult = await client.query(vehicleQuery, vehicleParams);
+    const vehicleId = vehicleResult.rows.length > 0 ? vehicleResult.rows[0].vehicle_id : null;
+
     // Create the ride
     const rideResult = await client.query(
       `INSERT INTO rides
-        (request_id, rider_id, driver_id, pickup_location,
+        (request_id, rider_id, driver_id, vehicle_id, pickup_location,
          dropoff_location, status)
-       VALUES ($1, $2, $3, $4, $5, 'driver_assigned')
-       RETURNING ride_id, status`,
+       VALUES ($1, $2, $3, $4, $5, $6, 'driver_assigned')
+       RETURNING ride_id, status, rider_id`,
       [
-        requestId, request.rider_id, driverId,
+        requestId, request.rider_id, driverId, vehicleId,
         request.pickup_location,
         request.dropoff_location,
       ]

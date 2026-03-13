@@ -70,6 +70,9 @@ export function RideProvider({ children }) {
   const [promoResult, setPromoResult] = useState(saved?.promoResult || null);
   const [promoLoading, setPromoLoading] = useState(false);
 
+  // Vehicle type selection
+  const [vehicleType, setVehicleType] = useState(saved?.vehicleType || 'economy');
+
   // Polling
   const pollRef = useRef(null);
 
@@ -94,10 +97,11 @@ export function RideProvider({ children }) {
       fareEstimate,
       activeRequest, activeRide,
       promoCode, promoResult,
+      vehicleType,
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
   }, [ridePhase, pickupAddr, dropoffAddr, pickupCoords, dropoffCoords,
-      fareEstimate, activeRequest, activeRide, promoCode, promoResult]);
+      fareEstimate, activeRequest, activeRide, promoCode, promoResult, vehicleType]);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -292,6 +296,7 @@ export function RideProvider({ children }) {
         dropoff_lng: dropoffCoords.lng,
         dropoff_addr: dropoffAddr,
         promo_code: promoCode || undefined,
+        vehicle_type: vehicleType,
       });
       setActiveRequest(res.data.request);
       setRidePhase('searching');
@@ -303,7 +308,7 @@ export function RideProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [pickupCoords, dropoffCoords, pickupAddr, dropoffAddr, promoCode, startPolling]);
+  }, [pickupCoords, dropoffCoords, pickupAddr, dropoffAddr, promoCode, vehicleType, startPolling]);
 
   // Validate promo code
   const handleValidatePromo = useCallback(async () => {
@@ -346,6 +351,7 @@ export function RideProvider({ children }) {
     setStatusMessage(null);
     setPromoCode('');
     setPromoResult(null);
+    setVehicleType('economy');
     stopPolling();
     clearRoute();
     fetchWalletBalance();
@@ -421,6 +427,8 @@ export function RideProvider({ children }) {
     error, setError, loading, userLocation,
     // Wallet & Promo
     walletBalance, promoCode, setPromoCode, promoResult, setPromoResult, promoLoading,
+    // Vehicle type
+    vehicleType, setVehicleType,
     // Nearby vehicles
     nearbyVehicles,
     // Actions

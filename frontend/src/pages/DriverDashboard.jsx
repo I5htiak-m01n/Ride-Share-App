@@ -275,6 +275,8 @@ function DriverDashboard() {
       }
     } catch (err) {
       console.error('updateStatus error:', err);
+      const msg = err.response?.data?.error || err.response?.data?.details || 'Failed to update ride status';
+      setMapError(msg);
     }
   };
 
