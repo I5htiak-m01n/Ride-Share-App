@@ -6,6 +6,7 @@ import BookingMap from '../components/BookingMap';
 import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
 import RatingBadge from '../components/RatingBadge';
+import NotificationDropdown from '../components/NotificationDropdown';
 import './Dashboard.css';
 
 function RiderDashboard() {
@@ -53,6 +54,7 @@ function RiderDashboard() {
           <h2>RideShare</h2>
         </div>
         <div className="nav-user">
+          <NotificationDropdown />
           <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
           <span>Hi, {user?.name || 'Rider'}</span>
           <button onClick={handleLogout} className="logout-btn">Log out</button>

@@ -215,6 +215,14 @@ export const chatAPI = {
     api.post(`/chat/${rideId}/messages`, { content }),
 };
 
+// Notifications API
+export const notificationsAPI = {
+  getAll: () => api.get('/notifications'),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (notifId) => api.put(`/notifications/${notifId}/read`),
+  markAllRead: () => api.put('/notifications/read-all'),
+};
+
 // Admin API
 export const adminAPI = {
   getStats: () => api.get('/admin/stats'),

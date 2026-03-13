@@ -202,23 +202,50 @@ const getAllComplaints = async (req, res) => {
 
 // PUT /api/admin/complaints/:ticketId
 const resolveComplaint = async (req, res) => {
+  const { ticketId } = req.params;
+  const { status } = req.body;
+  if (!["resolved", "rejected", "under_review"].includes(status)) {
+    return res.status(400).json({ error: "Status must be 'resolved', 'rejected', or 'under_review'" });
+  }
+
+  const client = await pool.connect();
   try {
-    const { ticketId } = req.params;
-    const { status } = req.body;
-    if (!["resolved", "rejected", "under_review"].includes(status)) {
-      return res.status(400).json({ error: "Status must be 'resolved', 'rejected', or 'under_review'" });
-    }
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `UPDATE complaints SET status = $1 WHERE ticket_id = $2 RETURNING *`,
       [status, ticketId]
     );
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Complaint not found" });
     }
+
+    // Notify the user who filed the complaint on terminal statuses
+    if (status === "resolved" || status === "rejected") {
+      const ticketResult = await client.query(
+        `SELECT created_by_user_id FROM support_tickets WHERE ticket_id = $1`,
+        [ticketId]
+      );
+      if (ticketResult.rows.length > 0) {
+        const body = status === "resolved"
+          ? "Your complaint has been resolved. Thank you for your feedback."
+          : "Your complaint has been reviewed and closed. Contact support if you have questions.";
+        await client.query(
+          `INSERT INTO notifications (user_id, title, body) VALUES ($1, $2, $3)`,
+          [ticketResult.rows[0].created_by_user_id, "Complaint Update", body]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
     res.json({ message: `Complaint ${status}`, complaint: result.rows[0] });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("resolveComplaint error:", err);
     res.status(500).json({ error: "Failed to resolve complaint" });
+  } finally {
+    client.release();
   }
 };
 

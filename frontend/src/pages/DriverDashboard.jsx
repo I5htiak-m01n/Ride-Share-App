@@ -8,6 +8,7 @@ import RideMap from '../components/RideMap';
 import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
 import RatingBadge from '../components/RatingBadge';
+import NotificationDropdown from '../components/NotificationDropdown';
 import './Dashboard.css';
 
 const NEARBY_POLL_MS   = 10000;
@@ -250,6 +251,7 @@ function DriverDashboard() {
           <h2>RideShare Driver</h2>
         </div>
         <div className="nav-user">
+          <NotificationDropdown />
           <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
           <span>Hi, {user?.name || 'Driver'}</span>
           <button onClick={handleLogout} className="logout-btn">Log out</button>

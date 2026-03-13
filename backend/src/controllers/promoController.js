@@ -35,17 +35,20 @@ const getPromoStats = async (req, res) => {
 
 // POST /api/admin/promos — create a new promo
 const createPromo = async (req, res) => {
+  const { promo_code, discount_amount, usage_per_user, total_usage_limit, expiry_date } = req.body;
+
+  if (!promo_code || !promo_code.trim()) {
+    return res.status(400).json({ error: "Promo code is required" });
+  }
+  if (!discount_amount || parseFloat(discount_amount) <= 0) {
+    return res.status(400).json({ error: "Discount amount must be greater than 0" });
+  }
+
+  const client = await pool.connect();
   try {
-    const { promo_code, discount_amount, usage_per_user, total_usage_limit, expiry_date } = req.body;
+    await client.query("BEGIN");
 
-    if (!promo_code || !promo_code.trim()) {
-      return res.status(400).json({ error: "Promo code is required" });
-    }
-    if (!discount_amount || parseFloat(discount_amount) <= 0) {
-      return res.status(400).json({ error: "Discount amount must be greater than 0" });
-    }
-
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO promos (promo_code, discount_amount, usage_per_user, total_usage_limit, expiry_date, is_active)
        VALUES (UPPER(TRIM($1)), $2, $3, $4, $5, true)
        RETURNING *`,
@@ -58,13 +61,30 @@ const createPromo = async (req, res) => {
       ]
     );
 
-    res.status(201).json({ message: "Promo created", promo: result.rows[0] });
+    const promo = result.rows[0];
+
+    // Notify all eligible riders about the new promo
+    await client.query(
+      `INSERT INTO notifications (user_id, title, body)
+       SELECT u.user_id,
+              'New Promo Code Available!',
+              'Use code ' || $1 || ' to get ' || $2 || ' BDT off your next ride!'
+       FROM users u
+       WHERE u.role IN ('rider', 'mixed') AND u.is_banned = false`,
+      [promo.promo_code, promo.discount_amount]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ message: "Promo created", promo });
   } catch (err) {
+    await client.query("ROLLBACK");
     if (err.code === "23505") {
       return res.status(409).json({ error: "A promo with this code already exists" });
     }
     console.error("createPromo error:", err);
     res.status(500).json({ error: "Failed to create promo" });
+  } finally {
+    client.release();
   }
 };
 
