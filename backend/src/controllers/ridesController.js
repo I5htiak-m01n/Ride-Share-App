@@ -690,6 +690,41 @@ const getRideDetail = async (req, res) => {
   }
 };
 
+// GET /api/rides/vehicle-types — public endpoint
+const getVehicleTypes = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT type_key, label, description, fare_multiplier, capacity
+       FROM vehicle_types ORDER BY sort_order`
+    );
+    res.json({ vehicle_types: result.rows });
+  } catch (err) {
+    console.error("getVehicleTypes error:", err);
+    res.status(500).json({ error: "Failed to get vehicle types" });
+  }
+};
+
+// GET /api/rides/driver/readiness — check if driver can go online
+const checkDriverReadiness = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT vehicle_id, model, type FROM vehicles
+       WHERE driver_id = $1 AND is_active = true`,
+      [req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({
+        ready: false,
+        error: "You must have an active vehicle before going online. Go to My Vehicles to set one.",
+      });
+    }
+    res.json({ ready: true, active_vehicle: result.rows[0] });
+  } catch (err) {
+    console.error("checkDriverReadiness error:", err);
+    res.status(500).json({ error: "Failed to check readiness" });
+  }
+};
+
 module.exports = {
   getNearbyRequests,
   updateDriverLocation,
@@ -704,4 +739,6 @@ module.exports = {
   getRiderHistory,
   getDriverHistory,
   getRideDetail,
+  getVehicleTypes,
+  checkDriverReadiness,
 };
