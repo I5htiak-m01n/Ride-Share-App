@@ -301,19 +301,26 @@ const getProfile = async (req, res) => {
 };
 
 const logout = async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query("BEGIN");
+
     // Revoke all refresh tokens for this user
-    await pool.query(
+    await client.query(
       "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL",
       [req.user.id]
     );
 
+    await client.query("COMMIT");
     res.json({ message: "Logged out successfully" });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Logout error:", error);
     res.status(500).json({
       error: "Internal server error"
     });
+  } finally {
+    client.release();
   }
 };
 
@@ -362,16 +369,28 @@ const refreshToken = async (req, res) => {
     // Rotate refresh token: revoke old one and issue new one
     const newRefreshToken = generateRefreshToken(user);
 
-    await pool.query(
-      "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1",
-      [refresh_token]
-    );
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    await pool.query(
-      `INSERT INTO refresh_tokens (user_id, token, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '${REFRESH_TOKEN_EXPIRY} seconds')`,
-      [user.user_id, newRefreshToken]
-    );
+      await client.query(
+        "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1",
+        [refresh_token]
+      );
+
+      await client.query(
+        `INSERT INTO refresh_tokens (user_id, token, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '${REFRESH_TOKEN_EXPIRY} seconds')`,
+        [user.user_id, newRefreshToken]
+      );
+
+      await client.query("COMMIT");
+    } catch (txnError) {
+      await client.query("ROLLBACK");
+      throw txnError;
+    } finally {
+      client.release();
+    }
 
     res.json({
       access_token: newAccessToken,

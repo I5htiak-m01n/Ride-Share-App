@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { adminAPI } from '../api/client';
 import './Dashboard.css';
@@ -203,6 +203,9 @@ export default function AdminDashboard() {
         <div className="nav-brand"><h2>RideShare Admin</h2></div>
         <div className="nav-user">
           <span>{user?.first_name || 'Admin'}</span>
+          <Link to="/admin/analytics" style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, textDecoration: 'none' }}>
+            Analytics
+          </Link>
           <button onClick={handleLogout} className="logout-btn">Log out</button>
         </div>
       </nav>

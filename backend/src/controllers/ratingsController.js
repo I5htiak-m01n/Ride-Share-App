@@ -48,12 +48,25 @@ const submitRating = async (req, res) => {
     }
 
     // Insert the rating (UNIQUE constraint prevents duplicates)
-    const result = await pool.query(
-      `INSERT INTO ratings (ride_id, rater_user_id, ratee_user_id, score, comment)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING rating_id, score, comment, created_at`,
-      [ride_id, raterId, ratee_user_id, score, comment || null]
-    );
+    const client = await pool.connect();
+    let result;
+    try {
+      await client.query("BEGIN");
+
+      result = await client.query(
+        `INSERT INTO ratings (ride_id, rater_user_id, ratee_user_id, score, comment)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING rating_id, score, comment, created_at`,
+        [ride_id, raterId, ratee_user_id, score, comment || null]
+      );
+
+      await client.query("COMMIT");
+    } catch (txnErr) {
+      await client.query("ROLLBACK");
+      throw txnErr;
+    } finally {
+      client.release();
+    }
 
     res.status(201).json({
       message: "Rating submitted successfully",

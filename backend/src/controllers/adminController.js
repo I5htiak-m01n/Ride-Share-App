@@ -50,25 +50,36 @@ const getAllDocuments = async (req, res) => {
 
 // PUT /api/admin/documents/:driverId/:docType
 const verifyDocument = async (req, res) => {
+  const client = await pool.connect();
   try {
     const { driverId, docType } = req.params;
     const { status } = req.body;
     if (!["valid", "rejected"].includes(status)) {
       return res.status(400).json({ error: "Status must be 'valid' or 'rejected'" });
     }
-    const result = await pool.query(
+
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `UPDATE driver_documents SET status = $1
        WHERE driver_id = $2 AND doc_type = $3
        RETURNING *`,
       [status, driverId, docType]
     );
+
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Document not found" });
     }
+
+    await client.query("COMMIT");
     res.json({ message: `Document ${status}`, document: result.rows[0] });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("verifyDocument error:", err);
     res.status(500).json({ error: "Failed to verify document" });
+  } finally {
+    client.release();
   }
 };
 
@@ -267,28 +278,39 @@ const getAllUsers = async (req, res) => {
 
 // PUT /api/admin/users/:userId/ban
 const toggleBanUser = async (req, res) => {
+  const client = await pool.connect();
   try {
     const { userId } = req.params;
     if (userId === req.user.id) {
       return res.status(400).json({ error: "Cannot ban your own account" });
     }
-    const result = await pool.query(
+
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `UPDATE users SET is_banned = NOT is_banned
        WHERE user_id = $1
        RETURNING user_id, first_name, last_name, email, role, is_banned`,
       [userId]
     );
+
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "User not found" });
     }
+
+    await client.query("COMMIT");
     const user = result.rows[0];
     res.json({
       message: user.is_banned ? "User banned" : "User unbanned",
       user,
     });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("toggleBanUser error:", err);
     res.status(500).json({ error: "Failed to toggle ban status" });
+  } finally {
+    client.release();
   }
 };
 

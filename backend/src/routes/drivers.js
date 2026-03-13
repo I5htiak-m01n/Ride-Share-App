@@ -31,29 +31,32 @@ router.post(
   authenticateToken,
   authorizeRoles("driver", "mixed"),
   async (req, res) => {
+    const { doc_type, image_url, expiry_date } = req.body;
+
+    if (!doc_type || !image_url) {
+      return res
+        .status(400)
+        .json({ error: "doc_type and image_url are required" });
+    }
+
+    const allowed = [
+      "driving_license",
+      "vehicle_registration",
+      "insurance",
+      "nid",
+      "other",
+    ];
+    if (!allowed.includes(doc_type)) {
+      return res.status(400).json({
+        error: `Invalid doc_type. Must be one of: ${allowed.join(", ")}`,
+      });
+    }
+
+    const client = await pool.connect();
     try {
-      const { doc_type, image_url, expiry_date } = req.body;
+      await client.query("BEGIN");
 
-      if (!doc_type || !image_url) {
-        return res
-          .status(400)
-          .json({ error: "doc_type and image_url are required" });
-      }
-
-      const allowed = [
-        "driving_license",
-        "vehicle_registration",
-        "insurance",
-        "nid",
-        "other",
-      ];
-      if (!allowed.includes(doc_type)) {
-        return res.status(400).json({
-          error: `Invalid doc_type. Must be one of: ${allowed.join(", ")}`,
-        });
-      }
-
-      const result = await pool.query(
+      const result = await client.query(
         `INSERT INTO driver_documents (driver_id, doc_type, image_url, expiry_date, status)
          VALUES ($1, $2, $3, $4, 'pending')
          ON CONFLICT (driver_id, doc_type)
@@ -62,10 +65,14 @@ router.post(
         [req.user.id, doc_type, image_url, expiry_date || null]
       );
 
+      await client.query("COMMIT");
       res.status(201).json({ document: result.rows[0] });
     } catch (error) {
+      await client.query("ROLLBACK");
       console.error("Add document error:", error);
       res.status(500).json({ error: "Internal server error" });
+    } finally {
+      client.release();
     }
   }
 );
@@ -76,10 +83,12 @@ router.delete(
   authenticateToken,
   authorizeRoles("driver", "mixed"),
   async (req, res) => {
+    const { docType } = req.params;
+    const client = await pool.connect();
     try {
-      const { docType } = req.params;
+      await client.query("BEGIN");
 
-      const result = await pool.query(
+      const result = await client.query(
         `DELETE FROM driver_documents
          WHERE driver_id = $1 AND doc_type = $2
          RETURNING doc_type`,
@@ -87,13 +96,18 @@ router.delete(
       );
 
       if (result.rows.length === 0) {
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Document not found" });
       }
 
+      await client.query("COMMIT");
       res.json({ message: "Document deleted successfully" });
     } catch (error) {
+      await client.query("ROLLBACK");
       console.error("Delete document error:", error);
       res.status(500).json({ error: "Internal server error" });
+    } finally {
+      client.release();
     }
   }
 );

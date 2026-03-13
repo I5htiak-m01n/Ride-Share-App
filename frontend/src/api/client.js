@@ -250,6 +250,13 @@ export const adminAPI = {
   deletePromo: (promoId) => api.delete(`/admin/promos/${promoId}`),
 };
 
+// Analytics API (admin only)
+export const analyticsAPI = {
+  getTopDrivers: () => api.get('/analytics/top-drivers'),
+  getZoneRevenue: () => api.get('/analytics/zone-revenue'),
+  getPromoPerformance: () => api.get('/analytics/promo-performance'),
+};
+
 // Complaints API (user-facing)
 export const complaintsAPI = {
   file: (ride_id, category, details) =>

@@ -35,36 +35,55 @@ const getUnreadCount = async (req, res) => {
 
 // PUT /api/notifications/:notifId/read
 const markAsRead = async (req, res) => {
+  const client = await pool.connect();
   try {
     const { notifId } = req.params;
-    const result = await pool.query(
+
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `UPDATE notifications SET is_read = true
        WHERE notif_id = $1 AND user_id = $2
        RETURNING *`,
       [notifId, req.user.id]
     );
+
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Notification not found" });
     }
+
+    await client.query("COMMIT");
     res.json({ message: "Notification marked as read", notification: result.rows[0] });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("markAsRead error:", err);
     res.status(500).json({ error: "Failed to mark notification as read" });
+  } finally {
+    client.release();
   }
 };
 
 // PUT /api/notifications/read-all
 const markAllRead = async (req, res) => {
+  const client = await pool.connect();
   try {
-    await pool.query(
+    await client.query("BEGIN");
+
+    await client.query(
       `UPDATE notifications SET is_read = true
        WHERE user_id = $1 AND is_read = false`,
       [req.user.id]
     );
+
+    await client.query("COMMIT");
     res.json({ message: "All notifications marked as read" });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("markAllRead error:", err);
     res.status(500).json({ error: "Failed to mark all as read" });
+  } finally {
+    client.release();
   }
 };
 

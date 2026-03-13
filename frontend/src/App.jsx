@@ -16,6 +16,7 @@ import RideHistory from './pages/RideHistory';
 import Wallet from './pages/Wallet';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminPromos from './pages/AdminPromos';
+import AdminAnalytics from './pages/AdminAnalytics';
 import RiderPromos from './pages/RiderPromos';
 import Complaints from './pages/Complaints';
 import './App.css';
@@ -126,6 +127,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminPromos />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Analytics */}
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminAnalytics />
               </ProtectedRoute>
             }
           />
