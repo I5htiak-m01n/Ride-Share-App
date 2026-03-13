@@ -12,6 +12,13 @@ const DOC_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+const VEHICLE_TYPES = [
+  { value: 'economy', label: 'Economy' },
+  { value: 'sedan', label: 'Sedan' },
+  { value: 'suv', label: 'SUV' },
+  { value: 'premium', label: 'Premium' },
+];
+
 const STATUS_COLORS = {
   valid: '#05944F',
   pending: '#F5A623',
@@ -34,6 +41,9 @@ function DriverDocuments() {
   const [imageUrl, setImageUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [vehicleName, setVehicleName] = useState('');
+  const [vehicleType, setVehicleType] = useState('economy');
+  const [plateNumber, setPlateNumber] = useState('');
 
   useEffect(() => {
     fetchDocuments();
@@ -57,6 +67,12 @@ function DriverDocuments() {
       setError('Document URL is required');
       return;
     }
+    if (docType === 'vehicle_registration') {
+      if (!vehicleName.trim() || !plateNumber.trim()) {
+        setError('Vehicle name and plate number are required for vehicle registration');
+        return;
+      }
+    }
     setError(null);
     setSuccess(null);
     setSubmitting(true);
@@ -65,10 +81,16 @@ function DriverDocuments() {
         doc_type: docType,
         image_url: imageUrl.trim(),
         expiry_date: expiryDate || null,
+        vehicle_name: docType === 'vehicle_registration' ? vehicleName.trim() : null,
+        vehicle_type: docType === 'vehicle_registration' ? vehicleType : null,
+        plate_number: docType === 'vehicle_registration' ? plateNumber.trim() : null,
       });
       setSuccess('Document added successfully');
       setImageUrl('');
       setExpiryDate('');
+      setVehicleName('');
+      setVehicleType('economy');
+      setPlateNumber('');
       setShowForm(false);
       fetchDocuments();
     } catch (err) {
@@ -168,6 +190,43 @@ function DriverDocuments() {
                 />
               </div>
 
+              {docType === 'vehicle_registration' && (
+                <>
+                  <div className="form-group">
+                    <label>Vehicle Name / Model</label>
+                    <input
+                      type="text"
+                      value={vehicleName}
+                      onChange={(e) => setVehicleName(e.target.value)}
+                      placeholder="e.g. Toyota Corolla 2022"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Vehicle Type</label>
+                    <select
+                      value={vehicleType}
+                      onChange={(e) => setVehicleType(e.target.value)}
+                      className="doc-select"
+                    >
+                      {VEHICLE_TYPES.map((vt) => (
+                        <option key={vt.value} value={vt.value}>{vt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Plate Number</label>
+                    <input
+                      type="text"
+                      value={plateNumber}
+                      onChange={(e) => setPlateNumber(e.target.value)}
+                      placeholder="e.g. DHA-12-3456"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
               <div className="booking-actions">
                 <button type="button" onClick={() => setShowForm(false)}>
                   Cancel
@@ -210,6 +269,16 @@ function DriverDocuments() {
                   {doc.expiry_date && (
                     <p className="doc-detail">
                       <span>Expires:</span> {new Date(doc.expiry_date).toLocaleDateString()}
+                    </p>
+                  )}
+                  {doc.vehicle_name && (
+                    <p className="doc-detail">
+                      <span>Vehicle:</span> {doc.vehicle_name} ({doc.vehicle_type})
+                    </p>
+                  )}
+                  {doc.plate_number && (
+                    <p className="doc-detail">
+                      <span>Plate:</span> {doc.plate_number}
                     </p>
                   )}
                   <p className="doc-detail">

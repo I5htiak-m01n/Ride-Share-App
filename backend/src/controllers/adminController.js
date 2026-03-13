@@ -72,8 +72,34 @@ const verifyDocument = async (req, res) => {
       return res.status(404).json({ error: "Document not found" });
     }
 
+    const doc = result.rows[0];
+    let vehicle = null;
+
+    // Auto-create vehicle when vehicle_registration is approved
+    if (docType === "vehicle_registration" && status === "valid"
+        && doc.vehicle_name && doc.vehicle_type && doc.plate_number) {
+      const vResult = await client.query(
+        `INSERT INTO vehicles (driver_id, plate_number, model, type, is_active)
+         VALUES ($1, $2, $3, $4, false)
+         ON CONFLICT (plate_number) DO NOTHING
+         RETURNING vehicle_id, plate_number, model, type, is_active`,
+        [driverId, doc.plate_number, doc.vehicle_name, doc.vehicle_type]
+      );
+      vehicle = vResult.rows[0] || null;
+
+      await client.query(
+        `INSERT INTO notifications (user_id, title, body)
+         VALUES ($1, $2, $3)`,
+        [
+          driverId,
+          "Vehicle Approved",
+          `Your vehicle "${doc.vehicle_name}" has been approved. Activate it from My Vehicles before going online.`,
+        ]
+      );
+    }
+
     await client.query("COMMIT");
-    res.json({ message: `Document ${status}`, document: result.rows[0] });
+    res.json({ message: `Document ${status}`, document: doc, vehicle });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("verifyDocument error:", err);
