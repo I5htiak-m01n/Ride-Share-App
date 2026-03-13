@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRoute } from '../context/RouteContext';
-import { ridesAPI, walletAPI, ratingsAPI } from '../api/client';
+import { ridesAPI, walletAPI, ratingsAPI, driversAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import RideMap from '../components/RideMap';
 import ChatPanel from '../components/ChatPanel';
@@ -48,6 +48,11 @@ function DriverDashboard() {
   const [ratingTarget, setRatingTarget]       = useState(null);
   const [ratingLoading, setRatingLoading]     = useState(false);
   const [userRating, setUserRating]           = useState({ rating_avg: null, rating_count: 0 });
+
+  // Vehicle & tab state
+  const [dashTab, setDashTab]           = useState('dashboard');
+  const [vehicles, setVehicles]         = useState([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
 
   const watchIdRef          = useRef(null);
   const nearbyIntervalRef   = useRef(null);
@@ -99,6 +104,36 @@ function DriverDashboard() {
       console.error('fetchMyRating error:', err);
     }
   }, []);
+
+  const fetchVehicles = useCallback(async () => {
+    setVehiclesLoading(true);
+    try {
+      const res = await driversAPI.getVehicles();
+      setVehicles(res.data.vehicles || []);
+    } catch (err) {
+      console.error('fetchVehicles error:', err);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  }, []);
+
+  const handleActivateVehicle = async (vehicleId) => {
+    try {
+      await driversAPI.activateVehicle(vehicleId);
+      fetchVehicles();
+    } catch (err) {
+      setMapError(err.response?.data?.error || 'Failed to activate vehicle');
+    }
+  };
+
+  const handleDeactivateVehicle = async (vehicleId) => {
+    try {
+      await driversAPI.deactivateVehicle(vehicleId);
+      fetchVehicles();
+    } catch (err) {
+      setMapError(err.response?.data?.error || 'Failed to deactivate vehicle');
+    }
+  };
 
   const startOnlineMode = useCallback(() => {
     if (!navigator.geolocation) {
@@ -158,6 +193,7 @@ function DriverDashboard() {
 
     fetchWalletBalance();
     fetchMyRating();
+    fetchVehicles();
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -170,7 +206,18 @@ function DriverDashboard() {
     }
   }, []);
 
-  const toggleOnline = () => {
+  const toggleOnline = async () => {
+    if (!isOnline) {
+      try {
+        await ridesAPI.checkReadiness();
+      } catch (err) {
+        setMapError(
+          err.response?.data?.error ||
+          'You must have an active vehicle before going online. Go to My Vehicles to set one.'
+        );
+        return;
+      }
+    }
     const next = !isOnline;
     setIsOnline(next);
     if (next) startOnlineMode();
@@ -265,6 +312,27 @@ function DriverDashboard() {
             <h1>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name || 'Driver'}</h1>
             <p>{isOnline ? 'You are online and accepting rides' : 'Go online to start accepting rides'}</p>
           </div>
+
+          {/* Tab bar (hidden during active ride) */}
+          {!activeRide && (
+            <div className="admin-tab-bar" style={{ marginBottom: 0 }}>
+              <button
+                className={`admin-tab${dashTab === 'dashboard' ? ' active' : ''}`}
+                onClick={() => setDashTab('dashboard')}
+              >
+                Dashboard
+              </button>
+              <button
+                className={`admin-tab${dashTab === 'vehicles' ? ' active' : ''}`}
+                onClick={() => { setDashTab('vehicles'); fetchVehicles(); }}
+              >
+                My Vehicles
+              </button>
+            </div>
+          )}
+
+          {/* ── Dashboard Tab ─────────────────────────────── */}
+          {(dashTab === 'dashboard' || activeRide) && (<>
 
           {walletBalance !== null && (
             <div className="wallet-balance-display">
@@ -438,6 +506,64 @@ function DriverDashboard() {
               </div>
             </div>
           )}
+
+          </>)}
+
+          {/* ── Vehicles Tab ──────────────────────────────── */}
+          {dashTab === 'vehicles' && !activeRide && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>My Vehicles</h3>
+              {vehiclesLoading ? (
+                <p style={{ color: '#6B6B6B' }}>Loading vehicles...</p>
+              ) : vehicles.length === 0 ? (
+                <div className="empty-state">
+                  <h3>No vehicles yet</h3>
+                  <p>Upload a vehicle registration document to add a vehicle.</p>
+                  <button
+                    className="card-button"
+                    style={{ marginTop: 12 }}
+                    onClick={() => navigate('/driver/documents')}
+                  >
+                    Go to Documents
+                  </button>
+                </div>
+              ) : (
+                <div className="vehicle-list">
+                  {vehicles.map((v) => (
+                    <div key={v.vehicle_id} className={`vehicle-card${v.is_active ? ' active-vehicle' : ''}`}>
+                      <div className="vehicle-card-header">
+                        <h4>{v.model}</h4>
+                        <span className={`status-pill ${v.is_active ? 'valid' : ''}`}>
+                          {v.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className="vehicle-card-body">
+                        <p><span>Type:</span> {v.type_label || v.type}</p>
+                        <p><span>Plate:</span> {v.plate_number}</p>
+                        {v.fare_multiplier && (
+                          <p><span>Fare:</span> {v.fare_multiplier}x multiplier</p>
+                        )}
+                      </div>
+                      <div className="vehicle-card-actions">
+                        {v.is_active ? (
+                          <button onClick={() => handleDeactivateVehicle(v.vehicle_id)}
+                                  className="vehicle-deactivate-btn">
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button onClick={() => handleActivateVehicle(v.vehicle_id)}
+                                  className="vehicle-activate-btn">
+                            Set as Active
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
 
         {/* === Right Panel: Map === */}

@@ -114,14 +114,29 @@ create table public.transactions (
 );
 
 -- =========================================================
--- 5. VEHICLES & ZONES
+-- 5. VEHICLE TYPES, VEHICLES & ZONES
 -- =========================================================
+create table public.vehicle_types (
+  type_key text primary key,
+  label text not null,
+  description text,
+  fare_multiplier numeric(4,2) not null default 1.00,
+  capacity int not null default 4,
+  sort_order int not null default 0
+);
+
+insert into public.vehicle_types (type_key, label, description, fare_multiplier, capacity, sort_order) values
+  ('economy',  'Economy',  'Affordable everyday rides',  1.00, 4, 1),
+  ('sedan',    'Sedan',    'Comfortable sedans',         1.20, 4, 2),
+  ('suv',      'SUV',      'Spacious SUVs for groups',   1.50, 6, 3),
+  ('premium',  'Premium',  'High-end luxury vehicles',   2.00, 4, 4);
+
 create table public.vehicles (
   vehicle_id uuid primary key default gen_random_uuid(),
   driver_id uuid not null references public.drivers(driver_id) on delete restrict,
   plate_number text unique not null,
   model text,
-  type text not null,
+  type text not null references public.vehicle_types(type_key),
   is_active boolean default true
 );
 
@@ -131,6 +146,9 @@ create table public.driver_documents (
   image_url text,
   expiry_date date,
   status text not null default 'pending' check (status in ('valid','expired','rejected','pending')),
+  vehicle_name text,
+  vehicle_type text references public.vehicle_types(type_key),
+  plate_number text,
   unique (driver_id, doc_type),
   primary key (driver_id, doc_type)
 );
@@ -186,7 +204,8 @@ create table public.ride_requests (
   estimated_fare numeric(12,2),
   estimated_distance_km numeric(10,2),
   estimated_duration_min int,
-  promo_code text
+  promo_code text,
+  vehicle_type text not null default 'economy' references public.vehicle_types(type_key)
 );
 
 create table public.driver_responses (
@@ -385,6 +404,7 @@ create table public.notifications (
   is_read boolean not null default false,
   created_at timestamptz not null default now()
 );
+create index idx_notifications_user_read on public.notifications (user_id, is_read, created_at desc);
 
 create table public.login_logs (
   log_id uuid primary key default gen_random_uuid(),

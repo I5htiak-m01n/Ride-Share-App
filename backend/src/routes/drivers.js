@@ -11,7 +11,8 @@ router.get(
   async (req, res) => {
     try {
       const result = await pool.query(
-        `SELECT doc_type, image_url, expiry_date, status
+        `SELECT doc_type, image_url, expiry_date, status,
+                vehicle_name, vehicle_type, plate_number
          FROM driver_documents
          WHERE driver_id = $1
          ORDER BY doc_type`,
@@ -31,7 +32,7 @@ router.post(
   authenticateToken,
   authorizeRoles("driver", "mixed"),
   async (req, res) => {
-    const { doc_type, image_url, expiry_date } = req.body;
+    const { doc_type, image_url, expiry_date, vehicle_name, vehicle_type, plate_number } = req.body;
 
     if (!doc_type || !image_url) {
       return res
@@ -52,17 +53,32 @@ router.post(
       });
     }
 
+    // Vehicle fields required for vehicle_registration
+    if (doc_type === "vehicle_registration") {
+      if (!vehicle_name?.trim() || !vehicle_type?.trim() || !plate_number?.trim()) {
+        return res.status(400).json({
+          error: "vehicle_name, vehicle_type, and plate_number are required for vehicle registration",
+        });
+      }
+    }
+
+    const vName = doc_type === "vehicle_registration" ? vehicle_name.trim() : null;
+    const vType = doc_type === "vehicle_registration" ? vehicle_type.trim() : null;
+    const vPlate = doc_type === "vehicle_registration" ? plate_number.trim() : null;
+
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
       const result = await client.query(
-        `INSERT INTO driver_documents (driver_id, doc_type, image_url, expiry_date, status)
-         VALUES ($1, $2, $3, $4, 'pending')
+        `INSERT INTO driver_documents
+           (driver_id, doc_type, image_url, expiry_date, status, vehicle_name, vehicle_type, plate_number)
+         VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7)
          ON CONFLICT (driver_id, doc_type)
-         DO UPDATE SET image_url = $3, expiry_date = $4, status = 'pending'
-         RETURNING doc_type, image_url, expiry_date, status`,
-        [req.user.id, doc_type, image_url, expiry_date || null]
+         DO UPDATE SET image_url = $3, expiry_date = $4, status = 'pending',
+                       vehicle_name = $5, vehicle_type = $6, plate_number = $7
+         RETURNING doc_type, image_url, expiry_date, status, vehicle_name, vehicle_type, plate_number`,
+        [req.user.id, doc_type, image_url, expiry_date || null, vName, vType, vPlate]
       );
 
       await client.query("COMMIT");
@@ -111,5 +127,12 @@ router.delete(
     }
   }
 );
+
+// ── Vehicle Management ─────────────────────────────────────
+const { getMyVehicles, setActiveVehicle, deactivateVehicle } = require("../controllers/vehicleController");
+
+router.get("/vehicles", authenticateToken, authorizeRoles("driver", "mixed"), getMyVehicles);
+router.put("/vehicles/:vehicleId/activate", authenticateToken, authorizeRoles("driver", "mixed"), setActiveVehicle);
+router.put("/vehicles/:vehicleId/deactivate", authenticateToken, authorizeRoles("driver", "mixed"), deactivateVehicle);
 
 module.exports = router;

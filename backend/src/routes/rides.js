@@ -15,6 +15,8 @@ const {
   getRiderHistory,
   getDriverHistory,
   getRideDetail,
+  getVehicleTypes,
+  checkDriverReadiness,
 } = require("../controllers/ridesController");
 const {
   getDirections,
@@ -23,6 +25,9 @@ const {
   checkAndReroute,
 } = require("../controllers/directionsController");
 const { getAvailablePromos } = require("../controllers/promoController");
+
+// Public: get available vehicle types
+router.get("/vehicle-types", getVehicleTypes);
 
 // Rider: create a ride request
 router.post("/request", authenticateToken, authorizeRoles("rider", "mixed"), createRideRequest);
@@ -47,6 +52,9 @@ router.get("/driver/history", authenticateToken, authorizeRoles("driver", "mixed
 
 // Driver: poll for active ride (state restoration on login/refresh)
 router.get("/driver/active", authenticateToken, authorizeRoles("driver", "mixed"), getDriverActiveRide);
+
+// Driver: check readiness before going online
+router.get("/driver/readiness", authenticateToken, authorizeRoles("driver", "mixed"), checkDriverReadiness);
 
 // Driver: update ride status (started / completed / cancelled)
 router.put("/:id/status", authenticateToken, updateRideStatus);

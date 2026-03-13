@@ -265,6 +265,7 @@ export default function AdminDashboard() {
                     <th>Driver</th>
                     <th>Email</th>
                     <th>Doc Type</th>
+                    <th>Vehicle</th>
                     <th>Expiry</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -276,6 +277,7 @@ export default function AdminDashboard() {
                       <td>{d.first_name} {d.last_name}</td>
                       <td>{d.email}</td>
                       <td>{d.doc_type}</td>
+                      <td>{d.vehicle_name ? `${d.vehicle_name} (${d.vehicle_type}) - ${d.plate_number}` : '\u2014'}</td>
                       <td>{fmtDate(d.expiry_date)}</td>
                       <td><span className={`status-pill ${d.status}`}>{d.status}</span></td>
                       <td>

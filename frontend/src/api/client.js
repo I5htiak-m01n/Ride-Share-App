@@ -172,6 +172,12 @@ export const ridesAPI = {
   getDriverHistory: () => api.get('/rides/driver/history'),
   getDriverActive: () => api.get('/rides/driver/active'),
 
+  // Driver: check readiness before going online
+  checkReadiness: () => api.get('/rides/driver/readiness'),
+
+  // Public: get available vehicle types
+  getVehicleTypes: () => api.get('/rides/vehicle-types'),
+
   // Ride detail (full info + chat + ratings)
   getRideDetail: (rideId) => api.get(`/rides/${rideId}/detail`),
 };
@@ -181,6 +187,9 @@ export const driversAPI = {
   getDocuments: () => api.get('/drivers/documents'),
   addDocument: (data) => api.post('/drivers/documents', data),
   deleteDocument: (docType) => api.delete(`/drivers/documents/${docType}`),
+  getVehicles: () => api.get('/drivers/vehicles'),
+  activateVehicle: (vehicleId) => api.put(`/drivers/vehicles/${vehicleId}/activate`),
+  deactivateVehicle: (vehicleId) => api.put(`/drivers/vehicles/${vehicleId}/deactivate`),
 };
 
 // Wallet API
