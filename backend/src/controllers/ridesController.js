@@ -21,6 +21,7 @@ const getNearbyRequests = async (req, res) => {
         rr.estimated_fare,
         rr.estimated_distance_km,
         rr.created_at,
+        rr.vehicle_type,
         u.first_name || ' ' || u.last_name AS rider_name,
         ST_Y(rr.pickup_location::geometry)  AS pickup_lat,
         ST_X(rr.pickup_location::geometry)  AS pickup_lng,
@@ -43,6 +44,13 @@ const getNearbyRequests = async (req, res) => {
         AND rr.request_id NOT IN (
           SELECT request_id FROM driver_responses
           WHERE driver_id = $4
+        )
+        AND (
+          rr.vehicle_type IS NULL
+          OR rr.vehicle_type IN (
+            SELECT v.type FROM vehicles v
+            WHERE v.driver_id = $4 AND v.is_active = true
+          )
         )
       ORDER BY distance_meters ASC`,
       [parseFloat(lat), parseFloat(lng), parseFloat(radius), driverId]
@@ -182,6 +190,25 @@ const acceptRequest = async (req, res) => {
 
     const request = lockResult.rows[0];
 
+    // Enforce vehicle type match — driver must have an active vehicle of the requested type
+    const requestedType = request.vehicle_type || null;
+    const vehicleQuery = requestedType
+      ? `SELECT vehicle_id FROM vehicles WHERE driver_id = $1 AND is_active = true AND type = $2 LIMIT 1`
+      : `SELECT vehicle_id FROM vehicles WHERE driver_id = $1 AND is_active = true LIMIT 1`;
+    const vehicleParams = requestedType ? [driverId, requestedType] : [driverId];
+    const vehicleResult = await client.query(vehicleQuery, vehicleParams);
+
+    if (vehicleResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: requestedType
+          ? `This ride requires a ${requestedType} vehicle. Your active vehicle does not match.`
+          : "You must have an active vehicle to accept rides.",
+      });
+    }
+
+    const vehicleId = vehicleResult.rows[0].vehicle_id;
+
     // Record driver response
     await client.query(
       `INSERT INTO driver_responses (request_id, driver_id, response_status)
@@ -195,15 +222,6 @@ const acceptRequest = async (req, res) => {
       `UPDATE ride_requests SET status = 'matched' WHERE request_id = $1`,
       [requestId]
     );
-
-    // Find the driver's active vehicle (match ride request vehicle type if present)
-    const requestedType = request.vehicle_type || null;
-    const vehicleQuery = requestedType
-      ? `SELECT vehicle_id FROM vehicles WHERE driver_id = $1 AND is_active = true AND type = $2 LIMIT 1`
-      : `SELECT vehicle_id FROM vehicles WHERE driver_id = $1 AND is_active = true LIMIT 1`;
-    const vehicleParams = requestedType ? [driverId, requestedType] : [driverId];
-    const vehicleResult = await client.query(vehicleQuery, vehicleParams);
-    const vehicleId = vehicleResult.rows.length > 0 ? vehicleResult.rows[0].vehicle_id : null;
 
     // Create the ride
     const rideResult = await client.query(
