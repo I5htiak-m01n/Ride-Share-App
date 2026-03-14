@@ -378,14 +378,6 @@ create table public.complaints (
   filed_at timestamptz not null default now()
 );
 
-create table public.lost_item_reports (
-  ticket_id uuid primary key references public.support_tickets(ticket_id) on delete cascade,
-  -- reported_by_user_id uuid not null references public.users(user_id) on delete cascade,
-  -- ride_id uuid references public.rides(ride_id) on delete set null,
-  status text not null check (status in ('reported','searching','found','returned','closed')),
-  description text,
-  reported_at timestamptz not null default now()
-);
 
 create table public.ticket_responses (
   response_id uuid primary key default gen_random_uuid(),

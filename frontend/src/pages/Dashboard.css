@@ -959,7 +959,7 @@
 .uber-left-panel {
   width: 420px;
   min-width: 420px;
-  overflow: hidden;
+  overflow-y: auto;
   padding: 32px 28px;
   border-right: 1px solid var(--uber-gray-20);
   background: var(--uber-white);

@@ -273,14 +273,6 @@ create table if not exists complaints (
   filed_at timestamptz not null default now()
 );
 
-create table if not exists lost_item_reports (
-  report_id uuid primary key default gen_random_uuid(),
-  ride_id uuid not null references rides(ride_id),
-  reported_by uuid not null references users(user_id),
-  item_description text not null,
-  status text not null default 'open' check (status in ('open','found','closed')),
-  reported_at timestamptz not null default now()
-);
 
 -- =========================================================
 -- 12. SUPPORT & NOTIFICATIONS

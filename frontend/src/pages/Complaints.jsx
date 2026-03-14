@@ -11,6 +11,7 @@ const CATEGORIES = [
   'Rider Behavior',
   'Vehicle Issue',
   'Route Issue',
+  'Lost Item',
   'Other',
 ];
 
