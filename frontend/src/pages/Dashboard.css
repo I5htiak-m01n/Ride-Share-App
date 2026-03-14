@@ -2308,6 +2308,7 @@
   width: 340px;
   max-height: 420px;
   background: var(--uber-white);
+  color: var(--uber-black);
   border-radius: var(--uber-radius);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
   z-index: 200;
@@ -2320,8 +2321,11 @@
   padding: 16px 20px;
   font-size: 16px;
   font-weight: 700;
-  color: var(--uber-black);
   border-bottom: 1px solid var(--uber-gray-20);
+}
+
+.notif-panel-header span {
+  color: var(--uber-black);
 }
 
 .notif-panel-list {
