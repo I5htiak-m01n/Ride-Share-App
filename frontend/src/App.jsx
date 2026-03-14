@@ -16,6 +16,11 @@ import RideHistory from './pages/RideHistory';
 import Wallet from './pages/Wallet';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminPromos from './pages/AdminPromos';
+import AdminDocuments from './pages/AdminDocuments';
+import AdminTickets from './pages/AdminTickets';
+import AdminComplaints from './pages/AdminComplaints';
+import AdminUsers from './pages/AdminUsers';
+import AdminStaff from './pages/AdminStaff';
 import AdminAnalytics from './pages/AdminAnalytics';
 import RiderPromos from './pages/RiderPromos';
 import Complaints from './pages/Complaints';
@@ -149,6 +154,56 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminPromos />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Documents */}
+          <Route
+            path="/admin/documents"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDocuments />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Support Tickets */}
+          <Route
+            path="/admin/tickets"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminTickets />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Complaints */}
+          <Route
+            path="/admin/complaints"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminComplaints />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Users */}
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Staff */}
+          <Route
+            path="/admin/staff"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminStaff />
               </ProtectedRoute>
             }
           />
