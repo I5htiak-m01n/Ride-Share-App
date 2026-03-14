@@ -276,6 +276,7 @@ export const complaintsAPI = {
   file: (ride_id, category, details) =>
     api.post('/complaints', { ride_id, category, details }),
   getMine: () => api.get('/complaints/mine'),
+  getDetail: (ticketId) => api.get(`/complaints/${ticketId}`),
 };
 
 // Support API (user-facing)

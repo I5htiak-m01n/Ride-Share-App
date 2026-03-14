@@ -227,13 +227,13 @@ const acceptRequest = async (req, res) => {
     const rideResult = await client.query(
       `INSERT INTO rides
         (request_id, rider_id, driver_id, vehicle_id, pickup_location,
-         dropoff_location, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'driver_assigned')
+         pickup_addr, dropoff_location, dropoff_addr, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'driver_assigned')
        RETURNING ride_id, status, rider_id`,
       [
         requestId, request.rider_id, driverId, vehicleId,
-        request.pickup_location,
-        request.dropoff_location,
+        request.pickup_location, request.pickup_addr,
+        request.dropoff_location, request.dropoff_addr,
       ]
     );
 

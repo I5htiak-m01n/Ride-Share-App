@@ -83,4 +83,45 @@ const getMyComplaints = async (req, res) => {
   }
 };
 
-module.exports = { fileComplaint, getMyComplaints };
+// GET /api/complaints/:ticketId — get complaint detail with staff responses
+const getComplaintDetail = async (req, res) => {
+  const userId = req.user.id;
+  const { ticketId } = req.params;
+
+  try {
+    const complaintResult = await pool.query(
+      `SELECT c.ticket_id, c.category, c.details, c.status AS complaint_status, c.filed_at,
+              st.status AS ticket_status, st.ride_id,
+              r.pickup_addr, r.dropoff_addr, r.started_at, r.completed_at
+       FROM complaints c
+       JOIN support_tickets st ON st.ticket_id = c.ticket_id
+       LEFT JOIN rides r ON r.ride_id = st.ride_id
+       WHERE c.ticket_id = $1 AND st.created_by_user_id = $2`,
+      [ticketId, userId]
+    );
+
+    if (complaintResult.rows.length === 0) {
+      return res.status(404).json({ error: "Complaint not found" });
+    }
+
+    const responsesResult = await pool.query(
+      `SELECT tr.response_id, tr.message, tr.created_at,
+              u.first_name, u.last_name, u.role
+       FROM ticket_responses tr
+       JOIN users u ON u.user_id = tr.responder_id
+       WHERE tr.ticket_id = $1
+       ORDER BY tr.created_at ASC`,
+      [ticketId]
+    );
+
+    res.json({
+      complaint: complaintResult.rows[0],
+      responses: responsesResult.rows,
+    });
+  } catch (err) {
+    console.error("getComplaintDetail error:", err);
+    res.status(500).json({ error: "Failed to get complaint detail" });
+  }
+};
+
+module.exports = { fileComplaint, getMyComplaints, getComplaintDetail };

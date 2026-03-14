@@ -178,6 +178,26 @@ export default function SupportDashboard() {
                   <p style={{ color: 'var(--uber-gray-50)' }}>{ticketDetail.ticket.description}</p>
                 </div>
 
+                {/* Ride & Driver Info (only for ride-linked tickets) */}
+                {ticketDetail.ticket.ride_id && (
+                  <div style={{ background: 'var(--uber-gray-10)', padding: 16, borderRadius: 12, marginBottom: 16 }}>
+                    <h3 style={{ fontSize: 15, margin: '0 0 12px' }}>Ride Details</h3>
+                    <p><strong>Route:</strong> {ticketDetail.ticket.pickup_addr || 'Unknown'} &rarr; {ticketDetail.ticket.dropoff_addr || 'Unknown'}</p>
+                    {ticketDetail.ticket.total_fare && <p><strong>Fare:</strong> ৳{Number(ticketDetail.ticket.total_fare).toFixed(2)}</p>}
+                    {ticketDetail.ticket.ride_status && <p><strong>Ride Status:</strong> {ticketDetail.ticket.ride_status}</p>}
+                    {ticketDetail.ticket.completed_at && <p><strong>Completed:</strong> {fmtDate(ticketDetail.ticket.completed_at)}</p>}
+
+                    {ticketDetail.ticket.driver_id && (
+                      <>
+                        <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Driver Information</h3>
+                        <p><strong>Name:</strong> {ticketDetail.ticket.driver_first_name} {ticketDetail.ticket.driver_last_name}</p>
+                        <p><strong>Email:</strong> {ticketDetail.ticket.driver_email}</p>
+                        {ticketDetail.ticket.driver_phone && <p><strong>Phone:</strong> {ticketDetail.ticket.driver_phone}</p>}
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {/* Response Timeline */}
                 <h3 style={{ fontSize: 16, marginBottom: 12 }}>Responses</h3>
                 {ticketDetail.responses.length === 0 ? (

@@ -35,6 +35,11 @@ export default function Complaints() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  // Detail view
+  const [selectedTicketId, setSelectedTicketId] = useState(null);
+  const [complaintDetail, setComplaintDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   // Load rides for the dropdown and complaints list
   useEffect(() => {
     const load = async () => {
@@ -86,6 +91,25 @@ export default function Complaints() {
     }
   };
 
+  const handleViewDetail = async (ticketId) => {
+    setSelectedTicketId(ticketId);
+    setDetailLoading(true);
+    try {
+      const { data } = await complaintsAPI.getDetail(ticketId);
+      setComplaintDetail(data);
+    } catch {
+      setError('Failed to load complaint details');
+      setSelectedTicketId(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedTicketId(null);
+    setComplaintDetail(null);
+  };
+
   const goBack = () => navigate(isDriver ? '/driver/dashboard' : '/rider/dashboard');
 
   const fmtDate = (d) => {
@@ -111,7 +135,7 @@ export default function Complaints() {
             <h1>Complaints</h1>
             <p>File and track your complaints</p>
           </div>
-          {!showForm && (
+          {!showForm && !selectedTicketId && (
             <button className="card-button" onClick={() => setShowForm(true)}>File a Complaint</button>
           )}
         </div>
@@ -120,7 +144,7 @@ export default function Complaints() {
         {success && <div className="info-banner">{success}</div>}
 
         {/* File Complaint Form */}
-        {showForm && (
+        {showForm && !selectedTicketId && (
           <form className="complaint-form" onSubmit={handleSubmit}>
             <h3>File a Complaint</h3>
 
@@ -167,39 +191,122 @@ export default function Complaints() {
           </form>
         )}
 
-        {/* My Complaints List */}
-        <h2 style={{ margin: '32px 0 16px', fontSize: 20 }}>My Complaints</h2>
-        {loading ? (
-          <p style={{ color: '#6B6B6B', textAlign: 'center', padding: 40 }}>Loading...</p>
-        ) : complaints.length === 0 ? (
-          <div className="empty-state">
-            <h3>No complaints</h3>
-            <p>You haven't filed any complaints yet.</p>
-          </div>
-        ) : (
-          <div className="history-list">
-            {complaints.map(c => (
-              <div key={c.ticket_id} className="history-item">
-                <div className="history-item-main">
-                  <div className="history-route">
-                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{c.category}</div>
-                    <div style={{ fontSize: 13, color: 'var(--uber-gray-50)' }}>
-                      {c.pickup_addr || 'Unknown'} → {c.dropoff_addr || 'Unknown'}
+        {/* Complaint Detail View */}
+        {selectedTicketId && (
+          <div style={{ marginTop: 16 }}>
+            <button
+              className="admin-btn unban"
+              onClick={handleCloseDetail}
+              style={{ marginBottom: 16, padding: '8px 16px' }}
+            >
+              &larr; Back to complaints
+            </button>
+
+            {detailLoading && (
+              <p style={{ color: '#6B6B6B', textAlign: 'center', padding: 40 }}>Loading...</p>
+            )}
+
+            {complaintDetail && (
+              <>
+                <div className="history-item" style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div>
+                      <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>{complaintDetail.complaint.category}</h2>
+                      <span className={`status-pill ${complaintDetail.complaint.complaint_status}`}>
+                        {complaintDetail.complaint.complaint_status}
+                      </span>
                     </div>
+                    <span style={{ fontSize: 13, color: 'var(--uber-gray-50)' }}>
+                      Filed {fmtDate(complaintDetail.complaint.filed_at)}
+                    </span>
                   </div>
-                  <div className="history-meta">
-                    <span className="history-date">{fmtDate(c.filed_at)}</span>
-                    <span className={`status-pill ${c.complaint_status}`}>{c.complaint_status}</span>
+
+                  {/* Ride info */}
+                  <div style={{ padding: '12px 16px', background: 'var(--uber-gray-10)', borderRadius: 8, marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--uber-gray-50)', marginBottom: 6 }}>Ride Details</div>
+                    <div style={{ fontSize: 14 }}>
+                      {complaintDetail.complaint.pickup_addr || 'Unknown'} &rarr; {complaintDetail.complaint.dropoff_addr || 'Unknown'}
+                    </div>
+                    {complaintDetail.complaint.completed_at && (
+                      <div style={{ fontSize: 13, color: 'var(--uber-gray-50)', marginTop: 4 }}>
+                        Completed: {fmtDate(complaintDetail.complaint.completed_at)}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Complaint details */}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--uber-gray-50)', marginBottom: 6 }}>Your Complaint</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.5 }}>
+                    {complaintDetail.complaint.details}
                   </div>
                 </div>
-                {c.details && (
-                  <div style={{ padding: '12px 0 0', fontSize: 14, color: 'var(--uber-gray-50)', borderTop: '1px solid var(--uber-gray-20)', marginTop: 12 }}>
-                    {c.details}
-                  </div>
-                )}
-              </div>
-            ))}
+
+                {/* Staff Responses */}
+                <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Feedback</h3>
+                <div className="admin-response-timeline">
+                  {complaintDetail.responses.length === 0 ? (
+                    <p style={{ color: 'var(--uber-gray-50)', fontSize: 13 }}>No feedback yet.</p>
+                  ) : (
+                    complaintDetail.responses.map(r => (
+                      <div key={r.response_id} className="admin-response-item">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <strong style={{ fontSize: 13 }}>
+                            {r.first_name} {r.last_name} ({r.role})
+                          </strong>
+                          <span style={{ fontSize: 12, color: 'var(--uber-gray-50)' }}>{fmtDate(r.created_at)}</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: 14 }}>{r.message}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
+        )}
+
+        {/* My Complaints List */}
+        {!selectedTicketId && (
+          <>
+            <h2 style={{ margin: '32px 0 16px', fontSize: 20 }}>My Complaints</h2>
+            {loading ? (
+              <p style={{ color: '#6B6B6B', textAlign: 'center', padding: 40 }}>Loading...</p>
+            ) : complaints.length === 0 ? (
+              <div className="empty-state">
+                <h3>No complaints</h3>
+                <p>You haven't filed any complaints yet.</p>
+              </div>
+            ) : (
+              <div className="history-list">
+                {complaints.map(c => (
+                  <div
+                    key={c.ticket_id}
+                    className="history-item"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => handleViewDetail(c.ticket_id)}
+                  >
+                    <div className="history-item-main">
+                      <div className="history-route">
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{c.category}</div>
+                        <div style={{ fontSize: 13, color: 'var(--uber-gray-50)' }}>
+                          {c.pickup_addr || 'Unknown'} → {c.dropoff_addr || 'Unknown'}
+                        </div>
+                      </div>
+                      <div className="history-meta">
+                        <span className="history-date">{fmtDate(c.filed_at)}</span>
+                        <span className={`status-pill ${c.complaint_status}`}>{c.complaint_status}</span>
+                      </div>
+                    </div>
+                    {c.details && (
+                      <div style={{ padding: '12px 0 0', fontSize: 14, color: 'var(--uber-gray-50)', borderTop: '1px solid var(--uber-gray-20)', marginTop: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.details}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

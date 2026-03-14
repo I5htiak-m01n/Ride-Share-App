@@ -36,9 +36,15 @@ const getTicketDetail = async (req, res) => {
     const ticketResult = await pool.query(
       `SELECT st.ticket_id, st.type, st.description, st.status, st.priority,
               st.created_at, st.closed_at, st.ride_id,
-              u.first_name, u.last_name, u.email
+              u.first_name, u.last_name, u.email,
+              r.pickup_addr, r.dropoff_addr, r.started_at, r.completed_at,
+              r.total_fare, r.status AS ride_status,
+              d.user_id AS driver_id, d.first_name AS driver_first_name,
+              d.last_name AS driver_last_name, d.email AS driver_email, d.phone_number AS driver_phone
        FROM support_tickets st
        JOIN users u ON u.user_id = st.created_by_user_id
+       LEFT JOIN rides r ON r.ride_id = st.ride_id
+       LEFT JOIN users d ON d.user_id = r.driver_id
        WHERE st.ticket_id = $1 AND st.assigned_staff_id = $2`,
       [ticketId, staffId]
     );
