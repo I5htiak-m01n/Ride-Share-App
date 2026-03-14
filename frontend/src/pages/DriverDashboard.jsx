@@ -333,6 +333,7 @@ function DriverDashboard() {
             </div>
           )}
 
+          <div className="driver-panel-scroll">
           {/* ── Dashboard Tab ─────────────────────────────── */}
           {(dashTab === 'dashboard' || activeRide) && (<>
 
@@ -565,6 +566,7 @@ function DriverDashboard() {
               )}
             </div>
           )}
+          </div>
 
         </div>
 

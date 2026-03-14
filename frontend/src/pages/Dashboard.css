@@ -959,10 +959,18 @@
 .uber-left-panel {
   width: 420px;
   min-width: 420px;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 32px 28px;
   border-right: 1px solid var(--uber-gray-20);
   background: var(--uber-white);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.driver-panel-scroll {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -1810,6 +1818,10 @@
   margin-bottom: 28px;
   border-bottom: 1px solid var(--uber-gray-20);
   overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--uber-gray-30) transparent;
 }
 
 .admin-tab {
@@ -1822,6 +1834,7 @@
   font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: color 0.15s, border-color 0.15s;
 }
 
@@ -1832,6 +1845,19 @@
 .admin-tab.active {
   color: var(--uber-black);
   border-bottom-color: var(--uber-black);
+}
+
+.admin-tab-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.admin-tab-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-tab-bar::-webkit-scrollbar-thumb {
+  background: var(--uber-gray-30);
+  border-radius: 2px;
 }
 
 .admin-filter-row {
