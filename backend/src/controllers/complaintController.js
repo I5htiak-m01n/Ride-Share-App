@@ -31,7 +31,7 @@ const fileComplaint = async (req, res) => {
     // Create support ticket
     const ticketResult = await client.query(
       `INSERT INTO support_tickets (created_by_user_id, ride_id, type, description, status, priority)
-       VALUES ($1, $2, 'complaint', $3, 'open', 'normal')
+       VALUES ($1, $2, 'complaint', $3, 'open', 1)
        RETURNING ticket_id, created_at`,
       [userId, ride_id, details.trim()]
     );

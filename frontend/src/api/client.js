@@ -247,8 +247,8 @@ export const adminAPI = {
     api.post(`/admin/tickets/${ticketId}/respond`, { message, status }),
   getComplaints: (status) =>
     api.get(`/admin/complaints${status ? `?status=${status}` : ''}`),
-  resolveComplaint: (ticketId, status) =>
-    api.put(`/admin/complaints/${ticketId}`, { status }),
+  getComplaintDetail: (ticketId) =>
+    api.get(`/admin/complaints/${ticketId}`),
   getUsers: () => api.get('/admin/users'),
   toggleBanUser: (userId) => api.put(`/admin/users/${userId}/ban`),
   // Promos

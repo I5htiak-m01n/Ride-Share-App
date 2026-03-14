@@ -2,13 +2,13 @@ const express = require("express");
 const router = express.Router();
 const {
   getAllComplaints,
-  resolveComplaint,
+  getTicketDetail,
 } = require("../../controllers/adminController");
 
 // GET /api/admin/complaints?status=filed
 router.get("/", getAllComplaints);
 
-// PUT /api/admin/complaints/:ticketId
-router.put("/:ticketId", resolveComplaint);
+// GET /api/admin/complaints/:ticketId
+router.get("/:ticketId", getTicketDetail);
 
 module.exports = router;
