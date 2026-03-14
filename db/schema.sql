@@ -363,7 +363,7 @@ create table public.support_tickets (
   type text not null,
   description text,
   status text not null check (status in ('open','in_progress','resolved','closed')),
-  priority text not null default 'normal',
+  priority int not null default 1 check (priority between 1 and 5),
   created_at timestamptz not null default now(),
   closed_at timestamptz
 );

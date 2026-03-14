@@ -9,6 +9,7 @@ const ticketRoutes = require("./admin/tickets");
 const complaintRoutes = require("./admin/complaints");
 const userRoutes = require("./admin/users");
 const promoRoutes = require("./admin/promos");
+const staffRoutes = require("./admin/staff");
 
 // All routes require admin role
 router.use(authenticateToken, authorizeRoles("admin"));
@@ -22,5 +23,6 @@ router.use("/tickets", ticketRoutes);
 router.use("/complaints", complaintRoutes);
 router.use("/users", userRoutes);
 router.use("/promos", promoRoutes);
+router.use("/staff", staffRoutes);
 
 module.exports = router;

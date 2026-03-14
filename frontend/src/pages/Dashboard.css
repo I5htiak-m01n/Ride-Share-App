@@ -2521,3 +2521,29 @@
     padding: 12px;
   }
 }
+
+/* ── Priority Badge & Select ───────────────────────── */
+
+.priority-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--uber-white);
+}
+
+.priority-badge.p1 { background: #4caf50; }
+.priority-badge.p2 { background: #8bc34a; }
+.priority-badge.p3 { background: #ff9800; }
+.priority-badge.p4 { background: #f44336; }
+.priority-badge.p5 { background: #9c27b0; }
+
+.priority-select {
+  padding: 4px 8px;
+  border: 1px solid var(--uber-gray-30);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--uber-white);
+  cursor: pointer;
+}

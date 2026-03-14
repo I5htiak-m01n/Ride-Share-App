@@ -257,6 +257,11 @@ export const adminAPI = {
   createPromo: (data) => api.post('/admin/promos', data),
   updatePromo: (promoId, data) => api.put(`/admin/promos/${promoId}`, data),
   deletePromo: (promoId) => api.delete(`/admin/promos/${promoId}`),
+  // Support staff management
+  getSupportStaff: () => api.get('/admin/staff'),
+  updateStaffLevel: (staffId, level) => api.put(`/admin/staff/${staffId}/level`, { level }),
+  setTicketPriority: (ticketId, priority) => api.put(`/admin/tickets/${ticketId}/priority`, { priority }),
+  assignTicket: (ticketId, staff_id) => api.put(`/admin/tickets/${ticketId}/assign`, { staff_id }),
 };
 
 // Analytics API (admin only)
@@ -271,6 +276,21 @@ export const complaintsAPI = {
   file: (ride_id, category, details) =>
     api.post('/complaints', { ride_id, category, details }),
   getMine: () => api.get('/complaints/mine'),
+};
+
+// Support API (user-facing)
+export const supportAPI = {
+  createTicket: (data) => api.post('/support', data),
+  getMyTickets: () => api.get('/support/mine'),
+  getTicketDetail: (ticketId) => api.get(`/support/${ticketId}`),
+};
+
+// Support Staff API
+export const supportStaffAPI = {
+  getAssignedTickets: () => api.get('/support-staff/tickets'),
+  getTicketDetail: (ticketId) => api.get(`/support-staff/tickets/${ticketId}`),
+  respondToTicket: (ticketId, message, status) =>
+    api.post(`/support-staff/tickets/${ticketId}/respond`, { message, status }),
 };
 
 export default api;

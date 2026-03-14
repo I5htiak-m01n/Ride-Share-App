@@ -19,6 +19,8 @@ import AdminPromos from './pages/AdminPromos';
 import AdminAnalytics from './pages/AdminAnalytics';
 import RiderPromos from './pages/RiderPromos';
 import Complaints from './pages/Complaints';
+import SupportTickets from './pages/SupportTickets';
+import SupportDashboard from './pages/SupportDashboard';
 import './App.css';
 
 function App() {
@@ -107,6 +109,26 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
                 <Complaints />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Support Tickets - accessible by riders and drivers */}
+          <Route
+            path="/support/tickets"
+            element={
+              <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
+                <SupportTickets />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Support Staff Dashboard */}
+          <Route
+            path="/support/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['support']}>
+                <SupportDashboard />
               </ProtectedRoute>
             }
           />

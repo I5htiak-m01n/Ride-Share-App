@@ -15,7 +15,8 @@ const getDashboardStats = async (req, res) => {
         (SELECT COUNT(*) FROM complaints WHERE status IN ('filed','under_review')) AS open_complaints,
         (SELECT COUNT(*) FROM users WHERE is_banned = true) AS banned_users,
         (SELECT COUNT(*) FROM promos WHERE is_active = true
-          AND (expiry_date IS NULL OR expiry_date > NOW())) AS active_promos
+          AND (expiry_date IS NULL OR expiry_date > NOW())) AS active_promos,
+        (SELECT COUNT(*) FROM support_staff WHERE is_active = true) AS active_support_staff
     `);
     res.json({ stats: stats.rows[0] });
   } catch (err) {
@@ -115,10 +116,15 @@ const getAllTickets = async (req, res) => {
     const { status } = req.query;
     let query = `
       SELECT st.ticket_id, st.type, st.description, st.status, st.priority,
-             st.created_at, st.closed_at, st.ride_id,
-             u.first_name, u.last_name, u.email, u.user_id
+             st.created_at, st.closed_at, st.ride_id, st.assigned_staff_id,
+             u.first_name, u.last_name, u.email, u.user_id,
+             staff_u.first_name AS staff_first_name,
+             staff_u.last_name AS staff_last_name,
+             ss.level AS staff_level
       FROM support_tickets st
       JOIN users u ON u.user_id = st.created_by_user_id
+      LEFT JOIN support_staff ss ON ss.support_staff_id = st.assigned_staff_id
+      LEFT JOIN users staff_u ON staff_u.user_id = st.assigned_staff_id
     `;
     const params = [];
     if (status) {
@@ -340,6 +346,151 @@ const toggleBanUser = async (req, res) => {
   }
 };
 
+// PUT /api/admin/tickets/:ticketId/priority
+const setTicketPriority = async (req, res) => {
+  const { ticketId } = req.params;
+  const { priority } = req.body;
+  const p = parseInt(priority);
+
+  if (!p || p < 1 || p > 5) {
+    return res.status(400).json({ error: "Priority must be between 1 and 5" });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE support_tickets SET priority = $1 WHERE ticket_id = $2 RETURNING ticket_id, priority`,
+      [p, ticketId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+    res.json({ message: "Priority updated", ticket: result.rows[0] });
+  } catch (err) {
+    console.error("setTicketPriority error:", err);
+    res.status(500).json({ error: "Failed to set priority" });
+  }
+};
+
+// PUT /api/admin/tickets/:ticketId/assign
+const assignTicketToStaff = async (req, res) => {
+  const { ticketId } = req.params;
+  const { staff_id } = req.body;
+
+  if (!staff_id) {
+    return res.status(400).json({ error: "staff_id is required" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Get ticket priority
+    const ticketResult = await client.query(
+      `SELECT ticket_id, priority, created_by_user_id FROM support_tickets WHERE ticket_id = $1`,
+      [ticketId]
+    );
+    if (ticketResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+    const ticket = ticketResult.rows[0];
+
+    // Get staff level
+    const staffResult = await client.query(
+      `SELECT ss.support_staff_id, ss.level, u.first_name, u.last_name
+       FROM support_staff ss
+       JOIN users u ON u.user_id = ss.support_staff_id
+       WHERE ss.support_staff_id = $1 AND ss.is_active = true`,
+      [staff_id]
+    );
+    if (staffResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Support staff not found or inactive" });
+    }
+    const staff = staffResult.rows[0];
+
+    // Enforce level >= priority
+    if (staff.level < ticket.priority) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: `Staff level ${staff.level} is below ticket priority ${ticket.priority}. Staff level must be >= priority.`,
+      });
+    }
+
+    // Assign and set to in_progress
+    await client.query(
+      `UPDATE support_tickets SET assigned_staff_id = $1, status = 'in_progress' WHERE ticket_id = $2`,
+      [staff_id, ticketId]
+    );
+
+    // Notify the staff member
+    await client.query(
+      `INSERT INTO notifications (user_id, title, body)
+       VALUES ($1, 'Ticket Assigned', $2)`,
+      [staff_id, `A support ticket (priority ${ticket.priority}) has been assigned to you.`]
+    );
+
+    await client.query("COMMIT");
+    res.json({
+      message: "Ticket assigned",
+      assigned_to: `${staff.first_name} ${staff.last_name}`,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("assignTicketToStaff error:", err);
+    res.status(500).json({ error: "Failed to assign ticket" });
+  } finally {
+    client.release();
+  }
+};
+
+// GET /api/admin/staff
+const getSupportStaff = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT ss.support_staff_id, ss.level, ss.is_active,
+              u.first_name, u.last_name, u.email, u.created_at,
+              (SELECT COUNT(*) FROM support_tickets st
+               WHERE st.assigned_staff_id = ss.support_staff_id
+                 AND st.status IN ('open','in_progress'))::int AS active_tickets
+       FROM support_staff ss
+       JOIN users u ON u.user_id = ss.support_staff_id
+       ORDER BY ss.level DESC, u.first_name ASC`
+    );
+    res.json({ staff: result.rows });
+  } catch (err) {
+    console.error("getSupportStaff error:", err);
+    res.status(500).json({ error: "Failed to get support staff" });
+  }
+};
+
+// PUT /api/admin/staff/:staffId/level
+const updateStaffLevel = async (req, res) => {
+  const { staffId } = req.params;
+  const { level } = req.body;
+  const lvl = parseInt(level);
+
+  if (!lvl || lvl < 1 || lvl > 5) {
+    return res.status(400).json({ error: "Level must be between 1 and 5" });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE support_staff SET level = $1
+       WHERE support_staff_id = $2
+       RETURNING support_staff_id, level`,
+      [lvl, staffId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Support staff not found" });
+    }
+    res.json({ message: "Staff level updated", staff: result.rows[0] });
+  } catch (err) {
+    console.error("updateStaffLevel error:", err);
+    res.status(500).json({ error: "Failed to update staff level" });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllDocuments,
@@ -351,4 +502,8 @@ module.exports = {
   resolveComplaint,
   getAllUsers,
   toggleBanUser,
+  setTicketPriority,
+  assignTicketToStaff,
+  getSupportStaff,
+  updateStaffLevel,
 };

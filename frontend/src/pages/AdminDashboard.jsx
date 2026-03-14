@@ -10,6 +10,7 @@ const TABS = [
   { key: 'tickets', label: 'Support Tickets' },
   { key: 'complaints', label: 'Complaints' },
   { key: 'users', label: 'Users' },
+  { key: 'staff', label: 'Staff' },
   { key: 'promos', label: 'Promos' },
 ];
 
@@ -39,6 +40,10 @@ export default function AdminDashboard() {
 
   // Users
   const [users, setUsers] = useState([]);
+
+  // Support Staff
+  const [staffList, setStaffList] = useState([]);
+  const [staffForAssign, setStaffForAssign] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -117,6 +122,28 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const fetchStaff = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data } = await adminAPI.getSupportStaff();
+      setStaffList(data.staff);
+    } catch {
+      setError('Failed to load staff');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch staff for assign dropdown (on tickets tab)
+  const fetchStaffForAssign = useCallback(async () => {
+    try {
+      const { data } = await adminAPI.getSupportStaff();
+      setStaffForAssign(data.staff);
+    } catch {
+      // silent
+    }
+  }, []);
+
   /* ── Tab change ────────────────────────────────────────── */
 
   useEffect(() => {
@@ -130,11 +157,12 @@ export default function AdminDashboard() {
     switch (activeTab) {
       case 'overview': fetchStats(); break;
       case 'documents': fetchDocuments(); break;
-      case 'tickets': fetchTickets(); break;
+      case 'tickets': fetchTickets(); fetchStaffForAssign(); break;
       case 'complaints': fetchComplaints(); break;
       case 'users': fetchUsers(); break;
+      case 'staff': fetchStaff(); break;
     }
-  }, [activeTab, fetchStats, fetchDocuments, fetchTickets, fetchComplaints, fetchUsers, navigate]);
+  }, [activeTab, fetchStats, fetchDocuments, fetchTickets, fetchComplaints, fetchUsers, fetchStaff, fetchStaffForAssign, navigate]);
 
   // Refetch on filter change
   useEffect(() => { if (activeTab === 'documents') fetchDocuments(); }, [docFilter, fetchDocuments, activeTab]);
@@ -188,6 +216,34 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSetPriority = async (ticketId, priority) => {
+    try {
+      await adminAPI.setTicketPriority(ticketId, priority);
+      fetchTickets();
+    } catch {
+      setError('Failed to set priority');
+    }
+  };
+
+  const handleAssignTicket = async (ticketId, staffId) => {
+    if (!staffId) return;
+    try {
+      await adminAPI.assignTicket(ticketId, staffId);
+      fetchTickets();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to assign ticket');
+    }
+  };
+
+  const handleUpdateStaffLevel = async (staffId, level) => {
+    try {
+      await adminAPI.updateStaffLevel(staffId, level);
+      fetchStaff();
+    } catch {
+      setError('Failed to update staff level');
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -236,6 +292,10 @@ export default function AdminDashboard() {
             <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/promos')}>
               <div className="stat-number">{stats.active_promos || 0}</div>
               <div className="stat-label">Active Promos</div>
+            </div>
+            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('staff')}>
+              <div className="stat-number">{stats.active_support_staff || 0}</div>
+              <div className="stat-label">Support Staff</div>
             </div>
           </div>
         )}
@@ -320,6 +380,7 @@ export default function AdminDashboard() {
                     <th>User</th>
                     <th>Description</th>
                     <th>Priority</th>
+                    <th>Assigned To</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -330,8 +391,35 @@ export default function AdminDashboard() {
                     <tr key={t.ticket_id}>
                       <td>{t.type}</td>
                       <td>{t.first_name} {t.last_name}</td>
-                      <td style={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || '—'}</td>
-                      <td>{t.priority}</td>
+                      <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || '—'}</td>
+                      <td>
+                        <select
+                          className="priority-select"
+                          value={t.priority}
+                          onChange={e => handleSetPriority(t.ticket_id, parseInt(e.target.value))}
+                        >
+                          {[1,2,3,4,5].map(p => <option key={p} value={p}>P{p}</option>)}
+                        </select>
+                      </td>
+                      <td>
+                        {t.staff_first_name
+                          ? <span>{t.staff_first_name} {t.staff_last_name} (L{t.staff_level})</span>
+                          : <select
+                              className="priority-select"
+                              defaultValue=""
+                              onChange={e => handleAssignTicket(t.ticket_id, e.target.value)}
+                            >
+                              <option value="" disabled>Assign...</option>
+                              {staffForAssign
+                                .filter(s => s.level >= t.priority && s.is_active)
+                                .map(s => (
+                                  <option key={s.support_staff_id} value={s.support_staff_id}>
+                                    {s.first_name} {s.last_name} (L{s.level})
+                                  </option>
+                                ))}
+                            </select>
+                        }
+                      </td>
                       <td><span className={`status-pill ${t.status}`}>{t.status}</span></td>
                       <td>{fmtDate(t.created_at)}</td>
                       <td><button className="admin-btn approve" onClick={() => handleOpenTicket(t.ticket_id)}>View</button></td>
@@ -488,6 +576,57 @@ export default function AdminDashboard() {
                             {u.is_banned ? 'Unban' : 'Ban'}
                           </button>
                         )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {/* ── SUPPORT STAFF ──────────────────────────────── */}
+        {activeTab === 'staff' && (
+          <>
+            {staffList.length === 0 ? (
+              <div className="empty-state"><h3>No support staff</h3><p>No support staff members found. Create users with the &apos;support&apos; role and add them to the support_staff table.</p></div>
+            ) : (
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Level</th>
+                    <th>Active Tickets</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffList.map(s => (
+                    <tr key={s.support_staff_id}>
+                      <td>{s.first_name} {s.last_name}</td>
+                      <td>{s.email}</td>
+                      <td><span className={`priority-badge p${s.level}`}>Level {s.level}</span></td>
+                      <td>{s.active_tickets}</td>
+                      <td><span className={`status-pill ${s.is_active ? 'active-user' : 'banned'}`}>{s.is_active ? 'Active' : 'Inactive'}</span></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="admin-btn approve"
+                            disabled={s.level >= 5}
+                            onClick={() => handleUpdateStaffLevel(s.support_staff_id, s.level + 1)}
+                          >
+                            Promote
+                          </button>
+                          <button
+                            className="admin-btn reject"
+                            disabled={s.level <= 1}
+                            onClick={() => handleUpdateStaffLevel(s.support_staff_id, s.level - 1)}
+                          >
+                            Demote
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
