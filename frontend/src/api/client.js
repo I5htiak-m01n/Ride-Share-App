@@ -290,8 +290,10 @@ export const supportAPI = {
 export const supportStaffAPI = {
   getAssignedTickets: () => api.get('/support-staff/tickets'),
   getTicketDetail: (ticketId) => api.get(`/support-staff/tickets/${ticketId}`),
-  respondToTicket: (ticketId, message, status) =>
-    api.post(`/support-staff/tickets/${ticketId}/respond`, { message, status }),
+  respondToTicket: (ticketId, message, status, refundApproved = false, refundAmount = null) =>
+    api.post(`/support-staff/tickets/${ticketId}/respond`, {
+      message, status, refund_approved: refundApproved, refund_amount: refundAmount,
+    }),
 };
 
 export default api;

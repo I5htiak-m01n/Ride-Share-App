@@ -66,8 +66,9 @@ const getMyComplaints = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await pool.query(
-      `SELECT c.ticket_id, c.category, c.details, c.status AS complaint_status, c.filed_at,
-              st.status AS ticket_status, st.ride_id,
+      `SELECT c.ticket_id, c.category, c.details,
+              CASE WHEN st.status IN ('resolved','closed') THEN 'resolved' ELSE c.status END AS complaint_status,
+              c.filed_at, st.status AS ticket_status, st.ride_id,
               r.pickup_addr, r.dropoff_addr
        FROM complaints c
        JOIN support_tickets st ON st.ticket_id = c.ticket_id
@@ -90,8 +91,9 @@ const getComplaintDetail = async (req, res) => {
 
   try {
     const complaintResult = await pool.query(
-      `SELECT c.ticket_id, c.category, c.details, c.status AS complaint_status, c.filed_at,
-              st.status AS ticket_status, st.ride_id,
+      `SELECT c.ticket_id, c.category, c.details,
+              CASE WHEN st.status IN ('resolved','closed') THEN 'resolved' ELSE c.status END AS complaint_status,
+              c.filed_at, st.status AS ticket_status, st.ride_id,
               r.pickup_addr, r.dropoff_addr, r.started_at, r.completed_at
        FROM complaints c
        JOIN support_tickets st ON st.ticket_id = c.ticket_id

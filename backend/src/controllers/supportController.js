@@ -41,7 +41,7 @@ const getMyTickets = async (req, res) => {
                WHERE tr.ticket_id = st.ticket_id
                ORDER BY tr.created_at DESC LIMIT 1) AS latest_response
        FROM support_tickets st
-       WHERE st.created_by_user_id = $1
+       WHERE st.created_by_user_id = $1 AND st.type != 'complaint'
        ORDER BY st.created_at DESC`,
       [userId]
     );

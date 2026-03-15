@@ -77,10 +77,16 @@ const getTicketDetail = async (req, res) => {
 const respondToTicket = async (req, res) => {
   const staffId = req.user.id;
   const { ticketId } = req.params;
-  const { message, status } = req.body;
+  const { message, status, refund_approved, refund_amount } = req.body;
 
   if (!message || !message.trim()) {
     return res.status(400).json({ error: "Message is required" });
+  }
+
+  if (refund_approved) {
+    if (!refund_amount || isNaN(refund_amount) || parseFloat(refund_amount) <= 0) {
+      return res.status(400).json({ error: "Valid refund amount is required when refund is approved" });
+    }
   }
 
   const client = await pool.connect();
@@ -128,8 +134,64 @@ const respondToTicket = async (req, res) => {
       [check.rows[0].created_by_user_id]
     );
 
+    // Process refund if approved
+    if (refund_approved && parseFloat(refund_amount) > 0) {
+      const userId = check.rows[0].created_by_user_id;
+      const amount = parseFloat(refund_amount);
+
+      // 1. Create a refund invoice
+      const invoiceResult = await client.query(
+        `INSERT INTO invoices (base_fare, tax, total_amount, status)
+         VALUES ($1, 0, $1, 'refunded')
+         RETURNING invoice_id`,
+        [amount]
+      );
+      const invoiceId = invoiceResult.rows[0].invoice_id;
+
+      // 2. Insert refund record
+      await client.query(
+        `INSERT INTO refunds (invoice_id, amount, status, processed_at)
+         VALUES ($1, $2, 'processed', NOW())`,
+        [invoiceId, amount]
+      );
+
+      // 3. Create transaction record
+      await client.query(
+        `INSERT INTO transactions (wallet_owner_id, amount, currency, status, type, invoice_id)
+         VALUES ($1, $2, 'BDT', 'succeeded', 'refund_payout', $3)`,
+        [userId, amount, invoiceId]
+      );
+
+      // 4. Credit user wallet
+      const walletUpdate = await client.query(
+        `UPDATE wallets SET balance = balance + $1
+         WHERE owner_id = $2
+         RETURNING balance`,
+        [amount, userId]
+      );
+
+      if (walletUpdate.rows.length === 0) {
+        await client.query(
+          `INSERT INTO wallets (owner_id, balance, currency)
+           VALUES ($1, $2, 'BDT')`,
+          [userId, amount]
+        );
+      }
+
+      // 5. Send refund notification
+      await client.query(
+        `INSERT INTO notifications (user_id, title, body)
+         VALUES ($1, 'Refund Processed', $2)`,
+        [userId, `A refund of BDT ${amount.toFixed(2)} has been credited to your wallet.`]
+      );
+    }
+
     await client.query("COMMIT");
-    res.json({ message: "Response added successfully" });
+    res.json({
+      message: refund_approved
+        ? `Response added and refund of BDT ${parseFloat(refund_amount).toFixed(2)} processed`
+        : "Response added successfully"
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("respondToTicket (staff) error:", err);

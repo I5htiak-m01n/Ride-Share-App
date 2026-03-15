@@ -146,7 +146,9 @@ const getTicketDetail = async (req, res) => {
     const { ticketId } = req.params;
     const ticketResult = await pool.query(
       `SELECT st.*, u.first_name, u.last_name, u.email,
-              c.category, c.status AS complaint_status, c.details AS complaint_details, c.filed_at,
+              c.category,
+              CASE WHEN st.status IN ('resolved','closed') THEN 'resolved' ELSE c.status END AS complaint_status,
+              c.details AS complaint_details, c.filed_at,
               r.pickup_addr, r.dropoff_addr, r.started_at, r.completed_at, r.total_fare, r.status AS ride_status
        FROM support_tickets st
        JOIN users u ON u.user_id = st.created_by_user_id
@@ -225,7 +227,9 @@ const getAllComplaints = async (req, res) => {
   try {
     const { status } = req.query;
     let query = `
-      SELECT c.ticket_id, c.category, c.details, c.status AS complaint_status, c.filed_at,
+      SELECT c.ticket_id, c.category, c.details,
+             CASE WHEN st.status IN ('resolved','closed') THEN 'resolved' ELSE c.status END AS complaint_status,
+             c.filed_at,
              st.type, st.description AS ticket_description, st.status AS ticket_status,
              st.priority, st.ride_id,
              u.first_name, u.last_name, u.email, u.user_id
@@ -426,7 +430,6 @@ const assignTicketToStaff = async (req, res) => {
       `UPDATE support_tickets SET assigned_staff_id = $1, status = 'in_progress' WHERE ticket_id = $2`,
       [staff_id, ticketId]
     );
-
     // Notify the staff member
     await client.query(
       `INSERT INTO notifications (user_id, title, body)

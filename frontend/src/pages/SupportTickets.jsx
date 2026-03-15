@@ -126,7 +126,7 @@ export default function SupportTickets() {
             <p>Get help with your account or rides</p>
           </div>
           {!showForm && (
-            <button className="card-button" onClick={() => setShowForm(true)}>New Ticket</button>
+            <button className="card-button" onClick={() => setShowForm(true)}>Ask for Support</button>
           )}
         </div>
 
@@ -135,7 +135,7 @@ export default function SupportTickets() {
 
         {showForm && (
           <form className="complaint-form" onSubmit={handleSubmit}>
-            <h3>Create Support Ticket</h3>
+            <h3>Ask for Support</h3>
 
             <div className="form-group">
               <label>Subject</label>
@@ -176,19 +176,19 @@ export default function SupportTickets() {
             <div className="complaint-form-actions">
               <button type="button" className="card-button secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="card-button" disabled={submitting || !subject.trim() || !description.trim()}>
-                {submitting ? 'Submitting...' : 'Submit Ticket'}
+                {submitting ? 'Submitting...' : 'Submit'}
               </button>
             </div>
           </form>
         )}
 
-        <h2 style={{ margin: '32px 0 16px', fontSize: 20 }}>My Tickets</h2>
+        <h2 style={{ margin: '32px 0 16px', fontSize: 20 }}>Previous Requests</h2>
         {loading ? (
           <p style={{ color: '#6B6B6B', textAlign: 'center', padding: 40 }}>Loading...</p>
         ) : tickets.length === 0 ? (
           <div className="empty-state">
-            <h3>No tickets</h3>
-            <p>You haven&apos;t submitted any support tickets yet.</p>
+            <h3>No requests</h3>
+            <p>You haven&apos;t submitted any support requests yet.</p>
           </div>
         ) : (
           <div className="history-list">

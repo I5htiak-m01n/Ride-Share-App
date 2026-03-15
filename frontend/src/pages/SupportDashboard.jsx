@@ -22,6 +22,8 @@ export default function SupportDashboard() {
   const [replyMessage, setReplyMessage] = useState('');
   const [replyStatus, setReplyStatus] = useState('');
   const [replying, setReplying] = useState(false);
+  const [refundEligible, setRefundEligible] = useState('no');
+  const [refundAmount, setRefundAmount] = useState('');
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -65,10 +67,14 @@ export default function SupportDashboard() {
       await supportStaffAPI.respondToTicket(
         selectedTicketId,
         replyMessage.trim(),
-        replyStatus || undefined
+        replyStatus || undefined,
+        refundEligible === 'yes',
+        refundEligible === 'yes' ? parseFloat(refundAmount) : null
       );
       setReplyMessage('');
       setReplyStatus('');
+      setRefundEligible('no');
+      setRefundAmount('');
       // Refresh detail
       const res = await supportStaffAPI.getTicketDetail(selectedTicketId);
       setTicketDetail(res.data);
@@ -239,8 +245,34 @@ export default function SupportDashboard() {
                         <option value="closed">Closed</option>
                       </select>
                     </div>
+                    <div className="form-group">
+                      <label>Eligible for Refund?</label>
+                      <select value={refundEligible} onChange={e => { setRefundEligible(e.target.value); if (e.target.value === 'no') setRefundAmount(''); }}>
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                    {refundEligible === 'yes' && (
+                      <div className="form-group">
+                        <label>Refund Amount (BDT)</label>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={refundAmount}
+                          onChange={e => setRefundAmount(e.target.value)}
+                          placeholder="Enter refund amount"
+                          required
+                        />
+                        {ticketDetail?.ticket?.total_fare && (
+                          <small style={{ color: '#6B6B6B', marginTop: 4, display: 'block' }}>
+                            Original fare: BDT {Number(ticketDetail.ticket.total_fare).toFixed(2)}
+                          </small>
+                        )}
+                      </div>
+                    )}
                     <div className="complaint-form-actions">
-                      <button type="submit" className="card-button" disabled={replying || !replyMessage.trim()}>
+                      <button type="submit" className="card-button" disabled={replying || !replyMessage.trim() || (refundEligible === 'yes' && (!refundAmount || parseFloat(refundAmount) <= 0))}>
                         {replying ? 'Sending...' : 'Send Response'}
                       </button>
                     </div>

@@ -200,8 +200,21 @@ function Wallet() {
                     <span className="wallet-txn-date">{formatDate(txn.ts)}</span>
                   </div>
                   <div className="wallet-txn-right">
-                    <span className={`wallet-txn-amount ${txn.type === 'wallet_topup' || txn.type === 'refund_payout' ? 'credit' : 'debit'}`}>
-                      {txn.type === 'wallet_topup' || txn.type === 'refund_payout' ? '+' : '-'}{parseFloat(txn.amount).toFixed(2)} {txn.currency}
+                    <span className={`wallet-txn-amount ${
+                      txn.type === 'wallet_topup' || txn.type === 'refund_payout'
+                        ? 'credit'
+                        : txn.type === 'ride_payment'
+                          ? (user?.role === 'driver' ? 'credit' : 'debit')
+                          : txn.type === 'platform_fee'
+                            ? 'debit'
+                            : 'debit'
+                    }`}>
+                      {txn.type === 'wallet_topup' || txn.type === 'refund_payout'
+                        ? '+'
+                        : txn.type === 'ride_payment'
+                          ? (user?.role === 'driver' ? '+' : '-')
+                          : '-'
+                      }{parseFloat(txn.amount).toFixed(2)} {txn.currency}
                     </span>
                     <span className={`wallet-txn-status ${txn.status}`}>{txn.status}</span>
                   </div>
