@@ -303,12 +303,7 @@ const acceptRequest = async (req, res) => {
     // Compute and store route directions (non-blocking — don't fail ride acceptance)
     let routeData = null;
     try {
-      const pickupLat = parseFloat(request.pickup_addr ? await getCoord(request.pickup_location, 'lat') : 0);
-      const pickupLng = parseFloat(request.pickup_addr ? await getCoord(request.pickup_location, 'lng') : 0);
-      const dropoffLat = parseFloat(request.dropoff_addr ? await getCoord(request.dropoff_location, 'lat') : 0);
-      const dropoffLng = parseFloat(request.dropoff_addr ? await getCoord(request.dropoff_location, 'lng') : 0);
-
-      // Re-query actual coordinates from the request
+      // Query actual coordinates from the request
       const coordResult = await pool.query(
         `SELECT
           ST_Y(pickup_location::geometry) AS pickup_lat,

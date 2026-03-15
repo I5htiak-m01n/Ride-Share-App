@@ -9,7 +9,11 @@ import RiderDashboard from './pages/RiderDashboard';
 import RideBookingPage from './pages/RideBookingPage';
 import RideConfirmPage from './pages/RideConfirmPage';
 import RideSearchingPage from './pages/RideSearchingPage';
+import { DriverProviderLayout } from './context/DriverContext';
 import DriverDashboard from './pages/DriverDashboard';
+import DriverOnlinePage from './pages/DriverOnlinePage';
+import DriverRidePage from './pages/DriverRidePage';
+import DriverVehiclesPage from './pages/DriverVehiclesPage';
 import ProfileSettings from './pages/ProfileSettings';
 import DriverDocuments from './pages/DriverDocuments';
 import RideHistory from './pages/RideHistory';
@@ -51,15 +55,17 @@ function App() {
             <Route path="/rider/searching" element={<RideSearchingPage />} />
           </Route>
 
-          {/* Protected routes - Driver */}
-          <Route
-            path="/driver/dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['driver', 'mixed']}>
-                <DriverDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* Driver routes — wrapped in DriverProvider layout */}
+          <Route element={
+            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+              <DriverProviderLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/driver/dashboard" element={<DriverDashboard />} />
+            <Route path="/driver/online" element={<DriverOnlinePage />} />
+            <Route path="/driver/ride" element={<DriverRidePage />} />
+            <Route path="/driver/vehicles" element={<DriverVehiclesPage />} />
+          </Route>
 
           {/* Profile Settings - accessible by all authenticated roles */}
           <Route

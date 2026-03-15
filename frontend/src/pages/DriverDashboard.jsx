@@ -1,297 +1,52 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useRoute } from '../context/RouteContext';
-import { ridesAPI, walletAPI, ratingsAPI, driversAPI } from '../api/client';
+import { useDriver } from '../context/DriverContext';
 import BookingMap from '../components/BookingMap';
-import RideMap from '../components/RideMap';
-import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
 import RatingBadge from '../components/RatingBadge';
 import NotificationDropdown from '../components/NotificationDropdown';
 import './Dashboard.css';
 
-const NEARBY_POLL_MS   = 10000;
-const LOCATION_SYNC_MS = 15000;
-
-// Generate random nearby vehicles around a center point
-function generateNearbyVehicles(center, count = 5) {
-  const vehicles = [];
-  for (let i = 0; i < count; i++) {
-    vehicles.push({
-      lat: center.lat + (Math.random() - 0.5) * 0.02,
-      lng: center.lng + (Math.random() - 0.5) * 0.02,
-      rotation: Math.floor(Math.random() * 360),
-    });
-  }
-  return vehicles;
-}
-
 function DriverDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const {
-    routePath, routeInfo, routeLoading, eta, wasRerouted,
-    fetchRideRoute, clearRoute, startRouteChecking, stopRouteChecking,
-  } = useRoute();
+    driverPhase,
+    driverLocation, locationError,
+    walletBalance, userRating,
+    error, clearError,
+    fakeVehicles,
+    goOnline,
+    // Rating modal
+    showRatingModal, ratingTarget, ratingLoading,
+    handleSubmitRating, handleSkipRating,
+  } = useDriver();
 
-  const [isOnline, setIsOnline]             = useState(false);
-  const [driverLocation, setDriverLocation] = useState(null);
-  const [nearbyRequests, setNearbyRequests] = useState([]);
-  const [activeRide, setActiveRide]         = useState(null);
-  const [locationError, setLocationError]   = useState(null);
-  const [mapError, setMapError]             = useState(null);
-  const [walletBalance, setWalletBalance]   = useState(null);
-
-  // Rating state
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [ratingTarget, setRatingTarget]       = useState(null);
-  const [ratingLoading, setRatingLoading]     = useState(false);
-  const [userRating, setUserRating]           = useState({ rating_avg: null, rating_count: 0 });
-
-  // Vehicle & tab state
-  const [dashTab, setDashTab]           = useState('dashboard');
-  const [vehicles, setVehicles]         = useState([]);
-  const [vehiclesLoading, setVehiclesLoading] = useState(false);
-
-  const watchIdRef          = useRef(null);
-  const nearbyIntervalRef   = useRef(null);
-  const locationIntervalRef = useRef(null);
-  const currentLocationRef  = useRef(null);
-
-  // Simulated vehicles for idle map
-  const fakeVehicles = useMemo(() => {
-    const center = driverLocation || { lat: 23.8103, lng: 90.4125 };
-    return generateNearbyVehicles(center, 5);
-  }, [driverLocation]);
-
-  const fetchNearby = useCallback(async () => {
-    const loc = currentLocationRef.current;
-    if (!loc) return;
-    try {
-      const res = await ridesAPI.getNearby(loc.lat, loc.lng);
-      setNearbyRequests(res.data.requests || []);
-      setMapError(null);
-    } catch (err) {
-      console.error('fetchNearby error:', err);
-    }
-  }, []);
-
-  const syncLocation = useCallback(async () => {
-    const loc = currentLocationRef.current;
-    if (!loc) return;
-    try {
-      await ridesAPI.updateLocation(loc.lat, loc.lng);
-    } catch (err) {
-      console.error('syncLocation error:', err);
-    }
-  }, []);
-
-  const fetchWalletBalance = useCallback(async () => {
-    try {
-      const res = await walletAPI.getBalance();
-      setWalletBalance(parseFloat(res.data.wallet.balance));
-    } catch (err) {
-      console.error('fetchWalletBalance error:', err);
-    }
-  }, []);
-
-  const fetchMyRating = useCallback(async () => {
-    try {
-      const res = await ratingsAPI.getMyRating();
-      setUserRating({ rating_avg: res.data.rating_avg, rating_count: res.data.rating_count });
-    } catch (err) {
-      console.error('fetchMyRating error:', err);
-    }
-  }, []);
-
-  const fetchVehicles = useCallback(async () => {
-    setVehiclesLoading(true);
-    try {
-      const res = await driversAPI.getVehicles();
-      setVehicles(res.data.vehicles || []);
-    } catch (err) {
-      console.error('fetchVehicles error:', err);
-    } finally {
-      setVehiclesLoading(false);
-    }
-  }, []);
-
-  const handleActivateVehicle = async (vehicleId) => {
-    try {
-      await driversAPI.activateVehicle(vehicleId);
-      fetchVehicles();
-    } catch (err) {
-      setMapError(err.response?.data?.error || 'Failed to activate vehicle');
-    }
-  };
-
-  const handleDeactivateVehicle = async (vehicleId) => {
-    try {
-      await driversAPI.deactivateVehicle(vehicleId);
-      fetchVehicles();
-    } catch (err) {
-      setMapError(err.response?.data?.error || 'Failed to deactivate vehicle');
-    }
-  };
-
-  const startOnlineMode = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported by this browser.');
-      return;
-    }
-    setLocationError(null);
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        currentLocationRef.current = loc;
-        setDriverLocation(loc);
-      },
-      () => {
-        setLocationError('Location access denied. Please allow location in browser settings.');
-      },
-      { enableHighAccuracy: true, maximumAge: 5000 }
-    );
-
-    setTimeout(fetchNearby, 500);
-    setTimeout(syncLocation, 500);
-    nearbyIntervalRef.current   = setInterval(fetchNearby,  NEARBY_POLL_MS);
-    locationIntervalRef.current = setInterval(syncLocation, LOCATION_SYNC_MS);
-  }, [fetchNearby, syncLocation]);
-
-  const stopOnlineMode = useCallback(() => {
-    if (watchIdRef.current != null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    clearInterval(nearbyIntervalRef.current);
-    clearInterval(locationIntervalRef.current);
-    setNearbyRequests([]);
-  }, []);
-
-  useEffect(() => () => stopOnlineMode(), [stopOnlineMode]);
-
-  // Get location on mount even when offline (for idle map) + fetch wallet + rating + restore active ride
+  // Route guard: redirect to appropriate page if not offline
   useEffect(() => {
-    // Restore active ride state if driver has an in-progress ride (handles refresh / re-login)
-    const restoreActiveRide = async () => {
-      try {
-        const res = await ridesAPI.getDriverActive();
-        if (res.data.active && res.data.ride) {
-          setActiveRide(res.data);
-          if (res.data.ride.ride_id) {
-            await fetchRideRoute(res.data.ride.ride_id);
-            startRouteChecking(res.data.ride.ride_id, () => currentLocationRef.current);
-          }
-        }
-      } catch (err) {
-        console.error('restoreActiveRide error:', err);
-      }
-    };
-    restoreActiveRide();
-
-    fetchWalletBalance();
-    fetchMyRating();
-    fetchVehicles();
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setDriverLocation(loc);
-          currentLocationRef.current = loc;
-        },
-        () => {}
-      );
+    if (driverPhase === 'online') {
+      navigate('/driver/online', { replace: true });
+    } else if (driverPhase === 'ride_accepted' || driverPhase === 'ride_started') {
+      navigate('/driver/ride', { replace: true });
     }
-  }, []);
+  }, [driverPhase, navigate]);
 
-  const toggleOnline = async () => {
-    if (!isOnline) {
-      try {
-        await ridesAPI.checkReadiness();
-      } catch (err) {
-        setMapError(
-          err.response?.data?.error ||
-          'You must have an active vehicle before going online. Go to My Vehicles to set one.'
-        );
-        return;
-      }
-    }
-    const next = !isOnline;
-    setIsOnline(next);
-    if (next) startOnlineMode();
-    else stopOnlineMode();
-  };
-
-  const handleAccept = async (requestId) => {
+  const handleGoOnline = async () => {
     try {
-      const res = await ridesAPI.acceptRequest(requestId);
-      setActiveRide(res.data);
-      stopOnlineMode();
-      setIsOnline(false);
-      setMapError(null);
-      // Fetch the route stored on acceptance
-      if (res.data?.ride?.ride_id) {
-        await fetchRideRoute(res.data.ride.ride_id);
-        // Start periodic route checking (every 30s) for dynamic rerouting
-        startRouteChecking(res.data.ride.ride_id, () => currentLocationRef.current);
-      }
-    } catch (err) {
-      const errData = err.response?.data;
-      setMapError(errData?.details || errData?.error || 'Failed to accept ride');
-    }
-  };
-
-  const handleReject = async (requestId) => {
-    try {
-      await ridesAPI.rejectRequest(requestId);
-      setNearbyRequests((prev) => prev.filter((r) => r.request_id !== requestId));
-    } catch (err) {
-      console.error('rejectRequest error:', err);
-    }
-  };
-
-  const handleUpdateStatus = async (status) => {
-    if (!activeRide?.ride?.ride_id) return;
-    try {
-      const res = await ridesAPI.updateStatus(activeRide.ride.ride_id, status);
-      if (status === 'completed' || status === 'cancelled') {
-        // Trigger rating modal for the rider before clearing ride
-        if (status === 'completed' && activeRide?.ride?.rider_id) {
-          setRatingTarget({
-            rideId: activeRide.ride.ride_id,
-            rateeUserId: activeRide.ride.rider_id,
-            rateeName: activeRide.rider_name || 'the rider',
-          });
-          setShowRatingModal(true);
-        }
-        setActiveRide(null);
-        fetchWalletBalance();
-        stopRouteChecking();
-        clearRoute();
-      } else {
-        setActiveRide((prev) => ({ ...prev, ride: res.data.ride }));
-      }
-    } catch (err) {
-      console.error('updateStatus error:', err);
-      const msg = err.response?.data?.error || err.response?.data?.details || 'Failed to update ride status';
-      setMapError(msg);
+      await goOnline();
+      navigate('/driver/online');
+    } catch {
+      // error is set in context
     }
   };
 
   const handleLogout = async () => {
-    stopOnlineMode();
-    stopRouteChecking();
-    clearRoute();
     await logout();
     navigate('/login');
   };
 
-  // Show full-screen map when offline (idle) with no active ride
-  const showIdleMap = !isOnline && !activeRide;
-  // Show RideMap when online or have active ride
-  const showRideMap = isOnline || activeRide;
+  const greeting = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening';
 
   return (
     <div className="dashboard-container">
@@ -308,154 +63,46 @@ function DriverDashboard() {
       </nav>
 
       <div className="uber-split-layout">
-        {/* === Left Panel: Controls === */}
+        {/* Left Panel */}
         <div className="uber-left-panel">
-          <div className="uber-greeting">
-            <h1>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name || 'Driver'}</h1>
-            <p>{isOnline ? 'You are online and accepting rides' : 'Go online to start accepting rides'}</p>
-          </div>
-
-          {/* Tab bar (hidden during active ride) */}
-          {!activeRide && (
-            <div className="admin-tab-bar" style={{ marginBottom: 0 }}>
-              <button
-                className={`admin-tab${dashTab === 'dashboard' ? ' active' : ''}`}
-                onClick={() => setDashTab('dashboard')}
-              >
-                Dashboard
-              </button>
-              <button
-                className={`admin-tab${dashTab === 'vehicles' ? ' active' : ''}`}
-                onClick={() => { setDashTab('vehicles'); fetchVehicles(); }}
-              >
-                My Vehicles
-              </button>
-            </div>
-          )}
-
           <div className="driver-panel-scroll">
-          {/* ── Dashboard Tab ─────────────────────────────── */}
-          {(dashTab === 'dashboard' || activeRide) && (<>
-
-          {walletBalance !== null && (
-            <div className="wallet-balance-display">
-              <span>Earnings</span>
-              <strong>{walletBalance.toFixed(2)} BDT</strong>
+            <div className="uber-greeting">
+              <h1>Good {greeting}, {user?.name || 'Driver'}</h1>
+              <p>Go online to start accepting rides</p>
             </div>
-          )}
 
-          {/* Alerts */}
-          {locationError && (
-            <div className="uber-panel-alert">{locationError}</div>
-          )}
-          {mapError && (
-            <div className="uber-panel-alert">{mapError}</div>
-          )}
+            {walletBalance !== null && (
+              <div className="wallet-balance-display">
+                <span>Earnings</span>
+                <strong>{walletBalance.toFixed(2)} BDT</strong>
+              </div>
+            )}
 
-          {/* Online/Offline toggle */}
-          <div className="uber-status-section">
-            <button
-              onClick={toggleOnline}
-              className={`status-toggle ${isOnline ? 'online' : 'offline'}`}
-            >
-              {isOnline ? 'Online — Accepting Rides' : 'Tap to Go Online'}
-            </button>
-          </div>
+            {locationError && <div className="uber-panel-alert">{locationError}</div>}
+            {error && <div className="uber-panel-alert">{error}</div>}
 
-          {/* Active ride panel */}
-          {activeRide && (
-            <div className="uber-active-ride-panel">
-              <h3>Active Ride</h3>
-              <div className="ride-detail-row">
-                <span>Rider</span>
-                <strong>{activeRide.rider_name}</strong>
-              </div>
-              <div className="ride-detail-row">
-                <span>From</span>
-                <strong>{activeRide.ride?.pickup_addr}</strong>
-              </div>
-              <div className="ride-detail-row">
-                <span>To</span>
-                <strong>{activeRide.ride?.dropoff_addr}</strong>
-              </div>
-              <div className="ride-detail-row">
-                <span>Fare</span>
-                <strong>{activeRide.estimated_fare} BDT</strong>
-              </div>
-              <div className="ride-detail-row">
-                <span>Status</span>
-                <strong style={{ textTransform: 'capitalize' }}>{activeRide.ride?.status?.replace('_', ' ')}</strong>
-              </div>
-              <div className="ride-actions">
-                {activeRide.ride?.status === 'driver_assigned' && (
-                  <button
-                    onClick={() => handleUpdateStatus('started')}
-                    style={{ background: '#000', color: '#fff', border: 'none' }}
-                  >
-                    Start Ride
-                  </button>
-                )}
-                {activeRide.ride?.status === 'started' && (
-                  <button
-                    onClick={() => handleUpdateStatus('completed')}
-                    style={{ background: '#05944F', color: '#fff', border: 'none' }}
-                  >
-                    Complete Ride
-                  </button>
-                )}
-                <button
-                  onClick={() => handleUpdateStatus('cancelled')}
-                  style={{ background: '#fff', color: '#E11900', border: '1px solid #E2E2E2' }}
-                >
-                  Cancel Ride
-                </button>
-              </div>
-              <ChatPanel
-                rideId={activeRide.ride.ride_id}
-                currentUserId={user.user_id}
-                otherName={activeRide.rider_name}
-              />
+            <div className="uber-status-section">
+              <button onClick={handleGoOnline} className="status-toggle offline">
+                Tap to Go Online
+              </button>
             </div>
-          )}
 
-          {/* Nearby requests list (when online) */}
-          {isOnline && !activeRide && nearbyRequests.length > 0 && (
-            <div className="uber-request-list">
-              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 600 }}>
-                Nearby Requests ({nearbyRequests.length})
-              </h3>
-              {nearbyRequests.map((req) => (
-                <div key={req.request_id} className="uber-request-card">
-                  <h4>{req.rider_name}</h4>
-                  <p className="req-detail">From: {req.pickup_addr}</p>
-                  <p className="req-detail">To: {req.dropoff_addr}</p>
-                  <p className="req-detail">
-                    Distance: {(req.distance_meters / 1000).toFixed(1)} km away
-                  </p>
-                  {req.estimated_fare && (
-                    <p className="req-fare">{req.estimated_fare} BDT</p>
-                  )}
-                  <div className="req-actions">
-                    <button className="accept-btn" onClick={() => handleAccept(req.request_id)}>
-                      Accept
-                    </button>
-                    <button className="reject-btn" onClick={() => handleReject(req.request_id)}>
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Waiting message */}
-          {isOnline && !activeRide && nearbyRequests.length === 0 && driverLocation && (
-            <p className="uber-waiting-text">No ride requests within 5 km. Waiting...</p>
-          )}
-
-          {/* Quick actions */}
-          {!activeRide && (
+            {/* Quick actions */}
             <div className="uber-quick-actions">
+              <div className="uber-quick-card" onClick={() => navigate('/driver/vehicles')}>
+                <div className="card-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="3" width="15" height="13" rx="2" />
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                    <circle cx="5.5" cy="18.5" r="2.5" />
+                    <circle cx="18.5" cy="18.5" r="2.5" />
+                  </svg>
+                </div>
+                <div>
+                  <h4>My Vehicles</h4>
+                  <p>Manage your vehicles</p>
+                </div>
+              </div>
               <div className="uber-quick-card" onClick={() => navigate('/driver/history')}>
                 <div className="card-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -521,125 +168,25 @@ function DriverDashboard() {
                 </div>
               </div>
             </div>
-          )}
-
-          </>)}
-
-          {/* ── Vehicles Tab ──────────────────────────────── */}
-          {dashTab === 'vehicles' && !activeRide && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>My Vehicles</h3>
-              {vehiclesLoading ? (
-                <p style={{ color: '#6B6B6B' }}>Loading vehicles...</p>
-              ) : vehicles.length === 0 ? (
-                <div className="empty-state">
-                  <h3>No vehicles yet</h3>
-                  <p>Upload a vehicle registration document to add a vehicle.</p>
-                  <button
-                    className="card-button"
-                    style={{ marginTop: 12 }}
-                    onClick={() => navigate('/driver/documents')}
-                  >
-                    Go to Documents
-                  </button>
-                </div>
-              ) : (
-                <div className="vehicle-list">
-                  {vehicles.map((v) => (
-                    <div key={v.vehicle_id} className={`vehicle-card${v.is_active ? ' active-vehicle' : ''}`}>
-                      <div className="vehicle-card-header">
-                        <h4>{v.model}</h4>
-                        <span className={`status-pill ${v.is_active ? 'valid' : ''}`}>
-                          {v.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <div className="vehicle-card-body">
-                        <p><span>Type:</span> {v.type_label || v.type}</p>
-                        <p><span>Plate:</span> {v.plate_number}</p>
-                        {v.fare_multiplier && (
-                          <p><span>Fare:</span> {v.fare_multiplier}x multiplier</p>
-                        )}
-                      </div>
-                      <div className="vehicle-card-actions">
-                        {v.is_active ? (
-                          <button onClick={() => handleDeactivateVehicle(v.vehicle_id)}
-                                  className="vehicle-deactivate-btn">
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button onClick={() => handleActivateVehicle(v.vehicle_id)}
-                                  className="vehicle-activate-btn">
-                            Set as Active
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
           </div>
-
         </div>
 
-        {/* === Right Panel: Map === */}
+        {/* Right Panel: Idle Map */}
         <div className="uber-right-map">
-          {(isOnline || activeRide) ? (
-            <div className="uber-ridemap-wrapper">
-              {driverLocation ? (
-                <RideMap
-                  driverLocation={driverLocation}
-                  rideRequests={activeRide ? [] : nearbyRequests}
-                  onAccept={handleAccept}
-                  onReject={handleReject}
-                  routePath={routePath}
-                  routeInfo={routeInfo}
-                  routeLoading={routeLoading}
-                  eta={eta}
-                  wasRerouted={wasRerouted}
-                  pickupLocation={activeRide?.ride?.pickup_addr ? undefined : null}
-                  dropoffLocation={activeRide?.ride?.dropoff_addr ? undefined : null}
-                />
-              ) : (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F6F6F6', color: '#6B6B6B', fontSize: '14px' }}>
-                  Waiting for GPS location...
-                </div>
-              )}
-            </div>
-          ) : (
-            <BookingMap
-              fullscreen
-              userLocation={driverLocation}
-              nearbyVehicles={fakeVehicles}
-            />
-          )}
+          <BookingMap
+            fullscreen
+            userLocation={driverLocation}
+            nearbyVehicles={fakeVehicles}
+          />
         </div>
       </div>
 
-      {/* Rating Modal */}
+      {/* Rating Modal (survives navigation back from ride page) */}
       {showRatingModal && ratingTarget && (
         <RatingModal
           rateeName={ratingTarget.rateeName}
-          onSubmit={async (score) => {
-            setRatingLoading(true);
-            try {
-              await ratingsAPI.submit(ratingTarget.rideId, ratingTarget.rateeUserId, score);
-              setTimeout(() => {
-                setShowRatingModal(false);
-                setRatingTarget(null);
-                setRatingLoading(false);
-                fetchMyRating();
-              }, 1200);
-            } catch (err) {
-              setRatingLoading(false);
-              throw new Error(err.response?.data?.error || 'Failed to submit rating');
-            }
-          }}
-          onSkip={() => {
-            setShowRatingModal(false);
-            setRatingTarget(null);
-          }}
+          onSubmit={handleSubmitRating}
+          onSkip={handleSkipRating}
           loading={ratingLoading}
         />
       )}
