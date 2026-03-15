@@ -264,12 +264,8 @@ export function RideProvider({ children }) {
       ]);
 
       const fareData = fareRes.data;
-      if (routeResult) {
-        fareData.distance_km = (routeResult.distance_meters / 1000).toFixed(1);
-        fareData.estimated_duration_min = Math.round(routeResult.duration_seconds / 60);
-        fareData.route_distance_text = routeResult.distance_text;
-        fareData.route_duration_text = routeResult.duration_text;
-      }
+      // Route distance is now used by backend for fare calculation
+      // routeResult is still fetched for map polyline rendering via RouteContext
 
       setFareEstimate(fareData);
       setRidePhase('confirming');

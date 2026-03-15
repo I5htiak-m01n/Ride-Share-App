@@ -22,6 +22,7 @@ import AdminComplaints from './pages/AdminComplaints';
 import AdminUsers from './pages/AdminUsers';
 import AdminStaff from './pages/AdminStaff';
 import AdminAnalytics from './pages/AdminAnalytics';
+import AdminPricing from './pages/AdminPricing';
 import RiderPromos from './pages/RiderPromos';
 import Complaints from './pages/Complaints';
 import SupportTickets from './pages/SupportTickets';
@@ -204,6 +205,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminStaff />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Pricing */}
+          <Route
+            path="/admin/pricing"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminPricing />
               </ProtectedRoute>
             }
           />

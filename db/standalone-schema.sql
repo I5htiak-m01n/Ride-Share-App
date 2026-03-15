@@ -119,16 +119,18 @@ create table if not exists vehicle_documents (
 );
 
 -- =========================================================
--- 6. PRICING & ZONES
+-- 6. PRICING STANDARDS
 -- =========================================================
-create table if not exists pricing_zones (
-  zone_id uuid primary key default gen_random_uuid(),
-  zone_name text not null,
-  polygon geography(Polygon, 4326),
-  base_fare numeric(8,2) not null,
-  per_km_rate numeric(8,2) not null,
-  per_minute_rate numeric(8,2) not null,
-  surge_multiplier numeric(3,2) not null default 1.0
+create table if not exists pricing_standards (
+  id uuid primary key default gen_random_uuid(),
+  base_fare numeric(12,2) not null default 0,
+  rate_first numeric(12,2) not null,
+  first_km numeric(8,2) not null,
+  rate_after numeric(12,2) not null,
+  platform_fee_pct numeric(5,2) not null,
+  surge_factor numeric(4,2) not null default 1.0,
+  surge_range_km numeric(8,2) not null default 3.0,
+  surge_density_threshold int not null default 50
 );
 
 -- =========================================================

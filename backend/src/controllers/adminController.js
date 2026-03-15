@@ -498,6 +498,44 @@ const updateStaffLevel = async (req, res) => {
   }
 };
 
+// GET /api/admin/pricing
+const getPricingStandards = async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM pricing_standards LIMIT 1`);
+    res.json({ pricing: result.rows[0] || null });
+  } catch (err) {
+    console.error("getPricingStandards error:", err);
+    res.status(500).json({ error: "Failed to get pricing standards" });
+  }
+};
+
+// PUT /api/admin/pricing
+const updatePricingStandards = async (req, res) => {
+  const { base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold } = req.body;
+  try {
+    const existing = await pool.query(`SELECT id FROM pricing_standards LIMIT 1`);
+    let result;
+    if (existing.rows.length > 0) {
+      result = await pool.query(
+        `UPDATE pricing_standards SET base_fare=$1, rate_first=$2, first_km=$3, rate_after=$4,
+         platform_fee_pct=$5, surge_factor=$6, surge_range_km=$7, surge_density_threshold=$8
+         WHERE id=$9 RETURNING *`,
+        [base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold, existing.rows[0].id]
+      );
+    } else {
+      result = await pool.query(
+        `INSERT INTO pricing_standards (base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold]
+      );
+    }
+    res.json({ pricing: result.rows[0] });
+  } catch (err) {
+    console.error("updatePricingStandards error:", err);
+    res.status(500).json({ error: "Failed to update pricing standards" });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllDocuments,
@@ -513,4 +551,6 @@ module.exports = {
   assignTicketToStaff,
   getSupportStaff,
   updateStaffLevel,
+  getPricingStandards,
+  updatePricingStandards,
 };

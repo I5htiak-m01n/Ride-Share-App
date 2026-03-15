@@ -1,6 +1,23 @@
 const { pool } = require("../db");
 const { fetchGoogleDirections, storeRoute } = require("./directionsController");
 
+// Haversine straight-line distance in km (fallback when Google API fails)
+function haversineDistanceKm(lat1, lng1, lat2, lng2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 100) / 100;
+}
+
+// Estimated duration in minutes (~3 min/km)
+function estimateDurationMin(distanceKm) {
+  return Math.round(distanceKm * 3);
+}
+
 // GET /api/rides/nearby?lat=&lng=&radius=
 // Driver: get all open ride requests within radius (meters, default 5km)
 const getNearbyRequests = async (req, res) => {
@@ -106,18 +123,30 @@ const createRideRequest = async (req, res) => {
       [riderId]
     );
 
-    // Use DB functions for distance, fare, and duration estimation
-    const calcResult = await pool.query(
-      `SELECT
-        calculate_distance_km($1, $2, $3, $4) AS distance_km,
-        estimate_fare(calculate_distance_km($1, $2, $3, $4)) AS estimated_fare,
-        estimate_duration_min(calculate_distance_km($1, $2, $3, $4)) AS estimated_duration`,
-      [parseFloat(pickup_lat), parseFloat(pickup_lng), parseFloat(dropoff_lat), parseFloat(dropoff_lng)]
+    // Get actual route distance from Google Directions API
+    const route = await fetchGoogleDirections({
+      origin_lat: pickup_lat, origin_lng: pickup_lng,
+      dest_lat: dropoff_lat, dest_lng: dropoff_lng,
+    });
+
+    let distanceKm;
+    if (route) {
+      distanceKm = parseFloat((route.distance_meters / 1000).toFixed(2));
+    } else {
+      // Fallback to straight-line if Google API fails
+      distanceKm = haversineDistanceKm(
+        parseFloat(pickup_lat), parseFloat(pickup_lng),
+        parseFloat(dropoff_lat), parseFloat(dropoff_lng)
+      );
+    }
+
+    const fareResult = await pool.query(
+      `SELECT estimate_fare($1::numeric) AS estimated_fare`,
+      [distanceKm]
     );
 
-    const distanceKm = parseFloat(calcResult.rows[0].distance_km);
-    let estimatedFare = parseFloat(calcResult.rows[0].estimated_fare);
-    const estimatedDuration = calcResult.rows[0].estimated_duration;
+    let estimatedFare = parseFloat(fareResult.rows[0].estimated_fare);
+    const estimatedDuration = estimateDurationMin(distanceKm);
 
     // Apply vehicle type fare multiplier
     const vType = vehicle_type || 'economy';
@@ -129,6 +158,32 @@ const createRideRequest = async (req, res) => {
       ? parseFloat(multiplierResult.rows[0].fare_multiplier)
       : 1.0;
     estimatedFare = Math.round(estimatedFare * fareMultiplier * 100) / 100;
+
+    // Surge pricing check
+    const surgeResult = await pool.query(
+      `SELECT surge_factor, surge_range_km, surge_density_threshold FROM pricing_standards LIMIT 1`
+    );
+    if (surgeResult.rows.length > 0) {
+      const { surge_factor, surge_range_km, surge_density_threshold } = surgeResult.rows[0];
+      const densityResult = await pool.query(
+        `SELECT COUNT(*)::int AS nearby_requests
+         FROM ride_requests
+         WHERE status = 'open'
+           AND created_at > NOW() - INTERVAL '15 minutes'
+           AND ST_DWithin(
+             pickup_location,
+             ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+             $3 * 1000
+           )`,
+        [parseFloat(pickup_lat), parseFloat(pickup_lng), parseFloat(surge_range_km)]
+      );
+      const nearbyRequests = densityResult.rows[0].nearby_requests;
+      const area = Math.PI * Math.pow(parseFloat(surge_range_km), 2);
+      const density = nearbyRequests / area;
+      if (density >= parseFloat(surge_density_threshold)) {
+        estimatedFare = Math.round(estimatedFare * parseFloat(surge_factor) * 100) / 100;
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO ride_requests
@@ -425,22 +480,34 @@ const getFareEstimate = async (req, res) => {
   }
 
   try {
-    // Use DB functions for distance, fare, and duration estimation
-    const calcResult = await pool.query(
-      `SELECT
-        calculate_distance_km($1, $2, $3, $4) AS distance_km,
-        estimate_fare(calculate_distance_km($1, $2, $3, $4)) AS estimated_fare,
-        estimate_duration_min(calculate_distance_km($1, $2, $3, $4)) AS estimated_duration`,
-      [parseFloat(pickup_lat), parseFloat(pickup_lng),
-       parseFloat(dropoff_lat), parseFloat(dropoff_lng)]
+    // Get actual route distance from Google Directions API
+    const route = await fetchGoogleDirections({
+      origin_lat: pickup_lat, origin_lng: pickup_lng,
+      dest_lat: dropoff_lat, dest_lng: dropoff_lng,
+    });
+
+    let distanceKm;
+    if (route) {
+      distanceKm = parseFloat((route.distance_meters / 1000).toFixed(2));
+    } else {
+      // Fallback to straight-line if Google API fails
+      distanceKm = haversineDistanceKm(
+        parseFloat(pickup_lat), parseFloat(pickup_lng),
+        parseFloat(dropoff_lat), parseFloat(dropoff_lng)
+      );
+    }
+
+    const fareResult = await pool.query(
+      `SELECT estimate_fare($1::numeric) AS estimated_fare`,
+      [distanceKm]
     );
 
-    const { distance_km, estimated_fare, estimated_duration } = calcResult.rows[0];
-
     res.json({
-      distance_km: parseFloat(distance_km),
-      estimated_fare,
-      estimated_duration_min: estimated_duration,
+      distance_km: distanceKm,
+      estimated_fare: fareResult.rows[0].estimated_fare,
+      estimated_duration_min: estimateDurationMin(distanceKm),
+      route_distance_text: route?.distance_text || null,
+      route_duration_text: route?.duration_text || null,
     });
   } catch (err) {
     console.error("getFareEstimate error:", err);

@@ -9,7 +9,6 @@ export default function AdminAnalytics() {
   const navigate = useNavigate();
 
   const [topDrivers, setTopDrivers] = useState([]);
-  const [zoneRevenue, setZoneRevenue] = useState([]);
   const [promoPerformance, setPromoPerformance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,13 +18,11 @@ export default function AdminAnalytics() {
       setLoading(true);
       setError(null);
       try {
-        const [driversRes, zonesRes, promosRes] = await Promise.all([
+        const [driversRes, promosRes] = await Promise.all([
           analyticsAPI.getTopDrivers(),
-          analyticsAPI.getZoneRevenue(),
           analyticsAPI.getPromoPerformance(),
         ]);
         setTopDrivers(driversRes.data.top_drivers);
-        setZoneRevenue(zonesRes.data.zone_revenue);
         setPromoPerformance(promosRes.data.promo_performance);
       } catch {
         setError('Failed to load analytics data');
@@ -99,46 +96,7 @@ export default function AdminAnalytics() {
               </div>
             </section>
 
-            {/* ── Complex Query 2: Ride Volume & Revenue by Zone ── */}
-            <section style={{ marginBottom: 48 }}>
-              <h2 style={{ marginBottom: 16 }}>Ride Volume & Revenue by Zone</h2>
-              {/* <p style={{ color: '#666', marginBottom: 16 }}>
-                Aggregates ride counts and revenue per pricing zone using JOIN across
-                <code> pricing_zones</code>, <code>rides</code>, and <code>invoices</code>.
-              </p> */}
-              <div style={{ overflowX: 'auto' }}>
-                <table style={tableStyle}>
-                  <thead>
-                    <tr style={theadRowStyle}>
-                      <th style={thStyle}>Zone</th>
-                      <th style={thStyle}>Base Rate</th>
-                      <th style={thStyle}>Total Rides</th>
-                      <th style={thStyle}>Total Revenue (BDT)</th>
-                      <th style={thStyle}>Avg Fare (BDT)</th>
-                      <th style={thStyle}>Driver Earnings (BDT)</th>
-                      <th style={thStyle}>Platform Fees (BDT)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {zoneRevenue.length === 0 ? (
-                      <tr><td colSpan={7} style={emptyStyle}>No data available</td></tr>
-                    ) : zoneRevenue.map((z, i) => (
-                      <tr key={z.zone_id} style={i % 2 === 0 ? evenRowStyle : {}}>
-                        <td style={tdStyle}>{z.zone_name}</td>
-                        <td style={tdStyle}>{z.base_rate}</td>
-                        <td style={tdStyle}>{z.total_rides}</td>
-                        <td style={tdStyle}>{Number(z.total_revenue).toFixed(2)}</td>
-                        <td style={tdStyle}>{Number(z.avg_fare_per_ride).toFixed(2)}</td>
-                        <td style={tdStyle}>{Number(z.total_driver_earnings).toFixed(2)}</td>
-                        <td style={tdStyle}>{Number(z.total_platform_fees).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* ── Complex Query 3: Promo Performance ── */}
+            {/* ── Complex Query 2: Promo Performance ── */}
             <section style={{ marginBottom: 48 }}>
               <h2 style={{ marginBottom: 16 }}>Promo Code Performance</h2>
               {/* <p style={{ color: '#666', marginBottom: 16 }}>

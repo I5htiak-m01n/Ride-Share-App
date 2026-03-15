@@ -105,57 +105,7 @@ END;
 $$;
 
 -- ---------------------------------------------------------
--- 3. create_ride_request(...)
--- Creates a new ride request with fare estimation using
--- the calculate_distance_km() and estimate_fare() functions.
--- ---------------------------------------------------------
-CREATE OR REPLACE PROCEDURE create_ride_request(
-  p_rider_id    UUID,
-  p_pickup_lat  NUMERIC,
-  p_pickup_lng  NUMERIC,
-  p_pickup_addr TEXT,
-  p_dropoff_lat NUMERIC,
-  p_dropoff_lng NUMERIC,
-  p_dropoff_addr TEXT,
-  OUT p_request_id UUID,
-  OUT p_estimated_fare INTEGER,
-  OUT p_distance_km NUMERIC,
-  OUT p_duration_min INTEGER
-)
-LANGUAGE plpgsql AS $$
-BEGIN
-  -- Ensure rider profile exists
-  INSERT INTO riders (rider_id) VALUES (p_rider_id)
-  ON CONFLICT DO NOTHING;
-
-  -- Calculate distance using the reusable function
-  p_distance_km := calculate_distance_km(
-    p_pickup_lat, p_pickup_lng, p_dropoff_lat, p_dropoff_lng
-  );
-
-  -- Calculate fare and duration using reusable functions
-  p_estimated_fare := estimate_fare(p_distance_km);
-  p_duration_min := estimate_duration_min(p_distance_km);
-
-  -- Insert the ride request
-  INSERT INTO ride_requests (
-    rider_id, pickup_location, pickup_addr,
-    dropoff_location, dropoff_addr,
-    status, estimated_fare, estimated_distance_km, expires_at
-  ) VALUES (
-    p_rider_id,
-    ST_SetSRID(ST_MakePoint(p_pickup_lng, p_pickup_lat), 4326)::geography,
-    p_pickup_addr,
-    ST_SetSRID(ST_MakePoint(p_dropoff_lng, p_dropoff_lat), 4326)::geography,
-    p_dropoff_addr,
-    'open', p_estimated_fare, p_distance_km,
-    NOW() + INTERVAL '5 minutes'
-  ) RETURNING request_id INTO p_request_id;
-END;
-$$;
-
--- ---------------------------------------------------------
--- 4. process_ride_payment(p_ride_id, p_promo_code)
+-- 3. process_ride_payment(p_ride_id, p_promo_code)
 -- Full transactional payment processing:
 --   1. Locks ride and wallet rows (FOR UPDATE)
 --   2. Gets estimated_fare from ride_request
@@ -186,6 +136,7 @@ DECLARE
   v_base_fare NUMERIC;
   v_rider_balance NUMERIC;
   v_final_promo_code TEXT;
+  v_fee_pct NUMERIC;
 BEGIN
   -- 1. Lock and fetch the ride with its request data
   SELECT r.ride_id, r.rider_id, r.driver_id, r.invoice_id,
@@ -218,8 +169,10 @@ BEGIN
   p_total_fare := v_promo_result.discounted_fare;
   p_discount := v_promo_result.discount_applied;
 
-  -- 4. Calculate splits: 15% platform fee, 85% driver earning
-  p_platform_fee := ROUND(p_total_fare * 0.15, 2);
+  -- 4. Calculate splits using platform fee % from pricing_standards
+  SELECT platform_fee_pct INTO v_fee_pct FROM pricing_standards LIMIT 1;
+  v_fee_pct := COALESCE(v_fee_pct, 15.00);
+  p_platform_fee := ROUND(p_total_fare * (v_fee_pct / 100), 2);
   p_driver_earning := p_total_fare - p_platform_fee;
 
   -- 5. Check rider wallet balance

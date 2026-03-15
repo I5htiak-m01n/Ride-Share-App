@@ -31,38 +31,6 @@ const getTopDrivers = async (req, res) => {
   }
 };
 
-// GET /api/analytics/zone-revenue
-// Complex Query 2: Ride volume and revenue by pricing zone, joined across
-// rides, pricing_zones, and invoices — with aggregation (COUNT, SUM, AVG)
-const getZoneRevenue = async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT
-        pz.zone_id,
-        pz.name AS zone_name,
-        pz.base_rate,
-        COUNT(r.ride_id)::int                            AS total_rides,
-        COALESCE(SUM(i.total_amount), 0)::numeric        AS total_revenue,
-        COALESCE(ROUND(AVG(i.total_amount), 2), 0)      AS avg_fare_per_ride,
-        COALESCE(SUM(r.driver_earning), 0)::numeric      AS total_driver_earnings,
-        COALESCE(SUM(r.platform_fee), 0)::numeric        AS total_platform_fees
-      FROM pricing_zones pz
-      LEFT JOIN rides r
-        ON r.zone_id = pz.zone_id
-        AND r.status = 'completed'
-      LEFT JOIN invoices i
-        ON i.invoice_id = r.invoice_id
-        AND i.status = 'paid'
-      GROUP BY pz.zone_id, pz.name, pz.base_rate
-      ORDER BY total_revenue DESC
-    `);
-    res.json({ zone_revenue: result.rows });
-  } catch (err) {
-    console.error("getZoneRevenue error:", err);
-    res.status(500).json({ error: "Failed to get zone revenue analytics" });
-  }
-};
-
 // GET /api/analytics/promo-performance
 // Complex Query 3: Promo code performance, joined across promos,
 // promo_redemptions, rides, and transactions — with aggregation (COUNT, SUM, AVG)
@@ -99,6 +67,5 @@ const getPromoPerformance = async (req, res) => {
 
 module.exports = {
   getTopDrivers,
-  getZoneRevenue,
   getPromoPerformance,
 };

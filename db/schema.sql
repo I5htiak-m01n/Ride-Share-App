@@ -174,13 +174,17 @@ create table public.vehicle_documents (
   primary key (vehicle_id, doc_type)
 );
 
-create table public.pricing_zones (
-  zone_id uuid primary key default gen_random_uuid(),
-  name text unique not null,
-  base_rate numeric(12,2) not null default 0,
-  area_polygon geography(Polygon, 4326) -- IMPROVED: PostGIS Polygon for zone shape
+create table public.pricing_standards (
+  id uuid primary key default gen_random_uuid(),
+  base_fare numeric(12,2) not null default 0,     -- starting price for any ride
+  rate_first numeric(12,2) not null,         -- BDT per km for first `first_km` km
+  first_km numeric(8,2) not null,            -- threshold km
+  rate_after numeric(12,2) not null,         -- BDT per km after threshold
+  platform_fee_pct numeric(5,2) not null,    -- platform fee as percentage (e.g. 15.00 = 15%)
+  surge_factor numeric(4,2) not null default 1.0,  -- multiplier applied when density is high
+  surge_range_km numeric(8,2) not null default 3.0, -- radius in km to check request density
+  surge_density_threshold int not null default 50    -- requests per sq km to trigger surge
 );
-create index pricing_zones_idx on public.pricing_zones using GIST (area_polygon);
 
 -- =========================================================
 -- 6. RIDE REQUESTS & SCHEDULING
@@ -226,7 +230,6 @@ create table public.rides (
   rider_id uuid not null references public.riders(rider_id) on delete restrict,
   driver_id uuid not null references public.drivers(driver_id) on delete restrict,
   vehicle_id uuid references public.vehicles(vehicle_id) on delete set null,
-  zone_id uuid references public.pricing_zones(zone_id) on delete set null,
 
   requested_at timestamptz not null default now(),
   started_at timestamptz,

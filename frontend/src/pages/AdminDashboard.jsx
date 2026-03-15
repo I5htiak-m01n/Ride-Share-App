@@ -12,6 +12,7 @@ const TABS = [
   { key: 'users', label: 'Users', path: '/admin/users' },
   { key: 'staff', label: 'Staff', path: '/admin/staff' },
   { key: 'promos', label: 'Promos', path: '/admin/promos' },
+  { key: 'pricing', label: 'Pricing', path: '/admin/pricing' },
 ];
 
 export default function AdminDashboard() {

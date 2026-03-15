@@ -262,12 +262,14 @@ export const adminAPI = {
   updateStaffLevel: (staffId, level) => api.put(`/admin/staff/${staffId}/level`, { level }),
   setTicketPriority: (ticketId, priority) => api.put(`/admin/tickets/${ticketId}/priority`, { priority }),
   assignTicket: (ticketId, staff_id) => api.put(`/admin/tickets/${ticketId}/assign`, { staff_id }),
+  // Pricing
+  getPricing: () => api.get('/admin/pricing'),
+  updatePricing: (data) => api.put('/admin/pricing', data),
 };
 
 // Analytics API (admin only)
 export const analyticsAPI = {
   getTopDrivers: () => api.get('/analytics/top-drivers'),
-  getZoneRevenue: () => api.get('/analytics/zone-revenue'),
   getPromoPerformance: () => api.get('/analytics/promo-performance'),
 };
 
