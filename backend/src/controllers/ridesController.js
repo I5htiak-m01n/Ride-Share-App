@@ -94,10 +94,19 @@ const updateDriverLocation = async (req, res) => {
     await pool.query(
       `UPDATE drivers
        SET current_location = ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-           status = 'online'
+           status = CASE WHEN status = 'offline' THEN 'online' ELSE status END
        WHERE driver_id = $3`,
       [parseFloat(lat), parseFloat(lng), driverId]
     );
+
+    // Log location during active rides for tracking
+    await pool.query(
+      `INSERT INTO ride_tracking_logs (ride_id, driver_id, location)
+       SELECT ride_id, $1, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography
+       FROM rides WHERE driver_id = $1 AND status IN ('driver_assigned', 'started') LIMIT 1`,
+      [driverId, parseFloat(lat), parseFloat(lng)]
+    );
+
     res.json({ message: "Location updated" });
   } catch (err) {
     console.error("updateDriverLocation error:", err);
@@ -284,7 +293,9 @@ const acceptRequest = async (req, res) => {
         (request_id, rider_id, driver_id, vehicle_id, pickup_location,
          pickup_addr, dropoff_location, dropoff_addr, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'driver_assigned')
-       RETURNING ride_id, status, rider_id`,
+       RETURNING ride_id, status, rider_id,
+         ST_Y(pickup_location::geometry) AS pickup_lat, ST_X(pickup_location::geometry) AS pickup_lng,
+         ST_Y(dropoff_location::geometry) AS dropoff_lat, ST_X(dropoff_location::geometry) AS dropoff_lng`,
       [
         requestId, request.rider_id, driverId, vehicleId,
         request.pickup_location, request.pickup_addr,
@@ -301,25 +312,30 @@ const acceptRequest = async (req, res) => {
     await client.query("COMMIT");
 
     // Compute and store route directions (non-blocking — don't fail ride acceptance)
+    // Route: driver's current location → pickup → dropoff (multi-leg)
     let routeData = null;
     try {
-      // Query actual coordinates from the request
+      // Get driver's current location and ride coordinates
       const coordResult = await pool.query(
         `SELECT
-          ST_Y(pickup_location::geometry) AS pickup_lat,
-          ST_X(pickup_location::geometry) AS pickup_lng,
-          ST_Y(dropoff_location::geometry) AS dropoff_lat,
-          ST_X(dropoff_location::geometry) AS dropoff_lng
-        FROM ride_requests WHERE request_id = $1`,
-        [requestId]
+          ST_Y(d.current_location::geometry) AS driver_lat,
+          ST_X(d.current_location::geometry) AS driver_lng,
+          ST_Y(rr.pickup_location::geometry) AS pickup_lat,
+          ST_X(rr.pickup_location::geometry) AS pickup_lng,
+          ST_Y(rr.dropoff_location::geometry) AS dropoff_lat,
+          ST_X(rr.dropoff_location::geometry) AS dropoff_lng
+        FROM ride_requests rr, drivers d
+        WHERE rr.request_id = $1 AND d.driver_id = $2`,
+        [requestId, driverId]
       );
       if (coordResult.rows.length > 0) {
         const coords = coordResult.rows[0];
         const directions = await fetchGoogleDirections({
-          origin_lat: parseFloat(coords.pickup_lat),
-          origin_lng: parseFloat(coords.pickup_lng),
+          origin_lat: parseFloat(coords.driver_lat),
+          origin_lng: parseFloat(coords.driver_lng),
           dest_lat: parseFloat(coords.dropoff_lat),
           dest_lng: parseFloat(coords.dropoff_lng),
+          waypoints: [{ lat: parseFloat(coords.pickup_lat), lng: parseFloat(coords.pickup_lng) }],
           travel_mode: "driving",
         });
         if (directions) {
@@ -391,6 +407,53 @@ const updateRideStatus = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    // Proximity enforcement for starting a ride (must be within 50m of pickup)
+    if (status === "started") {
+      const proxResult = await client.query(
+        `SELECT ST_Distance(d.current_location, r.pickup_location) AS distance_meters
+         FROM drivers d, rides r
+         WHERE d.driver_id = $1 AND r.ride_id = $2`,
+        [driverId, rideId]
+      );
+      if (proxResult.rows.length > 0 && proxResult.rows[0].distance_meters > 50) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          error: `You must be within 50 meters of the pickup location to start the ride. Current distance: ${Math.round(proxResult.rows[0].distance_meters)}m`,
+        });
+      }
+    }
+
+    // Proximity enforcement for completing a ride (both driver and rider must be within 50m of dropoff)
+    if (status === "completed") {
+      const proxResult = await client.query(
+        `SELECT
+           ST_Distance(d.current_location, r.dropoff_location) AS driver_distance,
+           CASE WHEN ri.current_location IS NOT NULL
+             THEN ST_Distance(ri.current_location, r.dropoff_location)
+             ELSE NULL END AS rider_distance
+         FROM rides r
+         JOIN drivers d ON d.driver_id = r.driver_id
+         JOIN riders ri ON ri.rider_id = r.rider_id
+         WHERE r.ride_id = $1`,
+        [rideId]
+      );
+      if (proxResult.rows.length > 0) {
+        const { driver_distance, rider_distance } = proxResult.rows[0];
+        if (driver_distance > 50) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({
+            error: `You must be within 50 meters of the dropoff location to complete the ride. Current distance: ${Math.round(driver_distance)}m`,
+          });
+        }
+        if (rider_distance !== null && rider_distance > 50) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({
+            error: `The rider must be within 50 meters of the dropoff location to complete the ride. Rider distance: ${Math.round(rider_distance)}m`,
+          });
+        }
+      }
+    }
 
     // Update ride status (trigger handles timestamps and driver status)
     const result = await client.query(
@@ -617,7 +680,25 @@ const getRiderActiveRide = async (req, res) => {
     }
 
     const phase = ride.status === "started" ? "in_progress" : "matched";
-    return res.json({ phase, ride, request });
+
+    // Fetch driver's live location for rider tracking
+    let driver_location = null;
+    if (ride.driver_id) {
+      const driverLocResult = await pool.query(
+        `SELECT ST_Y(current_location::geometry) AS driver_lat,
+                ST_X(current_location::geometry) AS driver_lng
+         FROM drivers WHERE driver_id = $1 AND current_location IS NOT NULL`,
+        [ride.driver_id]
+      );
+      if (driverLocResult.rows.length > 0) {
+        driver_location = {
+          lat: parseFloat(driverLocResult.rows[0].driver_lat),
+          lng: parseFloat(driverLocResult.rows[0].driver_lng),
+        };
+      }
+    }
+
+    return res.json({ phase, ride, request, driver_location });
   } catch (err) {
     console.error("getRiderActiveRide error:", err);
     res.status(500).json({ error: "Failed to get active ride status", details: err.message });
@@ -631,11 +712,16 @@ const getDriverActiveRide = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT ride_id, request_id, rider_id, driver_id, status,
-              pickup_addr, dropoff_addr, rider_name, estimated_fare
-       FROM v_ride_details
-       WHERE driver_id = $1 AND status IN ('driver_assigned', 'started')
-       ORDER BY ride_id DESC
+      `SELECT v.ride_id, v.request_id, v.rider_id, v.driver_id, v.status,
+              v.pickup_addr, v.dropoff_addr, v.rider_name, v.estimated_fare,
+              ST_Y(r.pickup_location::geometry) AS pickup_lat,
+              ST_X(r.pickup_location::geometry) AS pickup_lng,
+              ST_Y(r.dropoff_location::geometry) AS dropoff_lat,
+              ST_X(r.dropoff_location::geometry) AS dropoff_lng
+       FROM v_ride_details v
+       JOIN rides r ON r.ride_id = v.ride_id
+       WHERE v.driver_id = $1 AND v.status IN ('driver_assigned', 'started')
+       ORDER BY v.ride_id DESC
        LIMIT 1`,
       [driverId]
     );
@@ -654,6 +740,10 @@ const getDriverActiveRide = async (req, res) => {
         pickup_addr: row.pickup_addr,
         dropoff_addr: row.dropoff_addr,
         rider_id: row.rider_id,
+        pickup_lat: row.pickup_lat,
+        pickup_lng: row.pickup_lng,
+        dropoff_lat: row.dropoff_lat,
+        dropoff_lng: row.dropoff_lng,
       },
       rider_name: row.rider_name,
       estimated_fare: row.estimated_fare,
@@ -825,6 +915,29 @@ const checkDriverReadiness = async (req, res) => {
   }
 };
 
+// PUT /api/rides/rider-location
+// Rider: update their GPS position (for proximity enforcement on ride completion)
+const updateRiderLocation = async (req, res) => {
+  const riderId = req.user.id;
+  const { lat, lng } = req.body;
+
+  if (lat == null || lng == null) {
+    return res.status(400).json({ error: "lat and lng are required" });
+  }
+
+  try {
+    await pool.query(
+      `UPDATE riders SET current_location = ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+       WHERE rider_id = $3`,
+      [parseFloat(lat), parseFloat(lng), riderId]
+    );
+    res.json({ message: "Location updated" });
+  } catch (err) {
+    console.error("updateRiderLocation error:", err);
+    res.status(500).json({ error: "Failed to update rider location", details: err.message });
+  }
+};
+
 module.exports = {
   getNearbyRequests,
   updateDriverLocation,
@@ -841,4 +954,5 @@ module.exports = {
   getRideDetail,
   getVehicleTypes,
   checkDriverReadiness,
+  updateRiderLocation,
 };

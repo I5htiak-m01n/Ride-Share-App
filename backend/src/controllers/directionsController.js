@@ -7,7 +7,7 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
  * @param {object} params - { origin_lat, origin_lng, dest_lat, dest_lng, travel_mode }
  * @returns {object|null} Parsed directions result
  */
-async function fetchGoogleDirections({ origin_lat, origin_lng, dest_lat, dest_lng, travel_mode = "driving" }) {
+async function fetchGoogleDirections({ origin_lat, origin_lng, dest_lat, dest_lng, waypoints = [], travel_mode = "driving" }) {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new Error("GOOGLE_MAPS_API_KEY is not configured in backend .env");
   }
@@ -19,6 +19,10 @@ async function fetchGoogleDirections({ origin_lat, origin_lng, dest_lat, dest_ln
   url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
   url.searchParams.set("alternatives", "false");
 
+  if (waypoints.length > 0) {
+    url.searchParams.set("waypoints", waypoints.map(w => `${w.lat},${w.lng}`).join("|"));
+  }
+
   const response = await fetch(url.toString());
   const data = await response.json();
 
@@ -28,28 +32,50 @@ async function fetchGoogleDirections({ origin_lat, origin_lng, dest_lat, dest_ln
   }
 
   const route = data.routes[0];
-  const leg = route.legs[0];
+
+  // Aggregate across all legs for multi-leg routes
+  let totalDistanceMeters = 0;
+  let totalDurationSeconds = 0;
+  const allSteps = [];
+  for (const leg of route.legs) {
+    totalDistanceMeters += leg.distance.value;
+    totalDurationSeconds += leg.duration.value;
+    for (const step of leg.steps) {
+      allSteps.push({
+        instruction: step.html_instructions,
+        distance_text: step.distance.text,
+        duration_text: step.duration.text,
+        travel_mode: step.travel_mode,
+        start_location: step.start_location,
+        end_location: step.end_location,
+        polyline: step.polyline.points,
+      });
+    }
+  }
+
+  const firstLeg = route.legs[0];
+  const lastLeg = route.legs[route.legs.length - 1];
 
   return {
     overview_polyline: route.overview_polyline.points,
-    distance_meters: leg.distance.value,
-    distance_text: leg.distance.text,
-    duration_seconds: leg.duration.value,
-    duration_text: leg.duration.text,
-    start_location: leg.start_location,
-    end_location: leg.end_location,
+    distance_meters: totalDistanceMeters,
+    distance_text: `${(totalDistanceMeters / 1000).toFixed(1)} km`,
+    duration_seconds: totalDurationSeconds,
+    duration_text: formatDuration(totalDurationSeconds),
+    start_location: firstLeg.start_location,
+    end_location: lastLeg.end_location,
     bounds: {
       northeast: route.bounds.northeast,
       southwest: route.bounds.southwest,
     },
-    steps: leg.steps.map((step) => ({
-      instruction: step.html_instructions,
-      distance_text: step.distance.text,
-      duration_text: step.duration.text,
-      travel_mode: step.travel_mode,
-      start_location: step.start_location,
-      end_location: step.end_location,
-      polyline: step.polyline.points,
+    steps: allSteps,
+    legs: route.legs.map(leg => ({
+      distance_meters: leg.distance.value,
+      distance_text: leg.distance.text,
+      duration_seconds: leg.duration.value,
+      duration_text: leg.duration.text,
+      start_location: leg.start_location,
+      end_location: leg.end_location,
     })),
   };
 }
@@ -166,9 +192,12 @@ const rerouteRide = async (req, res) => {
   }
 
   try {
-    // Get the ride's dropoff location
+    // Get the ride's locations and status (phase-aware routing)
     const rideResult = await pool.query(
-      `SELECT ST_Y(dropoff_location::geometry) AS dropoff_lat,
+      `SELECT status,
+              ST_Y(pickup_location::geometry) AS pickup_lat,
+              ST_X(pickup_location::geometry) AS pickup_lng,
+              ST_Y(dropoff_location::geometry) AS dropoff_lat,
               ST_X(dropoff_location::geometry) AS dropoff_lng
        FROM rides WHERE ride_id = $1`,
       [rideId]
@@ -178,13 +207,19 @@ const rerouteRide = async (req, res) => {
       return res.status(404).json({ error: "Ride not found" });
     }
 
-    const { dropoff_lat, dropoff_lng } = rideResult.rows[0];
+    const { status: rideStatus, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng } = rideResult.rows[0];
+
+    // If driver_assigned, route driver→pickup→dropoff; if started, route driver→dropoff
+    const waypoints = rideStatus === "driver_assigned"
+      ? [{ lat: parseFloat(pickup_lat), lng: parseFloat(pickup_lng) }]
+      : [];
 
     const directions = await fetchGoogleDirections({
       origin_lat: parseFloat(driver_lat),
       origin_lng: parseFloat(driver_lng),
       dest_lat: parseFloat(dropoff_lat),
       dest_lng: parseFloat(dropoff_lng),
+      waypoints,
       travel_mode: "driving",
     });
 
@@ -329,9 +364,12 @@ const checkAndReroute = async (req, res) => {
       });
     }
 
-    // Off route — trigger reroute
+    // Off route — trigger reroute (phase-aware)
     const rideResult = await pool.query(
-      `SELECT ST_Y(dropoff_location::geometry) AS dropoff_lat,
+      `SELECT status,
+              ST_Y(pickup_location::geometry) AS pickup_lat,
+              ST_X(pickup_location::geometry) AS pickup_lng,
+              ST_Y(dropoff_location::geometry) AS dropoff_lat,
               ST_X(dropoff_location::geometry) AS dropoff_lng
        FROM rides WHERE ride_id = $1`,
       [rideId]
@@ -341,13 +379,19 @@ const checkAndReroute = async (req, res) => {
       return res.status(404).json({ error: "Ride not found" });
     }
 
-    const { dropoff_lat, dropoff_lng } = rideResult.rows[0];
+    const { status: rideStatus, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng } = rideResult.rows[0];
+
+    // If driver_assigned, route driver→pickup→dropoff; if started, route driver→dropoff
+    const waypoints = rideStatus === "driver_assigned"
+      ? [{ lat: parseFloat(pickup_lat), lng: parseFloat(pickup_lng) }]
+      : [];
 
     const directions = await fetchGoogleDirections({
       origin_lat: parseFloat(driver_lat),
       origin_lng: parseFloat(driver_lng),
       dest_lat: parseFloat(dropoff_lat),
       dest_lng: parseFloat(dropoff_lng),
+      waypoints,
       travel_mode: "driving",
     });
 

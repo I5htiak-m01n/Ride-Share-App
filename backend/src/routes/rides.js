@@ -17,6 +17,7 @@ const {
   getRideDetail,
   getVehicleTypes,
   checkDriverReadiness,
+  updateRiderLocation,
 } = require("../controllers/ridesController");
 const {
   getDirections,
@@ -37,6 +38,9 @@ router.get("/nearby", authenticateToken, authorizeRoles("driver", "mixed"), getN
 
 // Driver: update GPS location
 router.put("/driver-location", authenticateToken, authorizeRoles("driver", "mixed"), updateDriverLocation);
+
+// Rider: update GPS location (for proximity enforcement on ride completion)
+router.put("/rider-location", authenticateToken, authorizeRoles("rider", "mixed"), updateRiderLocation);
 
 // Driver: accept a specific request
 router.post("/requests/:id/accept", authenticateToken, authorizeRoles("driver", "mixed"), acceptRequest);

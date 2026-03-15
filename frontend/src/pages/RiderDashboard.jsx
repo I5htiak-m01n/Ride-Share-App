@@ -18,6 +18,7 @@ function RiderDashboard() {
     activeRequest, activeRide,
     resetBooking, error, stopPolling,
     routePath, routeInfo, eta, wasRerouted, routeLoading,
+    driverLocation,
     showRatingModal, ratingTarget, ratingLoading, userRating,
     handleSubmitRating, handleSkipRating,
   } = useRide();
@@ -201,6 +202,7 @@ function RiderDashboard() {
                 <BookingMap
                   pickupLocation={activeRequest ? { lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) } : null}
                   dropoffLocation={activeRequest ? { lat: parseFloat(activeRequest.dropoff_lat), lng: parseFloat(activeRequest.dropoff_lng) } : null}
+                  driverLocation={driverLocation}
                   routePath={routePath}
                   routeInfo={routeInfo}
                   eta={eta}
@@ -247,6 +249,7 @@ function RiderDashboard() {
                 <BookingMap
                   pickupLocation={activeRequest ? { lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) } : null}
                   dropoffLocation={activeRequest ? { lat: parseFloat(activeRequest.dropoff_lat), lng: parseFloat(activeRequest.dropoff_lng) } : null}
+                  driverLocation={driverLocation}
                   routePath={routePath}
                   routeInfo={routeInfo}
                   eta={eta}

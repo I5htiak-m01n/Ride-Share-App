@@ -57,7 +57,8 @@ create index idx_refresh_tokens_token on public.refresh_tokens(token);
 -- =========================================================
 create table public.riders (
   rider_id uuid primary key references public.users(user_id) on delete cascade,
-  rating_avg numeric(3,2) default 5.0
+  rating_avg numeric(3,2) default 5.0,
+  current_location geography(Point, 4326)
 );
 
 create table public.rider_common_pickups (

@@ -74,6 +74,7 @@ export function DriverProvider({ children }) {
   // Polling refs
   const nearbyIntervalRef = useRef(null);
   const locationIntervalRef = useRef(null);
+  const locationSyncIntervalRef = useRef(null);
 
   // Fake nearby vehicles for idle map
   const fakeVehicles = useMemo(() => {
@@ -169,9 +170,19 @@ export function DriverProvider({ children }) {
     }
   }, []);
 
+  const startLocationSync = useCallback(() => {
+    if (locationSyncIntervalRef.current) return; // already syncing
+    setTimeout(syncLocation, 500);
+    locationSyncIntervalRef.current = setInterval(syncLocation, LOCATION_SYNC_MS);
+  }, [syncLocation]);
+
+  const stopLocationSync = useCallback(() => {
+    clearInterval(locationSyncIntervalRef.current);
+    locationSyncIntervalRef.current = null;
+  }, []);
+
   const startPolling = useCallback(() => {
     setTimeout(fetchNearby, 500);
-    setTimeout(syncLocation, 500);
     nearbyIntervalRef.current = setInterval(fetchNearby, NEARBY_POLL_MS);
     locationIntervalRef.current = setInterval(syncLocation, LOCATION_SYNC_MS);
   }, [fetchNearby, syncLocation]);
@@ -200,20 +211,22 @@ export function DriverProvider({ children }) {
     setDriverPhase('online');
     startGeolocationWatch();
     startPolling();
-  }, [startGeolocationWatch, startPolling]);
+    startLocationSync();
+  }, [startGeolocationWatch, startPolling, startLocationSync]);
 
   const goOffline = useCallback(() => {
     setDriverPhase('offline');
     stopPolling();
+    stopLocationSync();
     stopGeolocationWatch();
     setError(null);
-  }, [stopPolling, stopGeolocationWatch]);
+  }, [stopPolling, stopLocationSync, stopGeolocationWatch]);
 
   const acceptRequest = useCallback(async (requestId) => {
     try {
       const res = await ridesAPI.acceptRequest(requestId);
       setActiveRide(res.data);
-      stopPolling();
+      stopPolling(); // Stop nearby request polling, but location sync continues
       setDriverPhase('ride_accepted');
       setError(null);
       // Fetch route and start route checking
@@ -252,6 +265,7 @@ export function DriverProvider({ children }) {
         }
         setActiveRide(null);
         setDriverPhase('offline');
+        stopLocationSync();
         stopGeolocationWatch();
         fetchWalletBalance();
         stopRouteChecking();
@@ -267,7 +281,7 @@ export function DriverProvider({ children }) {
       const msg = err.response?.data?.error || err.response?.data?.details || 'Failed to update ride status';
       setError(msg);
     }
-  }, [activeRide, stopGeolocationWatch, fetchWalletBalance, stopRouteChecking, clearRoute]);
+  }, [activeRide, stopLocationSync, stopGeolocationWatch, fetchWalletBalance, stopRouteChecking, clearRoute]);
 
   const activateVehicle = useCallback(async (vehicleId) => {
     try {
@@ -335,8 +349,9 @@ export function DriverProvider({ children }) {
             await fetchRideRoute(res.data.ride.ride_id);
             startRouteChecking(res.data.ride.ride_id, () => currentLocationRef.current);
           }
-          // Start geolocation during active ride
+          // Start geolocation and location sync during active ride
           startGeolocationWatch();
+          startLocationSync();
         }
       } catch (err) {
         console.error('restoreActiveRide error:', err);
@@ -363,6 +378,7 @@ export function DriverProvider({ children }) {
       }
       clearInterval(nearbyIntervalRef.current);
       clearInterval(locationIntervalRef.current);
+      clearInterval(locationSyncIntervalRef.current);
     };
   }, []);
 

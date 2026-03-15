@@ -66,6 +66,7 @@ function BookingMap({
   fullscreen = false,
   userLocation,
   nearbyVehicles = [],
+  driverLocation = null,
   routePath = [],
   routeInfo = null,
   routeLoading = false,
@@ -87,14 +88,15 @@ function BookingMap({
     }
   }, [panTo]);
 
-  // Fit bounds to route when routePath changes
+  // Fit bounds to route when routePath or driverLocation changes
   useEffect(() => {
     if (routePath.length > 1 && mapRef.current) {
       const bounds = new window.google.maps.LatLngBounds();
       routePath.forEach((point) => bounds.extend(point));
+      if (driverLocation) bounds.extend(driverLocation);
       mapRef.current.fitBounds(bounds, { top: 60, bottom: 60, left: 40, right: 40 });
     }
-  }, [routePath]);
+  }, [routePath, driverLocation]);
 
   const handleLoad = useCallback((map) => {
     mapRef.current = map;
@@ -163,6 +165,16 @@ function BookingMap({
       {/* Route polyline */}
       {routePath.length > 1 && (
         <RoutePolyline path={routePath} active />
+      )}
+
+      {/* Driver live location marker (for rider tracking) */}
+      {driverLocation && (
+        <Marker
+          position={driverLocation}
+          icon={{ ...VEHICLE_ICON, fillColor: '#000000', fillOpacity: 1, scale: 0.6 }}
+          title="Your driver"
+          zIndex={12}
+        />
       )}
 
       {/* Nearby vehicle markers */}

@@ -58,6 +58,13 @@ export function RideProvider({ children }) {
   const [activeRide, setActiveRide] = useState(saved?.activeRide || null);
   const [statusMessage, setStatusMessage] = useState(null);
 
+  // Live driver location (from poll) and rider location tracking
+  const [driverLocation, setDriverLocation] = useState(null);
+  const [riderLocation, setRiderLocation] = useState(null);
+  const riderWatchIdRef = useRef(null);
+  const riderSyncIntervalRef = useRef(null);
+  const activeRideIdRef = useRef(null);
+
   // UI
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -119,6 +126,47 @@ export function RideProvider({ children }) {
     }
   }, []);
 
+  const startRiderLocationTracking = useCallback(() => {
+    if (riderWatchIdRef.current != null) return; // already tracking
+    if (!navigator.geolocation) return;
+
+    riderWatchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        setRiderLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    );
+
+    // Sync rider location to backend every 10s
+    if (!riderSyncIntervalRef.current) {
+      const syncRiderLoc = async () => {
+        try {
+          const pos = await new Promise((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { maximumAge: 10000 })
+          );
+          await ridesAPI.updateRiderLocation(pos.coords.latitude, pos.coords.longitude);
+        } catch {
+          // ignore sync failures
+        }
+      };
+      syncRiderLoc();
+      riderSyncIntervalRef.current = setInterval(syncRiderLoc, 10000);
+    }
+  }, []);
+
+  const stopRiderLocationTracking = useCallback(() => {
+    if (riderWatchIdRef.current != null) {
+      navigator.geolocation.clearWatch(riderWatchIdRef.current);
+      riderWatchIdRef.current = null;
+    }
+    if (riderSyncIntervalRef.current) {
+      clearInterval(riderSyncIntervalRef.current);
+      riderSyncIntervalRef.current = null;
+    }
+    setRiderLocation(null);
+  }, []);
+
   const checkActiveRide = useCallback(async () => {
     try {
       const res = await ridesAPI.getRiderActive();
@@ -135,16 +183,20 @@ export function RideProvider({ children }) {
           setRidePhase('matched');
           setActiveRide(data.ride);
           setActiveRequest(data.request);
+          if (data.driver_location) setDriverLocation(data.driver_location);
           if (data.ride?.ride_id) {
             fetchRideRoute(data.ride.ride_id);
+            startRiderLocationTracking();
           }
           break;
         case 'in_progress':
           setRidePhase('in_progress');
           setActiveRide(data.ride);
           setActiveRequest(data.request);
+          if (data.driver_location) setDriverLocation(data.driver_location);
           if (data.ride?.ride_id) {
             fetchRideRoute(data.ride.ride_id);
+            startRiderLocationTracking();
           }
           break;
         case 'completed':
@@ -159,6 +211,8 @@ export function RideProvider({ children }) {
             stopPolling();
             stopRouteChecking();
             clearRoute();
+            stopRiderLocationTracking();
+            setDriverLocation(null);
             // Trigger rating modal for the driver
             if (data.ride?.ride_id && data.ride?.driver_id) {
               setRatingTarget({
@@ -177,6 +231,8 @@ export function RideProvider({ children }) {
             setActiveRequest(null);
             setActiveRide(null);
             stopPolling();
+            stopRiderLocationTracking();
+            setDriverLocation(null);
           }
           break;
       }
@@ -348,11 +404,13 @@ export function RideProvider({ children }) {
     setPromoCode('');
     setPromoResult(null);
     setVehicleType('economy');
+    setDriverLocation(null);
     stopPolling();
+    stopRiderLocationTracking();
     clearRoute();
     fetchWalletBalance();
     sessionStorage.removeItem(STORAGE_KEY);
-  }, [stopPolling, clearRoute, fetchWalletBalance]);
+  }, [stopPolling, stopRiderLocationTracking, clearRoute, fetchWalletBalance]);
 
   // Rating actions
   const fetchMyRating = useCallback(async () => {
@@ -405,7 +463,13 @@ export function RideProvider({ children }) {
         () => {}
       );
     }
-    return () => stopPolling();
+    return () => {
+      stopPolling();
+      if (riderWatchIdRef.current != null) {
+        navigator.geolocation.clearWatch(riderWatchIdRef.current);
+      }
+      clearInterval(riderSyncIntervalRef.current);
+    };
   }, []);
 
   const value = {
@@ -427,6 +491,8 @@ export function RideProvider({ children }) {
     vehicleType, setVehicleType,
     // Nearby vehicles
     nearbyVehicles,
+    // Driver live location (for rider tracking)
+    driverLocation,
     // Actions
     handleMapClick, handleUseMyLocation, handleGetEstimate,
     handleConfirmRide, handleValidatePromo, handleCancelRequest,

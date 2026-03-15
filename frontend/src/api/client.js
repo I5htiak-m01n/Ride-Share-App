@@ -178,6 +178,9 @@ export const ridesAPI = {
   // Public: get available vehicle types
   getVehicleTypes: () => api.get('/rides/vehicle-types'),
 
+  // Rider: update GPS location (for proximity enforcement)
+  updateRiderLocation: (lat, lng) => api.put('/rides/rider-location', { lat, lng }),
+
   // Ride detail (full info + chat + ratings)
   getRideDetail: (rideId) => api.get(`/rides/${rideId}/detail`),
 };
