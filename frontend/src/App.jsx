@@ -9,6 +9,7 @@ import RiderDashboard from './pages/RiderDashboard';
 import RideBookingPage from './pages/RideBookingPage';
 import RideConfirmPage from './pages/RideConfirmPage';
 import RideSearchingPage from './pages/RideSearchingPage';
+import RiderRidePage from './pages/RiderRidePage';
 import { DriverProviderLayout } from './context/DriverContext';
 import DriverDashboard from './pages/DriverDashboard';
 import DriverOnlinePage from './pages/DriverOnlinePage';
@@ -53,6 +54,7 @@ function App() {
             <Route path="/rider/book" element={<RideBookingPage />} />
             <Route path="/rider/confirm" element={<RideConfirmPage />} />
             <Route path="/rider/searching" element={<RideSearchingPage />} />
+            <Route path="/rider/ride" element={<RiderRidePage />} />
           </Route>
 
           {/* Driver routes — wrapped in DriverProvider layout */}

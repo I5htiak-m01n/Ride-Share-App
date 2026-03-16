@@ -399,7 +399,7 @@ const updateRideStatus = async (req, res) => {
   const { id: rideId } = req.params;
   const { status } = req.body;
 
-  const allowed = ["started", "completed", "cancelled"];
+  const allowed = ["started", "completed"];
   if (!allowed.includes(status)) {
     return res.status(400).json({ error: `Status must be one of: ${allowed.join(", ")}` });
   }
@@ -938,6 +938,208 @@ const updateRiderLocation = async (req, res) => {
   }
 };
 
+// GET /api/rides/:id/cancel-fee
+// Preview cancellation fee before confirming
+const getCancellationFee = async (req, res) => {
+  const userId = req.user.id;
+  const { id: rideId } = req.params;
+
+  try {
+    const rideResult = await pool.query(
+      `SELECT r.ride_id, r.rider_id, r.driver_id, r.status, rr.estimated_fare
+       FROM rides r
+       JOIN ride_requests rr ON r.request_id = rr.request_id
+       WHERE r.ride_id = $1`,
+      [rideId]
+    );
+
+    if (rideResult.rows.length === 0) {
+      return res.status(404).json({ error: "Ride not found" });
+    }
+
+    const ride = rideResult.rows[0];
+    if (ride.rider_id !== userId && ride.driver_id !== userId) {
+      return res.status(403).json({ error: "You are not a participant in this ride" });
+    }
+
+    if (!["driver_assigned", "started"].includes(ride.status)) {
+      return res.status(400).json({ error: "Ride is not in a cancellable state" });
+    }
+
+    const pricingResult = await pool.query(
+      `SELECT cancellation_pct FROM pricing_standards LIMIT 1`
+    );
+    const cancellationPct = pricingResult.rows.length > 0
+      ? parseFloat(pricingResult.rows[0].cancellation_pct)
+      : 10.0;
+
+    const estimatedFare = parseFloat(ride.estimated_fare) || 0;
+    const fee = Math.round(estimatedFare * cancellationPct / 100 * 100) / 100;
+
+    res.json({ fee, cancellation_pct: cancellationPct });
+  } catch (err) {
+    console.error("getCancellationFee error:", err);
+    res.status(500).json({ error: "Failed to get cancellation fee", details: err.message });
+  }
+};
+
+// POST /api/rides/:id/cancel
+// Paid cancellation for rider or driver after driver is assigned
+const cancelRide = async (req, res) => {
+  const userId = req.user.id;
+  const { id: rideId } = req.params;
+  const { reason } = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Lock ride row and fetch details
+    const rideResult = await client.query(
+      `SELECT r.ride_id, r.rider_id, r.driver_id, r.status, rr.estimated_fare
+       FROM rides r
+       JOIN ride_requests rr ON r.request_id = rr.request_id
+       WHERE r.ride_id = $1
+       FOR UPDATE OF r`,
+      [rideId]
+    );
+
+    if (rideResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Ride not found" });
+    }
+
+    const ride = rideResult.rows[0];
+
+    // 2. Validate participant
+    if (ride.rider_id !== userId && ride.driver_id !== userId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "You are not a participant in this ride" });
+    }
+
+    // 3. Validate status
+    if (!["driver_assigned", "started"].includes(ride.status)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Ride is not in a cancellable state" });
+    }
+
+    // 4. Get cancellation percentage
+    const pricingResult = await client.query(
+      `SELECT cancellation_pct FROM pricing_standards LIMIT 1`
+    );
+    const cancellationPct = pricingResult.rows.length > 0
+      ? parseFloat(pricingResult.rows[0].cancellation_pct)
+      : 10.0;
+
+    const estimatedFare = parseFloat(ride.estimated_fare) || 0;
+    const fee = Math.round(estimatedFare * cancellationPct / 100 * 100) / 100;
+
+    const canceller = userId;
+    const otherParty = ride.rider_id === userId ? ride.driver_id : ride.rider_id;
+
+    // 5. Check canceller wallet balance
+    const walletResult = await client.query(
+      `SELECT balance FROM wallets WHERE owner_id = $1 FOR UPDATE`,
+      [canceller]
+    );
+
+    if (walletResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Wallet not found" });
+    }
+
+    if (parseFloat(walletResult.rows[0].balance) < fee) {
+      await client.query("ROLLBACK");
+      return res.status(402).json({
+        error: "Insufficient wallet balance for cancellation fee",
+        details: `Required: ${fee} BDT, Available: ${walletResult.rows[0].balance} BDT`,
+      });
+    }
+
+    // 6. Create invoice for cancellation fee
+    const invoiceResult = await client.query(
+      `INSERT INTO invoices (base_fare, tax, total_amount, status)
+       VALUES ($1, 0, $1, 'paid')
+       RETURNING invoice_id`,
+      [fee]
+    );
+    const invoiceId = invoiceResult.rows[0].invoice_id;
+
+    // 7. Debit canceller wallet
+    await client.query(
+      `UPDATE wallets SET balance = balance - $1 WHERE owner_id = $2`,
+      [fee, canceller]
+    );
+
+    // 8. Credit other party wallet
+    await client.query(
+      `UPDATE wallets SET balance = balance + $1 WHERE owner_id = $2`,
+      [fee, otherParty]
+    );
+
+    // 9. Transaction records
+    await client.query(
+      `INSERT INTO transactions (wallet_owner_id, amount, currency, status, type, invoice_id)
+       VALUES ($1, $2, 'BDT', 'succeeded', 'cancellation_fee', $3)`,
+      [canceller, fee, invoiceId]
+    );
+    await client.query(
+      `INSERT INTO transactions (wallet_owner_id, amount, currency, status, type, invoice_id)
+       VALUES ($1, $2, 'BDT', 'succeeded', 'cancellation_fee', $3)`,
+      [otherParty, fee, invoiceId]
+    );
+
+    // 10. Insert ride_cancellations record
+    await client.query(
+      `INSERT INTO ride_cancellations (ride_id, cancelled_by_user_id, reason, cancellation_fee, cancellation_type, invoice_id)
+       VALUES ($1, $2, $3, $4, 'unilateral', $5)`,
+      [rideId, canceller, reason || null, fee, invoiceId]
+    );
+
+    // 11. Update ride status — trigger handles driver→online
+    await client.query(
+      `UPDATE rides SET status = 'cancelled' WHERE ride_id = $1`,
+      [rideId]
+    );
+
+    // 12. Notifications
+    const cancellerName = req.user.name || "A participant";
+    await client.query(
+      `INSERT INTO notifications (user_id, title, body) VALUES ($1, $2, $3)`,
+      [canceller, "Ride Cancelled", `You cancelled the ride. A fee of ${fee} BDT was charged.`]
+    );
+    await client.query(
+      `INSERT INTO notifications (user_id, title, body) VALUES ($1, $2, $3)`,
+      [otherParty, "Ride Cancelled", `${cancellerName} cancelled the ride. You received ${fee} BDT as compensation.`]
+    );
+
+    await client.query("COMMIT");
+
+    // Fetch updated wallet balance for the canceller
+    const updatedWallet = await pool.query(
+      `SELECT balance FROM wallets WHERE owner_id = $1`,
+      [canceller]
+    );
+
+    res.json({
+      cancellation: {
+        ride_id: rideId,
+        fee,
+        invoice_id: invoiceId,
+        reason: reason || null,
+        cancelled_by: canceller,
+        wallet_balance: parseFloat(updatedWallet.rows[0]?.balance || 0),
+      },
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("cancelRide error:", err);
+    res.status(500).json({ error: "Failed to cancel ride", details: err.message });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getNearbyRequests,
   updateDriverLocation,
@@ -949,6 +1151,8 @@ module.exports = {
   getRiderActiveRide,
   getDriverActiveRide,
   cancelRideRequest,
+  getCancellationFee,
+  cancelRide,
   getRiderHistory,
   getDriverHistory,
   getRideDetail,

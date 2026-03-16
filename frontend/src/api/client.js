@@ -146,8 +146,14 @@ export const ridesAPI = {
   // Rider: poll for current ride status
   getRiderActive: () => api.get('/rides/rider/active'),
 
-  // Rider: cancel pending ride request
+  // Rider: cancel pending ride request (free, before driver match)
   cancelRequest: (requestId) => api.post(`/rides/requests/${requestId}/cancel`),
+
+  // Cancel: preview cancellation fee
+  getCancelFee: (rideId) => api.get(`/rides/${rideId}/cancel-fee`),
+
+  // Cancel: paid cancellation (rider or driver, after driver assigned)
+  cancelRide: (rideId, reason) => api.post(`/rides/${rideId}/cancel`, { reason }),
 
   // Rider: get available promo codes
   getAvailablePromos: () => api.get('/rides/rider/promos'),
@@ -225,6 +231,11 @@ export const chatAPI = {
     api.get(`/chat/${rideId}/messages${since ? `?since=${encodeURIComponent(since)}` : ''}`),
   sendMessage: (rideId, content) =>
     api.post(`/chat/${rideId}/messages`, { content }),
+
+  // Mutual cancellation
+  sendCancelRequest: (rideId) => api.post(`/chat/${rideId}/cancel-request`),
+  respondToCancelRequest: (rideId, accept) => api.post(`/chat/${rideId}/cancel-respond`, { accept }),
+  retractCancelRequest: (rideId) => api.post(`/chat/${rideId}/cancel-retract`),
 };
 
 // Notifications API

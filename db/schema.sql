@@ -107,7 +107,7 @@ create table public.transactions (
   currency text not null default 'BDT',
   gateway_ref text,
   status text not null check (status in ('pending','succeeded','failed','reversed')),
-  type text not null check (type in ('wallet_topup','ride_payment','refund_payout','platform_fee')),
+  type text not null check (type in ('wallet_topup','ride_payment','refund_payout','platform_fee','cancellation_fee')),
   ts timestamptz not null default now(),
   
   -- Linkages
@@ -160,6 +160,8 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
   ride_id uuid NOT NULL REFERENCES public.rides(ride_id) ON DELETE CASCADE,
   sender_id uuid NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
   content text NOT NULL CHECK (char_length(content) > 0 AND char_length(content) <= 500),
+  message_type text NOT NULL DEFAULT 'text'
+    CHECK (message_type IN ('text', 'cancel_request', 'cancel_accepted', 'cancel_declined')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -184,7 +186,8 @@ create table public.pricing_standards (
   platform_fee_pct numeric(5,2) not null,    -- platform fee as percentage (e.g. 15.00 = 15%)
   surge_factor numeric(4,2) not null default 1.0,  -- multiplier applied when density is high
   surge_range_km numeric(8,2) not null default 3.0, -- radius in km to check request density
-  surge_density_threshold int not null default 50    -- requests per sq km to trigger surge
+  surge_density_threshold int not null default 50,   -- requests per sq km to trigger surge
+  cancellation_pct numeric(5,2) not null default 10.00  -- % of estimated fare charged on cancellation
 );
 
 -- =========================================================
@@ -293,7 +296,10 @@ create table public.ride_cancellations (
   cancelled_by_user_id uuid not null references public.users(user_id) on delete restrict,
   reason text,
   cancelled_at timestamptz not null default now(),
-  cancellation_fee numeric(12,2) not null default 0
+  cancellation_fee numeric(12,2) not null default 0,
+  cancellation_type text not null default 'unilateral'
+    check (cancellation_type in ('unilateral', 'mutual')),
+  invoice_id uuid references public.invoices(invoice_id) on delete set null
 );
 
 -- =========================================================

@@ -12,6 +12,8 @@ const {
   getRiderActiveRide,
   getDriverActiveRide,
   cancelRideRequest,
+  getCancellationFee,
+  cancelRide,
   getRiderHistory,
   getDriverHistory,
   getRideDetail,
@@ -60,8 +62,14 @@ router.get("/driver/active", authenticateToken, authorizeRoles("driver", "mixed"
 // Driver: check readiness before going online
 router.get("/driver/readiness", authenticateToken, authorizeRoles("driver", "mixed"), checkDriverReadiness);
 
-// Driver: update ride status (started / completed / cancelled)
+// Driver: update ride status (started / completed)
 router.put("/:id/status", authenticateToken, updateRideStatus);
+
+// Cancel: preview cancellation fee
+router.get("/:id/cancel-fee", authenticateToken, getCancellationFee);
+
+// Cancel: paid cancellation (rider or driver, after driver assigned)
+router.post("/:id/cancel", authenticateToken, cancelRide);
 
 // Ride detail: full ride info + chat history + ratings (for both rider and driver)
 router.get("/:id/detail", authenticateToken, getRideDetail);

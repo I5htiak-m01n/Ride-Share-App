@@ -13,6 +13,7 @@ const FIELDS = [
   { key: 'surge_factor', label: 'Surge Multiplier', step: '0.01', hint: 'Fare multiplier during high demand' },
   { key: 'surge_range_km', label: 'Surge Detection Range (km)', step: '0.1', hint: 'Radius to check ride request density' },
   { key: 'surge_density_threshold', label: 'Surge Density Threshold (requests/sq km)', step: '1', hint: 'Minimum density to trigger surge pricing' },
+  { key: 'cancellation_pct', label: 'Cancellation Fee (%)', step: '0.01', hint: 'Percentage of estimated fare charged on ride cancellation' },
 ];
 
 export default function AdminPricing() {
@@ -60,6 +61,7 @@ export default function AdminPricing() {
         surge_factor: parseFloat(form.surge_factor),
         surge_range_km: parseFloat(form.surge_range_km),
         surge_density_threshold: parseInt(form.surge_density_threshold),
+        cancellation_pct: parseFloat(form.cancellation_pct),
       });
       setSuccessMsg('Pricing standards updated successfully');
     } catch {

@@ -511,22 +511,23 @@ const getPricingStandards = async (req, res) => {
 
 // PUT /api/admin/pricing
 const updatePricingStandards = async (req, res) => {
-  const { base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold } = req.body;
+  const { base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold, cancellation_pct } = req.body;
   try {
     const existing = await pool.query(`SELECT id FROM pricing_standards LIMIT 1`);
     let result;
     if (existing.rows.length > 0) {
       result = await pool.query(
         `UPDATE pricing_standards SET base_fare=$1, rate_first=$2, first_km=$3, rate_after=$4,
-         platform_fee_pct=$5, surge_factor=$6, surge_range_km=$7, surge_density_threshold=$8
+         platform_fee_pct=$5, surge_factor=$6, surge_range_km=$7, surge_density_threshold=$8,
+         cancellation_pct=$10
          WHERE id=$9 RETURNING *`,
-        [base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold, existing.rows[0].id]
+        [base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold, existing.rows[0].id, cancellation_pct || 10.0]
       );
     } else {
       result = await pool.query(
-        `INSERT INTO pricing_standards (base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-        [base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold]
+        `INSERT INTO pricing_standards (base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold, cancellation_pct)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [base_fare, rate_first, first_km, rate_after, platform_fee_pct, surge_factor, surge_range_km, surge_density_threshold, cancellation_pct || 10.0]
       );
     }
     res.json({ pricing: result.rows[0] });

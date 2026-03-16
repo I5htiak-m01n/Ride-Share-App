@@ -89,6 +89,12 @@ export function RideProvider({ children }) {
   const [ratingLoading, setRatingLoading] = useState(false);
   const [userRating, setUserRating] = useState({ rating_avg: null, rating_count: 0 });
 
+  // Cancellation state
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCancelReason, setShowCancelReason] = useState(false);
+  const [cancelFee, setCancelFee] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+
   // Fake nearby vehicles for idle map
   const nearbyVehicles = useMemo(() => {
     const center = userLocation || { lat: 23.8103, lng: 90.4125 };
@@ -448,6 +454,74 @@ export function RideProvider({ children }) {
     setRatingTarget(null);
   }, []);
 
+  // Cancellation actions
+  const initiateCancelRide = useCallback(async () => {
+    const rideId = activeRide?.ride_id;
+    if (!rideId) return;
+    try {
+      const res = await ridesAPI.getCancelFee(rideId);
+      setCancelFee(res.data.fee);
+      setShowCancelConfirm(true);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to get cancellation fee');
+    }
+  }, [activeRide]);
+
+  const confirmCancelRide = useCallback(() => {
+    setShowCancelConfirm(false);
+    setShowCancelReason(true);
+  }, []);
+
+  const submitCancelReason = useCallback(async (reason) => {
+    const rideId = activeRide?.ride_id;
+    if (!rideId) return;
+    setCancelLoading(true);
+    try {
+      const res = await ridesAPI.cancelRide(rideId, reason);
+      if (res.data.cancellation?.wallet_balance !== undefined) {
+        setWalletBalance(res.data.cancellation.wallet_balance);
+      } else {
+        fetchWalletBalance();
+      }
+      setShowCancelReason(false);
+      setCancelFee(null);
+      setCancelLoading(false);
+      // Reset to idle
+      setRidePhase('idle');
+      setActiveRequest(null);
+      setActiveRide(null);
+      setDriverLocation(null);
+      stopPolling();
+      stopRiderLocationTracking();
+      clearRoute();
+      stopRouteChecking();
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      setCancelLoading(false);
+      setShowCancelReason(false);
+      setError(err.response?.data?.error || 'Failed to cancel ride');
+    }
+  }, [activeRide, stopPolling, stopRiderLocationTracking, clearRoute, stopRouteChecking, fetchWalletBalance]);
+
+  const abortCancel = useCallback(() => {
+    setShowCancelConfirm(false);
+    setCancelFee(null);
+  }, []);
+
+  // Handle mutual cancellation (called from ChatPanel)
+  const handleMutualCancellation = useCallback(() => {
+    fetchWalletBalance();
+    setRidePhase('idle');
+    setActiveRequest(null);
+    setActiveRide(null);
+    setDriverLocation(null);
+    stopPolling();
+    stopRiderLocationTracking();
+    clearRoute();
+    stopRouteChecking();
+    sessionStorage.removeItem(STORAGE_KEY);
+  }, [stopPolling, stopRiderLocationTracking, clearRoute, stopRouteChecking, fetchWalletBalance]);
+
   // On mount: check for existing active ride + geolocation + wallet + rating
   useEffect(() => {
     fetchWalletBalance();
@@ -503,6 +577,10 @@ export function RideProvider({ children }) {
     // Rating
     showRatingModal, ratingTarget, ratingLoading, userRating,
     handleSubmitRating, handleSkipRating, fetchMyRating,
+    // Cancellation
+    showCancelConfirm, showCancelReason, cancelFee, cancelLoading,
+    initiateCancelRide, confirmCancelRide, submitCancelReason, abortCancel,
+    handleMutualCancellation,
   };
 
   return (

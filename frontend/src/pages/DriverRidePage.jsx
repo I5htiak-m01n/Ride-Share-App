@@ -6,6 +6,8 @@ import { haversineDistance } from '../utils/geo';
 import RideMap from '../components/RideMap';
 import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
+import CancelConfirmModal from '../components/CancelConfirmModal';
+import CancelReasonForm from '../components/CancelReasonForm';
 import RatingBadge from '../components/RatingBadge';
 import NotificationDropdown from '../components/NotificationDropdown';
 import './Dashboard.css';
@@ -24,6 +26,10 @@ function DriverRidePage() {
     // Rating modal
     showRatingModal, ratingTarget, ratingLoading,
     handleSubmitRating, handleSkipRating,
+    // Cancellation
+    showCancelConfirm, showCancelReason, cancelFee, cancelLoading,
+    initiateCancelRide, confirmCancelRide, submitCancelReason, abortCancel,
+    handleMutualCancellation,
   } = useDriver();
 
   // Route guard: must have an active ride
@@ -175,7 +181,7 @@ function DriverRidePage() {
                   </button>
                 )}
                 <button
-                  onClick={() => updateRideStatus('cancelled')}
+                  onClick={initiateCancelRide}
                   style={{ background: '#fff', color: '#E11900', border: '1px solid #E2E2E2' }}
                 >
                   Cancel Ride
@@ -186,6 +192,7 @@ function DriverRidePage() {
                 rideId={activeRide.ride.ride_id}
                 currentUserId={user.user_id}
                 otherName={activeRide.rider_name}
+                onRideCancelled={handleMutualCancellation}
               />
             </div>
           </div>
@@ -230,6 +237,21 @@ function DriverRidePage() {
           onSubmit={handleSubmitRating}
           onSkip={handleSkipRating}
           loading={ratingLoading}
+        />
+      )}
+
+      {/* Cancel Modals */}
+      {showCancelConfirm && (
+        <CancelConfirmModal
+          fee={cancelFee}
+          onConfirm={confirmCancelRide}
+          onCancel={abortCancel}
+        />
+      )}
+      {showCancelReason && (
+        <CancelReasonForm
+          onSubmit={submitCancelReason}
+          loading={cancelLoading}
         />
       )}
     </div>
