@@ -7,6 +7,7 @@ const DriverContext = createContext(null);
 
 const NEARBY_POLL_MS = 10000;
 const LOCATION_SYNC_MS = 15000;
+const RIDE_POLL_MS = 5000;
 const STORAGE_KEY = 'driver_state';
 
 function generateNearbyVehicles(center, count = 5) {
@@ -81,6 +82,7 @@ export function DriverProvider({ children }) {
   const nearbyIntervalRef = useRef(null);
   const locationIntervalRef = useRef(null);
   const locationSyncIntervalRef = useRef(null);
+  const ridePollRef = useRef(null);
 
   // Fake nearby vehicles for idle map
   const fakeVehicles = useMemo(() => {
@@ -201,6 +203,39 @@ export function DriverProvider({ children }) {
     setNearbyRequests([]);
   }, []);
 
+  // ── Ride status polling (detect rider-initiated cancellation) ──
+
+  const stopRidePolling = useCallback(() => {
+    if (ridePollRef.current) {
+      clearInterval(ridePollRef.current);
+      ridePollRef.current = null;
+    }
+  }, []);
+
+  const checkActiveRide = useCallback(async () => {
+    try {
+      const res = await ridesAPI.getDriverActive();
+      if (!res.data.active && ['ride_accepted', 'ride_started'].includes(driverPhaseRef.current)) {
+        // Ride was cancelled by the rider (or otherwise ended)
+        stopRidePolling();
+        fetchWalletBalance();
+        setActiveRide(null);
+        setDriverPhase('offline');
+        stopLocationSync();
+        stopGeolocationWatch();
+        stopRouteChecking();
+        clearRoute();
+      }
+    } catch (err) {
+      console.error('checkActiveRide error:', err);
+    }
+  }, [stopRidePolling, fetchWalletBalance, stopLocationSync, stopGeolocationWatch, stopRouteChecking, clearRoute]);
+
+  const startRidePolling = useCallback(() => {
+    stopRidePolling();
+    ridePollRef.current = setInterval(checkActiveRide, RIDE_POLL_MS);
+  }, [stopRidePolling, checkActiveRide]);
+
   // ── Actions ──
 
   const goOnline = useCallback(async () => {
@@ -240,12 +275,13 @@ export function DriverProvider({ children }) {
         await fetchRideRoute(res.data.ride.ride_id);
         startRouteChecking(res.data.ride.ride_id, () => currentLocationRef.current);
       }
+      startRidePolling();
     } catch (err) {
       const errData = err.response?.data;
       setError(errData?.details || errData?.error || 'Failed to accept ride');
       throw err;
     }
-  }, [stopPolling, fetchRideRoute, startRouteChecking]);
+  }, [stopPolling, fetchRideRoute, startRouteChecking, startRidePolling]);
 
   const rejectRequest = useCallback(async (requestId) => {
     try {
@@ -275,6 +311,7 @@ export function DriverProvider({ children }) {
         stopGeolocationWatch();
         fetchWalletBalance();
         stopRouteChecking();
+        stopRidePolling();
         clearRoute();
       } else if (status === 'started') {
         setActiveRide((prev) => ({ ...prev, ride: res.data.ride }));
@@ -287,7 +324,7 @@ export function DriverProvider({ children }) {
       const msg = err.response?.data?.error || err.response?.data?.details || 'Failed to update ride status';
       setError(msg);
     }
-  }, [activeRide, stopLocationSync, stopGeolocationWatch, fetchWalletBalance, stopRouteChecking, clearRoute]);
+  }, [activeRide, stopLocationSync, stopGeolocationWatch, fetchWalletBalance, stopRouteChecking, stopRidePolling, clearRoute]);
 
   const activateVehicle = useCallback(async (vehicleId) => {
     try {
@@ -369,13 +406,14 @@ export function DriverProvider({ children }) {
       stopLocationSync();
       stopGeolocationWatch();
       stopRouteChecking();
+      stopRidePolling();
       clearRoute();
     } catch (err) {
       setCancelLoading(false);
       setShowCancelReason(false);
       setError(err.response?.data?.error || 'Failed to cancel ride');
     }
-  }, [activeRide, stopLocationSync, stopGeolocationWatch, stopRouteChecking, clearRoute, fetchWalletBalance]);
+  }, [activeRide, stopLocationSync, stopGeolocationWatch, stopRouteChecking, stopRidePolling, clearRoute, fetchWalletBalance]);
 
   const abortCancel = useCallback(() => {
     setShowCancelConfirm(false);
@@ -390,8 +428,9 @@ export function DriverProvider({ children }) {
     stopLocationSync();
     stopGeolocationWatch();
     stopRouteChecking();
+    stopRidePolling();
     clearRoute();
-  }, [stopLocationSync, stopGeolocationWatch, stopRouteChecking, clearRoute, fetchWalletBalance]);
+  }, [stopLocationSync, stopGeolocationWatch, stopRouteChecking, stopRidePolling, clearRoute, fetchWalletBalance]);
 
   // ── On mount: restore state ──
 
@@ -416,9 +455,14 @@ export function DriverProvider({ children }) {
             await fetchRideRoute(res.data.ride.ride_id);
             startRouteChecking(res.data.ride.ride_id, () => currentLocationRef.current);
           }
-          // Start geolocation and location sync during active ride
+          // Start geolocation, location sync, and ride polling during active ride
           startGeolocationWatch();
           startLocationSync();
+          startRidePolling();
+        } else {
+          // No active ride on server — clear any stale saved state
+          setActiveRide(null);
+          setDriverPhase('offline');
         }
       } catch (err) {
         console.error('restoreActiveRide error:', err);
@@ -446,6 +490,7 @@ export function DriverProvider({ children }) {
       clearInterval(nearbyIntervalRef.current);
       clearInterval(locationIntervalRef.current);
       clearInterval(locationSyncIntervalRef.current);
+      clearInterval(ridePollRef.current);
     };
   }, []);
 
