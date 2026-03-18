@@ -26,9 +26,14 @@ function RideBookingPage() {
     }
   }, []);
 
-  // Set phase to booking when this page mounts
+  // Set phase to booking when this page mounts — clear stale data from previous rides
   useEffect(() => {
     if (ridePhase === 'idle') {
+      setPickupAddr('');
+      setDropoffAddr('');
+      setPickupCoords(null);
+      setDropoffCoords(null);
+      setClickMode('pickup');
       setRidePhase('booking');
       setError(null);
     }

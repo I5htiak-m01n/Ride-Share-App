@@ -236,9 +236,19 @@ export function RideProvider({ children }) {
             setRidePhase('idle');
             setActiveRequest(null);
             setActiveRide(null);
+            setPickupAddr('');
+            setDropoffAddr('');
+            setPickupCoords(null);
+            setDropoffCoords(null);
+            setFareEstimate(null);
+            setPromoCode('');
+            setPromoResult(null);
+            setVehicleType('economy');
             stopPolling();
             stopRiderLocationTracking();
             setDriverLocation(null);
+            clearRoute();
+            sessionStorage.removeItem(STORAGE_KEY);
           }
           break;
       }
