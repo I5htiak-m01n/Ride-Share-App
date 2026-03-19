@@ -2551,3 +2551,290 @@
   background: var(--uber-white);
   cursor: pointer;
 }
+
+/* ── Driver Onboarding ──────────────────────────────────── */
+
+.onboarding-container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.onboarding-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.onboarding-header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--uber-black);
+  margin: 0 0 8px;
+}
+
+.onboarding-header p {
+  font-size: 15px;
+  color: var(--uber-gray-50);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.onboarding-status-icon {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.onboarding-section {
+  background: var(--uber-gray-10);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.onboarding-section h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--uber-black);
+  margin: 0 0 16px;
+}
+
+.onboarding-section .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.onboarding-section .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.onboarding-section .form-group label {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--uber-black);
+}
+
+.onboarding-section .form-group input,
+.onboarding-section .form-group select {
+  padding: 12px 16px;
+  border: 1px solid var(--uber-gray-30);
+  border-radius: var(--uber-radius);
+  font-size: 15px;
+  background: var(--uber-white);
+  color: var(--uber-black);
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.onboarding-section .form-group input:focus,
+.onboarding-section .form-group select:focus {
+  outline: none;
+  border-color: var(--uber-black);
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.onboarding-submit-btn {
+  padding: 14px 48px;
+  background: var(--uber-black);
+  color: var(--uber-white);
+  border: none;
+  border-radius: 500px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.onboarding-submit-btn:hover:not(:disabled) {
+  background: var(--uber-gray-70);
+}
+
+.onboarding-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.onboarding-doc-list {
+  background: var(--uber-gray-10);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.onboarding-doc-list h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--uber-black);
+  margin: 0 0 12px;
+}
+
+.onboarding-doc-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--uber-gray-20);
+}
+
+.onboarding-doc-item:last-child {
+  border-bottom: none;
+}
+
+.doc-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--uber-black);
+}
+
+.doc-status {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 4px 12px;
+  border-radius: 500px;
+}
+
+.doc-status.status-pending {
+  background: #FFF8E1;
+  color: #F59E0B;
+}
+
+.doc-status.status-valid {
+  background: #E6F4EA;
+  color: var(--uber-green);
+}
+
+.doc-status.status-rejected {
+  background: #FFF0EE;
+  color: var(--uber-red);
+}
+
+.onboarding-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--uber-gray-50);
+  margin-top: 8px;
+}
+
+.onboarding-rejection-reason {
+  background: #FFF0EE;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.onboarding-rejection-reason h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--uber-red);
+  margin: 0 0 8px;
+}
+
+.onboarding-rejection-reason p {
+  font-size: 14px;
+  color: #7f1d1d;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Admin Driver Group (Documents page) ─────────────────── */
+
+.admin-driver-group {
+  background: var(--uber-white);
+  border: 1px solid var(--uber-gray-20);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.admin-driver-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--uber-gray-10);
+  border-bottom: 1px solid var(--uber-gray-20);
+}
+
+/* ── Modal Overlay (reusable) ────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--uber-white);
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--uber-black);
+  margin: 0;
+}
+
+/* ── Spinner ─────────────────────────────────────────────── */
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--uber-gray-20);
+  border-top-color: var(--uber-black);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── File Input & Image Preview ───────────────────────────── */
+.file-name {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--uber-gray-50, #6b7280);
+}
+
+.admin-btn.view-btn {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 2px 6px;
+  text-decoration: underline;
+}
+.admin-btn.view-btn:hover {
+  color: #1d4ed8;
+}
+
+.image-preview-modal {
+  max-width: 720px;
+  width: 90vw;
+}

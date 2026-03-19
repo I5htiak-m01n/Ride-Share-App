@@ -17,6 +17,10 @@ import DriverRidePage from './pages/DriverRidePage';
 import DriverVehiclesPage from './pages/DriverVehiclesPage';
 import ProfileSettings from './pages/ProfileSettings';
 import DriverDocuments from './pages/DriverDocuments';
+import OnboardingGuard from './components/OnboardingGuard';
+import DriverOnboardingForm from './pages/DriverOnboardingForm';
+import DriverOnboardingPending from './pages/DriverOnboardingPending';
+import DriverOnboardingRejected from './pages/DriverOnboardingRejected';
 import RideHistory from './pages/RideHistory';
 import Wallet from './pages/Wallet';
 import AdminDashboard from './pages/AdminDashboard';
@@ -57,17 +61,36 @@ function App() {
             <Route path="/rider/ride" element={<RiderRidePage />} />
           </Route>
 
-          {/* Driver routes — wrapped in DriverProvider layout */}
+          {/* Driver routes — wrapped in DriverProvider layout + OnboardingGuard */}
           <Route element={
             <ProtectedRoute allowedRoles={['driver', 'mixed']}>
               <DriverProviderLayout />
             </ProtectedRoute>
           }>
-            <Route path="/driver/dashboard" element={<DriverDashboard />} />
-            <Route path="/driver/online" element={<DriverOnlinePage />} />
-            <Route path="/driver/ride" element={<DriverRidePage />} />
-            <Route path="/driver/vehicles" element={<DriverVehiclesPage />} />
+            <Route element={<OnboardingGuard />}>
+              <Route path="/driver/dashboard" element={<DriverDashboard />} />
+              <Route path="/driver/online" element={<DriverOnlinePage />} />
+              <Route path="/driver/ride" element={<DriverRidePage />} />
+              <Route path="/driver/vehicles" element={<DriverVehiclesPage />} />
+            </Route>
           </Route>
+
+          {/* Driver onboarding routes (outside DriverProviderLayout) */}
+          <Route path="/driver/onboarding/documents" element={
+            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+              <DriverOnboardingForm />
+            </ProtectedRoute>
+          } />
+          <Route path="/driver/onboarding/pending" element={
+            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+              <DriverOnboardingPending />
+            </ProtectedRoute>
+          } />
+          <Route path="/driver/onboarding/rejected" element={
+            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+              <DriverOnboardingRejected />
+            </ProtectedRoute>
+          } />
 
           {/* Profile Settings - accessible by all authenticated roles */}
           <Route
@@ -79,15 +102,14 @@ function App() {
             }
           />
 
-          {/* Driver Documents */}
-          <Route
-            path="/driver/documents"
-            element={
-              <ProtectedRoute allowedRoles={['driver', 'mixed']}>
-                <DriverDocuments />
-              </ProtectedRoute>
-            }
-          />
+          {/* Driver Documents — requires onboarding complete */}
+          <Route element={
+            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+              <OnboardingGuard />
+            </ProtectedRoute>
+          }>
+            <Route path="/driver/documents" element={<DriverDocuments />} />
+          </Route>
 
           {/* Ride History */}
           <Route

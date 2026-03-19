@@ -199,6 +199,10 @@ export const driversAPI = {
   getVehicles: () => api.get('/drivers/vehicles'),
   activateVehicle: (vehicleId) => api.put(`/drivers/vehicles/${vehicleId}/activate`),
   deactivateVehicle: (vehicleId) => api.put(`/drivers/vehicles/${vehicleId}/deactivate`),
+  getOnboardingStatus: () => api.get('/drivers/onboarding-status'),
+  submitOnboarding: (formData) => api.post('/drivers/onboarding/submit', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
 };
 
 // Wallet API
@@ -253,6 +257,10 @@ export const adminAPI = {
     api.get(`/admin/documents${status ? `?status=${status}` : ''}`),
   verifyDocument: (driverId, docType, status) =>
     api.put(`/admin/documents/${driverId}/${encodeURIComponent(docType)}`, { status }),
+  approveOnboarding: (driverId) =>
+    api.put(`/admin/documents/onboarding/${driverId}/approve`),
+  rejectOnboarding: (driverId, reason) =>
+    api.put(`/admin/documents/onboarding/${driverId}/reject`, { reason }),
   getTickets: (status) =>
     api.get(`/admin/tickets${status ? `?status=${status}` : ''}`),
   getTicketDetail: (ticketId) =>

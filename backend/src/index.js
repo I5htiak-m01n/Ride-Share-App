@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const { pool } = require("./db");
 const authRoutes = require("./routes/auth");
@@ -29,6 +30,9 @@ app.use(cors({ // cors configuration to allow requests from frontend
   credentials: true,
 }));
 app.use(express.json());
+
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 // Health check routes
 app.get("/", (req, res) => res.json({

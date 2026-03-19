@@ -31,16 +31,19 @@ const getAllDocuments = async (req, res) => {
     const { status } = req.query;
     let query = `
       SELECT dd.driver_id, dd.doc_type, dd.image_url, dd.expiry_date, dd.status,
-             u.first_name, u.last_name, u.email
+             dd.vehicle_name, dd.vehicle_type, dd.plate_number,
+             u.first_name, u.last_name, u.email,
+             v.vehicle_id, v.model AS v_model, v.type AS v_type, v.approval_status AS v_approval_status
       FROM driver_documents dd
       JOIN users u ON u.user_id = dd.driver_id
+      LEFT JOIN vehicles v ON v.driver_id = dd.driver_id AND v.plate_number = dd.plate_number
     `;
     const params = [];
     if (status) {
       query += ` WHERE dd.status = $1`;
       params.push(status);
     }
-    query += ` ORDER BY CASE dd.status WHEN 'pending' THEN 0 ELSE 1 END, dd.expiry_date ASC`;
+    query += ` ORDER BY CASE dd.status WHEN 'pending' THEN 0 ELSE 1 END, dd.driver_id, dd.expiry_date ASC`;
     const result = await pool.query(query, params);
     res.json({ documents: result.rows });
   } catch (err) {
@@ -105,6 +108,106 @@ const verifyDocument = async (req, res) => {
     await client.query("ROLLBACK");
     console.error("verifyDocument error:", err);
     res.status(500).json({ error: "Failed to verify document" });
+  } finally {
+    client.release();
+  }
+};
+
+// PUT /api/admin/onboarding/:driverId/approve
+const approveOnboarding = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { driverId } = req.params;
+    await client.query("BEGIN");
+
+    // Approve all pending driver_documents
+    await client.query(
+      `UPDATE driver_documents SET status = 'valid' WHERE driver_id = $1 AND status = 'pending'`,
+      [driverId]
+    );
+
+    // Approve pending vehicle(s) and get vehicle_id(s)
+    const vResult = await client.query(
+      `UPDATE vehicles SET approval_status = 'approved', rejection_reason = NULL
+       WHERE driver_id = $1 AND approval_status = 'pending'
+       RETURNING vehicle_id`,
+      [driverId]
+    );
+
+    // Approve vehicle_documents for those vehicles
+    for (const v of vResult.rows) {
+      await client.query(
+        `UPDATE vehicle_documents SET status = 'valid' WHERE vehicle_id = $1 AND status = 'pending'`,
+        [v.vehicle_id]
+      );
+    }
+
+    // Send notification
+    await client.query(
+      `INSERT INTO notifications (user_id, title, body)
+       VALUES ($1, 'Documents Approved', 'Your documents have been approved! You can now go online and start driving.')`,
+      [driverId]
+    );
+
+    await client.query("COMMIT");
+    res.json({ message: "Onboarding approved" });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("approveOnboarding error:", err);
+    res.status(500).json({ error: "Failed to approve onboarding" });
+  } finally {
+    client.release();
+  }
+};
+
+// PUT /api/admin/onboarding/:driverId/reject
+const rejectOnboarding = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { driverId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason?.trim()) {
+      return res.status(400).json({ error: "Rejection reason is required" });
+    }
+
+    await client.query("BEGIN");
+
+    // Reject all pending driver_documents
+    await client.query(
+      `UPDATE driver_documents SET status = 'rejected' WHERE driver_id = $1 AND status = 'pending'`,
+      [driverId]
+    );
+
+    // Reject pending vehicle(s) with reason
+    const vResult = await client.query(
+      `UPDATE vehicles SET approval_status = 'rejected', rejection_reason = $2
+       WHERE driver_id = $1 AND approval_status = 'pending'
+       RETURNING vehicle_id`,
+      [driverId, reason.trim()]
+    );
+
+    // Reject vehicle_documents for those vehicles
+    for (const v of vResult.rows) {
+      await client.query(
+        `UPDATE vehicle_documents SET status = 'rejected' WHERE vehicle_id = $1 AND status = 'pending'`,
+        [v.vehicle_id]
+      );
+    }
+
+    // Send notification with reason
+    await client.query(
+      `INSERT INTO notifications (user_id, title, body)
+       VALUES ($1, 'Documents Rejected', $2)`,
+      [driverId, `Your documents were rejected. Reason: ${reason.trim()}. Please resubmit your documents.`]
+    );
+
+    await client.query("COMMIT");
+    res.json({ message: "Onboarding rejected" });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("rejectOnboarding error:", err);
+    res.status(500).json({ error: "Failed to reject onboarding" });
   } finally {
     client.release();
   }
@@ -541,6 +644,8 @@ module.exports = {
   getDashboardStats,
   getAllDocuments,
   verifyDocument,
+  approveOnboarding,
+  rejectOnboarding,
   getAllTickets,
   getTicketDetail,
   respondToTicket,

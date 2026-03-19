@@ -138,7 +138,9 @@ create table public.vehicles (
   plate_number text unique not null,
   model text,
   type text not null references public.vehicle_types(type_key),
-  is_active boolean default true
+  is_active boolean default true,
+  approval_status text not null default 'approved' check (approval_status in ('pending','approved','rejected')),
+  rejection_reason text
 );
 
 create table public.driver_documents (
@@ -173,6 +175,7 @@ create table public.vehicle_documents (
   doc_type text not null,
   image_url text,
   expiry_date date,
+  status text not null default 'pending' check (status in ('pending','valid','expired','rejected')),
   unique (vehicle_id, doc_type),
   primary key (vehicle_id, doc_type)
 );
