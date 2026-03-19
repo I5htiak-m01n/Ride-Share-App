@@ -15,6 +15,15 @@ router.get(
                 vehicle_name, vehicle_type, plate_number
          FROM driver_documents
          WHERE driver_id = $1
+
+         UNION ALL
+
+         SELECT vd.doc_type, vd.image_url, vd.expiry_date, vd.status,
+                v.model AS vehicle_name, v.type AS vehicle_type, v.plate_number
+         FROM vehicle_documents vd
+         JOIN vehicles v ON v.vehicle_id = vd.vehicle_id
+         WHERE v.driver_id = $1
+
          ORDER BY doc_type`,
         [req.user.id]
       );
@@ -153,11 +162,17 @@ router.get(
         `SELECT doc_type FROM driver_documents WHERE driver_id = $1 AND status = 'pending'`,
         [driverId]
       );
+      const pendingVehicleDocs = await pool.query(
+        `SELECT vd.doc_type FROM vehicle_documents vd
+         JOIN vehicles v ON v.vehicle_id = vd.vehicle_id
+         WHERE v.driver_id = $1 AND vd.status = 'pending'`,
+        [driverId]
+      );
       const pendingVehicles = await pool.query(
         `SELECT vehicle_id FROM vehicles WHERE driver_id = $1 AND approval_status = 'pending'`,
         [driverId]
       );
-      if (pendingDocs.rows.length > 0 || pendingVehicles.rows.length > 0) {
+      if (pendingDocs.rows.length > 0 || pendingVehicleDocs.rows.length > 0 || pendingVehicles.rows.length > 0) {
         return res.json({ status: "pending_review" });
       }
 
@@ -170,7 +185,13 @@ router.get(
         `SELECT doc_type FROM driver_documents WHERE driver_id = $1 AND status = 'rejected'`,
         [driverId]
       );
-      if (rejectedDocs.rows.length > 0 || rejectedVehicle.rows.length > 0) {
+      const rejectedVehicleDocs = await pool.query(
+        `SELECT vd.doc_type FROM vehicle_documents vd
+         JOIN vehicles v ON v.vehicle_id = vd.vehicle_id
+         WHERE v.driver_id = $1 AND vd.status = 'rejected'`,
+        [driverId]
+      );
+      if (rejectedDocs.rows.length > 0 || rejectedVehicleDocs.rows.length > 0 || rejectedVehicle.rows.length > 0) {
         return res.json({
           status: "rejected",
           reason: rejectedVehicle.rows[0]?.rejection_reason || "Your documents were rejected. Please resubmit.",
@@ -257,13 +278,13 @@ router.post(
       );
       const vehicleId = vResult.rows[0].vehicle_id;
 
-      // 5. Upsert vehicle_registration document
+      // 5. Upsert vehicle_registration in vehicle_documents
       await client.query(
-        `INSERT INTO driver_documents (driver_id, doc_type, image_url, status, vehicle_name, vehicle_type, plate_number)
-         VALUES ($1, 'vehicle_registration', $2, 'pending', $3, $4, $5)
-         ON CONFLICT (driver_id, doc_type)
-         DO UPDATE SET image_url = $2, status = 'pending', vehicle_name = $3, vehicle_type = $4, plate_number = $5`,
-        [driverId, registrationUrl, vehicle_model.trim(), vehicle_type.trim(), plate_number.trim()]
+        `INSERT INTO vehicle_documents (vehicle_id, doc_type, image_url, status)
+         VALUES ($1, 'vehicle_registration', $2, 'pending')
+         ON CONFLICT (vehicle_id, doc_type)
+         DO UPDATE SET image_url = $2, status = 'pending'`,
+        [vehicleId, registrationUrl]
       );
 
       // 6. Upsert insurance in vehicle_documents

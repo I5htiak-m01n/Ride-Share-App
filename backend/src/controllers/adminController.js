@@ -29,21 +29,27 @@ const getDashboardStats = async (req, res) => {
 const getAllDocuments = async (req, res) => {
   try {
     const { status } = req.query;
-    let query = `
-      SELECT dd.driver_id, dd.doc_type, dd.image_url, dd.expiry_date, dd.status,
-             dd.vehicle_name, dd.vehicle_type, dd.plate_number,
-             u.first_name, u.last_name, u.email,
-             v.vehicle_id, v.model AS v_model, v.type AS v_type, v.approval_status AS v_approval_status
-      FROM driver_documents dd
-      JOIN users u ON u.user_id = dd.driver_id
-      LEFT JOIN vehicles v ON v.driver_id = dd.driver_id AND v.plate_number = dd.plate_number
+    const statusFilter = status ? ` WHERE status = $1` : "";
+    const params = status ? [status] : [];
+    const query = `
+      SELECT * FROM (
+        SELECT dd.driver_id, dd.doc_type, dd.image_url, dd.expiry_date, dd.status,
+               dd.vehicle_name, dd.vehicle_type, dd.plate_number,
+               u.first_name, u.last_name, u.email
+        FROM driver_documents dd
+        JOIN users u ON u.user_id = dd.driver_id
+
+        UNION ALL
+
+        SELECT v.driver_id, vd.doc_type, vd.image_url, vd.expiry_date, vd.status,
+               v.model AS vehicle_name, v.type AS vehicle_type, v.plate_number,
+               u.first_name, u.last_name, u.email
+        FROM vehicle_documents vd
+        JOIN vehicles v ON v.vehicle_id = vd.vehicle_id
+        JOIN users u ON u.user_id = v.driver_id
+      ) AS all_docs${statusFilter}
+      ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, driver_id, expiry_date ASC
     `;
-    const params = [];
-    if (status) {
-      query += ` WHERE dd.status = $1`;
-      params.push(status);
-    }
-    query += ` ORDER BY CASE dd.status WHEN 'pending' THEN 0 ELSE 1 END, dd.driver_id, dd.expiry_date ASC`;
     const result = await pool.query(query, params);
     res.json({ documents: result.rows });
   } catch (err) {
@@ -64,12 +70,29 @@ const verifyDocument = async (req, res) => {
 
     await client.query("BEGIN");
 
-    const result = await client.query(
-      `UPDATE driver_documents SET status = $1
-       WHERE driver_id = $2 AND doc_type = $3
-       RETURNING *`,
-      [status, driverId, docType]
-    );
+    const isVehicleDoc = ["vehicle_registration", "insurance"].includes(docType);
+    let result;
+
+    if (isVehicleDoc) {
+      // Update in vehicle_documents (lookup via vehicles table)
+      result = await client.query(
+        `UPDATE vehicle_documents SET status = $1
+         FROM vehicles v
+         WHERE vehicle_documents.vehicle_id = v.vehicle_id
+           AND v.driver_id = $2
+           AND vehicle_documents.doc_type = $3
+         RETURNING vehicle_documents.*, v.model AS vehicle_name, v.type AS vehicle_type, v.plate_number`,
+        [status, driverId, docType]
+      );
+    } else {
+      // Update in driver_documents
+      result = await client.query(
+        `UPDATE driver_documents SET status = $1
+         WHERE driver_id = $2 AND doc_type = $3
+         RETURNING *`,
+        [status, driverId, docType]
+      );
+    }
 
     if (result.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -77,33 +100,9 @@ const verifyDocument = async (req, res) => {
     }
 
     const doc = result.rows[0];
-    let vehicle = null;
-
-    // Auto-create vehicle when vehicle_registration is approved
-    if (docType === "vehicle_registration" && status === "valid"
-        && doc.vehicle_name && doc.vehicle_type && doc.plate_number) {
-      const vResult = await client.query(
-        `INSERT INTO vehicles (driver_id, plate_number, model, type, is_active)
-         VALUES ($1, $2, $3, $4, false)
-         ON CONFLICT (plate_number) DO NOTHING
-         RETURNING vehicle_id, plate_number, model, type, is_active`,
-        [driverId, doc.plate_number, doc.vehicle_name, doc.vehicle_type]
-      );
-      vehicle = vResult.rows[0] || null;
-
-      await client.query(
-        `INSERT INTO notifications (user_id, title, body)
-         VALUES ($1, $2, $3)`,
-        [
-          driverId,
-          "Vehicle Approved",
-          `Your vehicle "${doc.vehicle_name}" has been approved. Activate it from My Vehicles before going online.`,
-        ]
-      );
-    }
 
     await client.query("COMMIT");
-    res.json({ message: `Document ${status}`, document: doc, vehicle });
+    res.json({ message: `Document ${status}`, document: doc });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("verifyDocument error:", err);
