@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { driversAPI } from '../api/client';
@@ -6,18 +6,17 @@ import './Dashboard.css';
 
 const DOC_TYPES = [
   { value: 'driving_license', label: 'Driving License' },
-  { value: 'vehicle_registration', label: 'Vehicle Registration' },
-  { value: 'insurance', label: 'Insurance' },
   { value: 'nid', label: 'National ID' },
   { value: 'other', label: 'Other' },
 ];
 
-const VEHICLE_TYPES = [
-  { value: 'economy', label: 'Economy' },
-  { value: 'sedan', label: 'Sedan' },
-  { value: 'suv', label: 'SUV' },
-  { value: 'premium', label: 'Premium' },
-];
+const ALL_DOC_TYPE_LABELS = {
+  driving_license: 'Driving License',
+  nid: 'National ID',
+  vehicle_registration: 'Vehicle Registration',
+  insurance: 'Insurance',
+  other: 'Other',
+};
 
 const STATUS_COLORS = {
   valid: '#05944F',
@@ -35,23 +34,20 @@ function DriverDocuments() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  // Category filter state
+  const [docCategory, setDocCategory] = useState('all');
+
   // Add form state
   const [showForm, setShowForm] = useState(false);
   const [docType, setDocType] = useState('driving_license');
   const [imageUrl, setImageUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [vehicleName, setVehicleName] = useState('');
-  const [vehicleType, setVehicleType] = useState('economy');
-  const [plateNumber, setPlateNumber] = useState('');
 
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
-
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     try {
-      const res = await driversAPI.getDocuments();
+      setLoading(true);
+      const res = await driversAPI.getDocuments(docCategory === 'all' ? undefined : docCategory);
       setDocuments(res.data.documents || []);
       setError(null);
     } catch (err) {
@@ -59,19 +55,17 @@ function DriverDocuments() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [docCategory]);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
 
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!imageUrl.trim()) {
       setError('Document URL is required');
       return;
-    }
-    if (docType === 'vehicle_registration') {
-      if (!vehicleName.trim() || !plateNumber.trim()) {
-        setError('Vehicle name and plate number are required for vehicle registration');
-        return;
-      }
     }
     setError(null);
     setSuccess(null);
@@ -81,16 +75,10 @@ function DriverDocuments() {
         doc_type: docType,
         image_url: imageUrl.trim(),
         expiry_date: expiryDate || null,
-        vehicle_name: docType === 'vehicle_registration' ? vehicleName.trim() : null,
-        vehicle_type: docType === 'vehicle_registration' ? vehicleType : null,
-        plate_number: docType === 'vehicle_registration' ? plateNumber.trim() : null,
       });
       setSuccess('Document added successfully');
       setImageUrl('');
       setExpiryDate('');
-      setVehicleName('');
-      setVehicleType('economy');
-      setPlateNumber('');
       setShowForm(false);
       fetchDocuments();
     } catch (err) {
@@ -113,10 +101,9 @@ function DriverDocuments() {
     }
   };
 
-  const formatDocType = (type) => {
-    const found = DOC_TYPES.find((d) => d.value === type);
-    return found ? found.label : type;
-  };
+  const formatDocType = (type) => ALL_DOC_TYPE_LABELS[type] || type;
+
+  const isVehicleDoc = (docType) => ['vehicle_registration', 'insurance'].includes(docType);
 
   return (
     <div className="dashboard-container">
@@ -150,6 +137,16 @@ function DriverDocuments() {
 
         {error && <div className="error-banner">{error}</div>}
         {success && <div className="info-banner">{success}</div>}
+
+        {/* Category Filter */}
+        <div className="admin-filter-row" style={{ marginBottom: 20 }}>
+          <label>Show:</label>
+          <select value={docCategory} onChange={(e) => setDocCategory(e.target.value)}>
+            <option value="all">All Documents</option>
+            <option value="driver">Driver Documents</option>
+            <option value="vehicle">Vehicle Documents</option>
+          </select>
+        </div>
 
         {/* Add Document Form */}
         {showForm && (
@@ -190,43 +187,6 @@ function DriverDocuments() {
                 />
               </div>
 
-              {docType === 'vehicle_registration' && (
-                <>
-                  <div className="form-group">
-                    <label>Vehicle Name / Model</label>
-                    <input
-                      type="text"
-                      value={vehicleName}
-                      onChange={(e) => setVehicleName(e.target.value)}
-                      placeholder="e.g. Toyota Corolla 2022"
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Vehicle Type</label>
-                    <select
-                      value={vehicleType}
-                      onChange={(e) => setVehicleType(e.target.value)}
-                      className="doc-select"
-                    >
-                      {VEHICLE_TYPES.map((vt) => (
-                        <option key={vt.value} value={vt.value}>{vt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Plate Number</label>
-                    <input
-                      type="text"
-                      value={plateNumber}
-                      onChange={(e) => setPlateNumber(e.target.value)}
-                      placeholder="e.g. DHA-12-3456"
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
               <div className="booking-actions">
                 <button type="button" onClick={() => setShowForm(false)}>
                   Cancel
@@ -246,13 +206,19 @@ function DriverDocuments() {
           </p>
         ) : documents.length === 0 && !showForm ? (
           <div className="empty-state">
-            <h3>No documents uploaded</h3>
-            <p>Add your driving license, vehicle registration, and other required documents.</p>
+            <h3>No documents found</h3>
+            <p>
+              {docCategory === 'vehicle'
+                ? 'No vehicle documents yet. Add a vehicle from the My Vehicles page.'
+                : docCategory === 'driver'
+                ? 'No driver documents uploaded yet.'
+                : 'Add your driving license, NID, and other required documents.'}
+            </p>
           </div>
         ) : (
           <div className="document-list">
-            {documents.map((doc) => (
-              <div key={doc.doc_type} className="document-card">
+            {documents.map((doc, idx) => (
+              <div key={`${doc.doc_type}-${doc.plate_number || idx}`} className="document-card">
                 <div className="doc-card-header">
                   <h4>{formatDocType(doc.doc_type)}</h4>
                   <span
@@ -288,14 +254,17 @@ function DriverDocuments() {
                     </a>
                   </p>
                 </div>
-                <div className="doc-card-actions">
-                  <button
-                    onClick={() => handleDelete(doc.doc_type)}
-                    className="doc-delete-btn"
-                  >
-                    Delete
-                  </button>
-                </div>
+                {/* Only show delete for driver docs — vehicle docs are managed in My Vehicles */}
+                {!isVehicleDoc(doc.doc_type) && (
+                  <div className="doc-card-actions">
+                    <button
+                      onClick={() => handleDelete(doc.doc_type)}
+                      className="doc-delete-btn"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

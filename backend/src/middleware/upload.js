@@ -31,4 +31,9 @@ const onboardingUpload = upload.fields([
   { name: "insurance_file", maxCount: 1 },
 ]);
 
-module.exports = { onboardingUpload };
+const vehicleUpload = upload.fields([
+  { name: "registration_file", maxCount: 1 },
+  { name: "insurance_file", maxCount: 1 },
+]);
+
+module.exports = { onboardingUpload, vehicleUpload };

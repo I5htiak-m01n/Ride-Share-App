@@ -193,10 +193,13 @@ export const ridesAPI = {
 
 // Drivers API
 export const driversAPI = {
-  getDocuments: () => api.get('/drivers/documents'),
+  getDocuments: (category) => api.get('/drivers/documents', { params: category ? { category } : {} }),
   addDocument: (data) => api.post('/drivers/documents', data),
   deleteDocument: (docType) => api.delete(`/drivers/documents/${docType}`),
   getVehicles: () => api.get('/drivers/vehicles'),
+  addVehicle: (formData) => api.post('/drivers/vehicles', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   activateVehicle: (vehicleId) => api.put(`/drivers/vehicles/${vehicleId}/activate`),
   deactivateVehicle: (vehicleId) => api.put(`/drivers/vehicles/${vehicleId}/deactivate`),
   getOnboardingStatus: () => api.get('/drivers/onboarding-status'),

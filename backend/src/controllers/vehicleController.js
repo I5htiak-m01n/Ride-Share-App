@@ -5,6 +5,7 @@ const getMyVehicles = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT v.vehicle_id, v.plate_number, v.model, v.type, v.is_active,
+              v.approval_status, v.rejection_reason,
               vt.label AS type_label, vt.fare_multiplier
        FROM vehicles v
        LEFT JOIN vehicle_types vt ON v.type = vt.type_key
@@ -26,12 +27,16 @@ const setActiveVehicle = async (req, res) => {
     await client.query("BEGIN");
 
     const check = await client.query(
-      `SELECT vehicle_id FROM vehicles WHERE vehicle_id = $1 AND driver_id = $2`,
+      `SELECT vehicle_id, approval_status FROM vehicles WHERE vehicle_id = $1 AND driver_id = $2`,
       [req.params.vehicleId, req.user.id]
     );
     if (check.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Vehicle not found" });
+    }
+    if (check.rows[0].approval_status !== "approved") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Only approved vehicles can be activated" });
     }
 
     // Deactivate all, then activate the chosen one
