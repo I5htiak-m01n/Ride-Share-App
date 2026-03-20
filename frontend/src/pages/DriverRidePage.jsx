@@ -7,7 +7,7 @@ import RideMap from '../components/RideMap';
 import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
 import CancelConfirmModal from '../components/CancelConfirmModal';
-import CancelReasonForm from '../components/CancelReasonForm';
+import CancelReasonForm from '../components/CancelReasonFormDriver';
 import RatingBadge from '../components/RatingBadge';
 import NotificationDropdown from '../components/NotificationDropdown';
 import './Dashboard.css';

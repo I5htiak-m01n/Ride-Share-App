@@ -225,6 +225,14 @@ export function DriverProvider({ children }) {
         stopGeolocationWatch();
         stopRouteChecking();
         clearRoute();
+      } else if (res.data.active) {
+        // REFRESH: Update activeRide data from database to sync any changes
+        // This ensures pickup/dropoff coordinates are current for:
+        // 1. Test location simulation (script updates database, need to reflect on frontend)
+        // 2. Dynamic rerouting (dropoff may change server-side)
+        // 3. Distance calculations (displayed on DriverRidePage using activeRide)
+        // Called every 5 seconds (RIDE_POLL_MS) during active ride
+        setActiveRide(res.data);
       }
     } catch (err) {
       console.error('checkActiveRide error:', err);
