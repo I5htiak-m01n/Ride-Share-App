@@ -16,6 +16,7 @@ const notificationRoutes = require("./routes/notifications");
 const analyticsRoutes = require("./routes/analytics");
 const supportRoutes = require("./routes/support");
 const supportStaffRoutes = require("./routes/supportStaff");
+const { startScheduler } = require("./scheduler");
 
 const app = express(); 
 app.use(cors({ // cors configuration to allow requests from frontend
@@ -96,4 +97,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+  startScheduler(pool);
+});

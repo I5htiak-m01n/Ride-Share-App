@@ -2838,3 +2838,179 @@
   max-width: 720px;
   width: 90vw;
 }
+
+/* ── Pickup Time Selector ── */
+.pickup-time-selector {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f8f8f8;
+  border-radius: 12px;
+  border: 1px solid #e2e2e2;
+}
+.pickup-time-selector h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.pickup-mode-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e2e2;
+  margin-bottom: 12px;
+}
+.pickup-mode-toggle button {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #6b6b6b;
+  transition: all 0.2s;
+}
+.pickup-mode-toggle button.active {
+  background: #000;
+  color: #fff;
+  font-weight: 600;
+}
+.pickup-mode-toggle button:not(.active):hover {
+  background: #f0f0f0;
+}
+.schedule-picker {
+  animation: fadeIn 0.2s ease-in;
+}
+.schedule-picker-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.schedule-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.schedule-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6b6b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.schedule-field input {
+  padding: 10px 12px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+.schedule-field input:focus {
+  outline: none;
+  border-color: #000;
+}
+.schedule-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.schedule-info p {
+  font-size: 12px;
+  color: #6b6b6b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.schedule-info p::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background: #6b6b6b;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Scheduled Rides Section (Dashboard) ── */
+.scheduled-rides-section {
+  margin-bottom: 20px;
+}
+.scheduled-rides-section h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: #333;
+}
+.scheduled-ride-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+.scheduled-ride-info {
+  flex: 1;
+  min-width: 0;
+}
+.scheduled-ride-time {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 4px;
+}
+.scheduled-ride-route {
+  font-size: 13px;
+  color: #6b6b6b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.scheduled-ride-route span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.route-arrow {
+  color: #999;
+  flex-shrink: 0;
+}
+.scheduled-ride-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #6b6b6b;
+}
+.scheduled-ride-meta span:first-child {
+  font-weight: 600;
+  color: #000;
+}
+.scheduled-ride-cancel {
+  padding: 8px 16px;
+  border: 1px solid #e2e2e2;
+  background: #fff;
+  color: #E11900;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.scheduled-ride-cancel:hover {
+  background: #FEF2F2;
+  border-color: #E11900;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

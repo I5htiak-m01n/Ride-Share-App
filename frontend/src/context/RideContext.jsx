@@ -80,6 +80,11 @@ export function RideProvider({ children }) {
   // Vehicle type selection
   const [vehicleType, setVehicleType] = useState(saved?.vehicleType || 'economy');
 
+  // Scheduled ride
+  const [scheduledTime, setScheduledTime] = useState(saved?.scheduledTime || null);
+  const [scheduledRides, setScheduledRides] = useState([]);
+  const [scheduleSuccess, setScheduleSuccess] = useState(null);
+
   // Polling
   const pollRef = useRef(null);
 
@@ -110,11 +115,11 @@ export function RideProvider({ children }) {
       fareEstimate,
       activeRequest, activeRide,
       promoCode, promoResult,
-      vehicleType,
+      vehicleType, scheduledTime,
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
   }, [ridePhase, pickupAddr, dropoffAddr, pickupCoords, dropoffCoords,
-      fareEstimate, activeRequest, activeRide, promoCode, promoResult, vehicleType]);
+      fareEstimate, activeRequest, activeRide, promoCode, promoResult, vehicleType, scheduledTime]);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -181,6 +186,9 @@ export function RideProvider({ children }) {
       if (data.message) setStatusMessage(data.message);
 
       switch (data.phase) {
+        case 'scheduled':
+          // Rider has a scheduled ride — don't change phase, stay idle
+          break;
         case 'searching':
           setRidePhase('searching');
           setActiveRequest(data.request);
@@ -365,7 +373,28 @@ export function RideProvider({ children }) {
         dropoff_addr: dropoffAddr,
         promo_code: promoCode || undefined,
         vehicle_type: vehicleType,
+        scheduled_time: scheduledTime || undefined,
       });
+
+      if (res.data.request.status === 'scheduled') {
+        // Scheduled ride — reset to idle and show success
+        const st = new Date(res.data.request.scheduled_time);
+        setScheduleSuccess(`Ride scheduled for ${st.toLocaleDateString()} at ${st.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        setRidePhase('idle');
+        setPickupAddr('');
+        setDropoffAddr('');
+        setPickupCoords(null);
+        setDropoffCoords(null);
+        setFareEstimate(null);
+        setPromoCode('');
+        setPromoResult(null);
+        setVehicleType('economy');
+        setScheduledTime(null);
+        sessionStorage.removeItem(STORAGE_KEY);
+        fetchScheduledRides();
+        return 'scheduled';
+      }
+
       setActiveRequest(res.data.request);
       setRidePhase('searching');
       startPolling();
@@ -376,7 +405,7 @@ export function RideProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [pickupCoords, dropoffCoords, pickupAddr, dropoffAddr, promoCode, vehicleType, startPolling]);
+  }, [pickupCoords, dropoffCoords, pickupAddr, dropoffAddr, promoCode, vehicleType, scheduledTime, startPolling]);
 
   // Validate promo code
   const handleValidatePromo = useCallback(async () => {
@@ -404,6 +433,26 @@ export function RideProvider({ children }) {
     }
   }, [activeRequest, stopPolling]);
 
+  // Fetch scheduled rides
+  const fetchScheduledRides = useCallback(async () => {
+    try {
+      const res = await ridesAPI.getScheduledRides();
+      setScheduledRides(res.data.requests || []);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Cancel a scheduled ride
+  const handleCancelScheduledRide = useCallback(async (requestId) => {
+    try {
+      await ridesAPI.cancelRequest(requestId);
+      fetchScheduledRides();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to cancel scheduled ride');
+    }
+  }, [fetchScheduledRides]);
+
   // Reset to idle
   const resetBooking = useCallback(() => {
     setRidePhase('idle');
@@ -420,6 +469,7 @@ export function RideProvider({ children }) {
     setPromoCode('');
     setPromoResult(null);
     setVehicleType('economy');
+    setScheduledTime(null);
     setDriverLocation(null);
     stopPolling();
     stopRiderLocationTracking();
@@ -536,6 +586,7 @@ export function RideProvider({ children }) {
   useEffect(() => {
     fetchWalletBalance();
     fetchMyRating();
+    fetchScheduledRides();
     checkActiveRide().then(() => {
       if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
         startPolling();
@@ -573,6 +624,9 @@ export function RideProvider({ children }) {
     walletBalance, promoCode, setPromoCode, promoResult, setPromoResult, promoLoading,
     // Vehicle type
     vehicleType, setVehicleType,
+    // Scheduled rides
+    scheduledTime, setScheduledTime, scheduledRides, scheduleSuccess, setScheduleSuccess,
+    fetchScheduledRides, handleCancelScheduledRide,
     // Nearby vehicles
     nearbyVehicles,
     // Driver live location (for rider tracking)

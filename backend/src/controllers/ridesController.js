@@ -118,10 +118,29 @@ const updateDriverLocation = async (req, res) => {
 // Rider: create a new ride request
 const createRideRequest = async (req, res) => {
   const riderId = req.user.id;
-  const { pickup_lat, pickup_lng, pickup_addr, dropoff_lat, dropoff_lng, dropoff_addr, promo_code, vehicle_type } = req.body;
+  const { pickup_lat, pickup_lng, pickup_addr, dropoff_lat, dropoff_lng, dropoff_addr, promo_code, vehicle_type, scheduled_time } = req.body;
 
   if (!pickup_lat || !pickup_lng || !pickup_addr || !dropoff_lat || !dropoff_lng || !dropoff_addr) {
     return res.status(400).json({ error: "pickup and dropoff location and address are required" });
+  }
+
+  // Validate scheduled_time if provided
+  const isScheduled = !!scheduled_time;
+  let scheduledDate = null;
+  if (isScheduled) {
+    scheduledDate = new Date(scheduled_time);
+    if (isNaN(scheduledDate.getTime())) {
+      return res.status(400).json({ error: "Invalid scheduled_time format" });
+    }
+    const now = new Date();
+    const minTime = new Date(now.getTime() + 30 * 60 * 1000); // 30 min from now
+    const maxTime = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000); // 15 days from now
+    if (scheduledDate < minTime) {
+      return res.status(400).json({ error: "Scheduled time must be at least 30 minutes from now" });
+    }
+    if (scheduledDate > maxTime) {
+      return res.status(400).json({ error: "Scheduled time cannot be more than 15 days in advance" });
+    }
   }
 
   try {
@@ -131,6 +150,18 @@ const createRideRequest = async (req, res) => {
       "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
       [riderId]
     );
+
+    // Check scheduled ride limit (max 3 concurrent scheduled rides)
+    if (isScheduled) {
+      const scheduledCount = await pool.query(
+        `SELECT COUNT(*)::int AS cnt FROM ride_requests
+         WHERE rider_id = $1 AND status = 'scheduled'`,
+        [riderId]
+      );
+      if (scheduledCount.rows[0].cnt >= 3) {
+        return res.status(400).json({ error: "You can have at most 3 scheduled rides at a time" });
+      }
+    }
 
     // Get actual route distance from Google Directions API
     const route = await fetchGoogleDirections({
@@ -194,23 +225,26 @@ const createRideRequest = async (req, res) => {
       }
     }
 
+    const reqStatus = isScheduled ? 'scheduled' : 'open';
+    const expiresAt = isScheduled ? null : new Date(Date.now() + 5 * 60 * 1000);
+
     const result = await pool.query(
       `INSERT INTO ride_requests
         (rider_id, pickup_location, pickup_addr, dropoff_location, dropoff_addr,
-         status, estimated_fare, estimated_distance_km, expires_at, promo_code, vehicle_type)
+         status, estimated_fare, estimated_distance_km, expires_at, scheduled_time, promo_code, vehicle_type)
        VALUES
         ($1,
          ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4,
          ST_SetSRID(ST_MakePoint($6, $5), 4326)::geography, $7,
-         'open', $8, $9,
-         NOW() + INTERVAL '5 minutes', $10, $11)
+         $8, $9, $10, $11, $12, $13, $14)
        RETURNING request_id, status, pickup_addr, dropoff_addr,
-                 estimated_fare, estimated_distance_km, created_at, vehicle_type`,
+                 estimated_fare, estimated_distance_km, created_at, vehicle_type, scheduled_time`,
       [
         riderId,
         parseFloat(pickup_lat), parseFloat(pickup_lng), pickup_addr,
         parseFloat(dropoff_lat), parseFloat(dropoff_lng), dropoff_addr,
-        estimatedFare, distanceKm, promo_code || null, vType,
+        reqStatus, estimatedFare, distanceKm, expiresAt, scheduledDate,
+        promo_code || null, vType,
       ]
     );
 
@@ -579,18 +613,18 @@ const getRiderActiveRide = async (req, res) => {
   const riderId = req.user.id;
 
   try {
-    // 1. Find the latest open or matched request for this rider
+    // 1. Find the latest open, matched, or scheduled request for this rider
     const reqResult = await pool.query(
       `SELECT
         rr.request_id, rr.status, rr.pickup_addr, rr.dropoff_addr,
         rr.estimated_fare, rr.estimated_distance_km,
-        rr.created_at, rr.expires_at,
+        rr.created_at, rr.expires_at, rr.scheduled_time,
         ST_Y(rr.pickup_location::geometry) AS pickup_lat,
         ST_X(rr.pickup_location::geometry) AS pickup_lng,
         ST_Y(rr.dropoff_location::geometry) AS dropoff_lat,
         ST_X(rr.dropoff_location::geometry) AS dropoff_lng
       FROM ride_requests rr
-      WHERE rr.rider_id = $1 AND rr.status IN ('open', 'matched')
+      WHERE rr.rider_id = $1 AND rr.status IN ('open', 'matched', 'scheduled')
       ORDER BY rr.created_at DESC
       LIMIT 1`,
       [riderId]
@@ -628,7 +662,12 @@ const getRiderActiveRide = async (req, res) => {
 
     const request = reqResult.rows[0];
 
-    // 2. If open but expired, auto-expire it
+    // 2. If scheduled — rider is free to browse, just acknowledge it
+    if (request.status === "scheduled") {
+      return res.json({ phase: "scheduled", request });
+    }
+
+    // 3. If open but expired, auto-expire it
     if (request.status === "open" && new Date(request.expires_at) < new Date()) {
       await pool.query(
         `UPDATE ride_requests SET status = 'expired' WHERE request_id = $1`,
@@ -637,7 +676,7 @@ const getRiderActiveRide = async (req, res) => {
       return res.json({ phase: "idle", message: "Your ride request expired. No drivers found." });
     }
 
-    // 3. If open and not expired -> still searching
+    // 4. If open and not expired -> still searching
     if (request.status === "open") {
       return res.json({ phase: "searching", request });
     }
@@ -761,24 +800,84 @@ const cancelRideRequest = async (req, res) => {
   const { id: requestId } = req.params;
 
   try {
-    const result = await pool.query(
-      `UPDATE ride_requests
-       SET status = 'cancelled'
-       WHERE request_id = $1 AND rider_id = $2 AND status = 'open'
-       RETURNING request_id, status`,
+    // Fetch the request first to check scheduled_time
+    const reqCheck = await pool.query(
+      `SELECT request_id, status, scheduled_time, estimated_fare
+       FROM ride_requests
+       WHERE request_id = $1 AND rider_id = $2 AND status IN ('open', 'scheduled')`,
       [requestId, riderId]
     );
 
-    if (result.rows.length === 0) {
+    if (reqCheck.rows.length === 0) {
       return res.status(404).json({
-        error: "Request not found, not yours, or no longer open",
+        error: "Request not found, not yours, or no longer cancellable",
       });
     }
 
-    res.json({ message: "Ride request cancelled", request: result.rows[0] });
+    const request = reqCheck.rows[0];
+
+    // Check if scheduled ride is within 30-min window (paid cancellation)
+    let cancellationFee = 0;
+    if (request.status === "scheduled" && request.scheduled_time) {
+      const msUntilScheduled = new Date(request.scheduled_time).getTime() - Date.now();
+      if (msUntilScheduled < 30 * 60 * 1000) {
+        // Within 30 minutes — apply cancellation fee
+        const pricingResult = await pool.query(
+          `SELECT cancellation_pct FROM pricing_standards LIMIT 1`
+        );
+        const pct = pricingResult.rows[0]?.cancellation_pct
+          ? parseFloat(pricingResult.rows[0].cancellation_pct)
+          : 0;
+        cancellationFee = Math.round(parseFloat(request.estimated_fare) * (pct / 100) * 100) / 100;
+
+        if (cancellationFee > 0) {
+          // Deduct fee from rider wallet
+          await pool.query(
+            `UPDATE wallets SET balance = balance - $1 WHERE owner_id = $2`,
+            [cancellationFee, riderId]
+          );
+        }
+      }
+    }
+
+    // Cancel the request
+    const result = await pool.query(
+      `UPDATE ride_requests SET status = 'cancelled'
+       WHERE request_id = $1
+       RETURNING request_id, status`,
+      [requestId]
+    );
+
+    res.json({
+      message: cancellationFee > 0
+        ? `Ride cancelled. A fee of ${cancellationFee} BDT was charged.`
+        : "Ride request cancelled",
+      request: result.rows[0],
+      cancellation_fee: cancellationFee,
+    });
   } catch (err) {
     console.error("cancelRideRequest error:", err);
     res.status(500).json({ error: "Failed to cancel ride request", details: err.message });
+  }
+};
+
+// GET /api/rides/rider/scheduled
+// Rider: get all scheduled rides
+const getRiderScheduledRides = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT request_id, status, pickup_addr, dropoff_addr,
+              estimated_fare, estimated_distance_km,
+              scheduled_time, vehicle_type, created_at
+       FROM ride_requests
+       WHERE rider_id = $1 AND status = 'scheduled'
+       ORDER BY scheduled_time ASC`,
+      [req.user.id]
+    );
+    res.json({ requests: result.rows });
+  } catch (err) {
+    console.error("getRiderScheduledRides error:", err);
+    res.status(500).json({ error: "Failed to get scheduled rides", details: err.message });
   }
 };
 
@@ -1151,6 +1250,7 @@ module.exports = {
   getRiderActiveRide,
   getDriverActiveRide,
   cancelRideRequest,
+  getRiderScheduledRides,
   getCancellationFee,
   cancelRide,
   getRiderHistory,

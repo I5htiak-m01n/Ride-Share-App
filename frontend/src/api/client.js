@@ -173,6 +173,9 @@ export const ridesAPI = {
   checkRoute: (rideId, driver_lat, driver_lng) =>
     api.post(`/rides/${rideId}/check-route`, { driver_lat, driver_lng }),
 
+  // Rider: get scheduled rides
+  getScheduledRides: () => api.get('/rides/rider/scheduled'),
+
   // Ride history
   getRiderHistory: () => api.get('/rides/rider/history'),
   getDriverHistory: () => api.get('/rides/driver/history'),

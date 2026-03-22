@@ -12,6 +12,7 @@ const {
   getRiderActiveRide,
   getDriverActiveRide,
   cancelRideRequest,
+  getRiderScheduledRides,
   getCancellationFee,
   cancelRide,
   getRiderHistory,
@@ -49,6 +50,9 @@ router.post("/requests/:id/accept", authenticateToken, authorizeRoles("driver", 
 
 // Driver: reject a specific request
 router.post("/requests/:id/reject", authenticateToken, authorizeRoles("driver", "mixed"), rejectRequest);
+
+// Rider: get scheduled rides
+router.get("/rider/scheduled", authenticateToken, authorizeRoles("rider", "mixed"), getRiderScheduledRides);
 
 // Rider: ride history
 router.get("/rider/history", authenticateToken, authorizeRoles("rider", "mixed"), getRiderHistory);
