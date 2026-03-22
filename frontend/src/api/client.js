@@ -326,4 +326,12 @@ export const supportStaffAPI = {
     }),
 };
 
+// Saved Places API
+export const savedPlacesAPI = {
+  getAll: () => api.get('/saved-places'),
+  create: (data) => api.post('/saved-places', data),
+  update: (placeId, data) => api.put(`/saved-places/${placeId}`, data),
+  remove: (placeId) => api.delete(`/saved-places/${placeId}`),
+};
+
 export default api;

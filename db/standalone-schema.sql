@@ -31,11 +31,14 @@ create table if not exists riders (
   total_rides int not null default 0
 );
 
-create table if not exists rider_common_pickups (
+create table if not exists rider_saved_places (
+  place_id uuid primary key default gen_random_uuid(),
   rider_id uuid not null references riders(rider_id) on delete cascade,
-  pickup_label text not null,
-  location geography(Point, 4326),
-  primary key (rider_id, pickup_label)
+  label text not null,
+  address text not null,
+  location geography(Point, 4326) not null,
+  created_at timestamptz not null default now(),
+  unique (rider_id, label)
 );
 
 create table if not exists drivers (

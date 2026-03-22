@@ -3014,3 +3014,227 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Saved Places ── */
+.saved-places-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 4px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.saved-places-trigger:hover {
+  background: #f5f5f5;
+  color: #000;
+}
+.saved-places-icon {
+  font-size: 16px;
+  color: #222;
+}
+
+/* Modal overlay */
+.saved-places-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+/* Modal card */
+.saved-places-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+/* Header */
+.saved-places-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+}
+.saved-places-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.saved-places-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #555;
+  line-height: 1;
+  padding: 0 4px;
+}
+.saved-places-close:hover { color: #000; }
+
+.saved-places-back {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #555;
+  padding: 0 8px 0 0;
+}
+.saved-places-back:hover { color: #000; }
+
+/* Add row */
+.saved-place-add-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+.saved-place-add-row:hover { background: #f7f7f7; }
+
+.saved-place-add-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Place rows */
+.saved-places-list {
+  padding: 4px 0;
+}
+.saved-place-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.saved-place-row:hover { background: #f7f7f7; }
+
+.saved-place-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #333;
+}
+
+.saved-place-info {
+  flex: 1;
+  min-width: 0;
+}
+.saved-place-label {
+  font-weight: 600;
+  font-size: 15px;
+  color: #111;
+}
+.saved-place-address {
+  font-size: 13px;
+  color: #777;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saved-place-delete {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #bbb;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.saved-place-delete:hover {
+  color: #e11900;
+  background: #fef0ee;
+}
+
+/* Empty / loading states */
+.saved-places-loading,
+.saved-places-empty {
+  padding: 24px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+.saved-places-error {
+  padding: 8px 20px;
+  color: #e11900;
+  font-size: 13px;
+}
+
+/* Add place form */
+.saved-place-form {
+  padding: 16px 20px;
+}
+.saved-place-form-field {
+  margin-bottom: 14px;
+}
+.saved-place-form-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 4px;
+}
+.saved-place-form-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.saved-place-form-field input:focus {
+  outline: none;
+  border-color: #222;
+}
+
+.saved-place-save-btn {
+  width: 100%;
+  padding: 12px;
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.saved-place-save-btn:hover { background: #000; }
+.saved-place-save-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}

@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 import BookingMap from '../components/BookingMap';
 import PlacesAutocomplete from '../components/PlacesAutocomplete';
+import SavedPlacesModal from '../components/SavedPlacesModal';
 import './Dashboard.css';
 
 function RideBookingPage() {
@@ -18,6 +19,27 @@ function RideBookingPage() {
     resetBooking, error, setError, loading, userLocation,
     routePath, routeInfo, routeLoading, stopPolling,
   } = useRide();
+
+  const [savedPlacesOpen, setSavedPlacesOpen] = useState(false);
+  const [savedPlacesTarget, setSavedPlacesTarget] = useState('pickup'); // 'pickup' | 'dropoff'
+
+  const openSavedPlaces = (target) => {
+    setSavedPlacesTarget(target);
+    setSavedPlacesOpen(true);
+  };
+
+  const handleSavedPlaceSelect = ({ address, lat, lng }) => {
+    if (savedPlacesTarget === 'pickup') {
+      setPickupAddr(address);
+      setPickupCoords({ lat, lng });
+      setMapCenter({ lat, lng });
+      setClickMode('dropoff');
+    } else {
+      setDropoffAddr(address);
+      setDropoffCoords({ lat, lng });
+      setMapCenter({ lat, lng });
+    }
+  };
 
   // Route guard: redirect if in an active ride phase
   useEffect(() => {
@@ -100,6 +122,9 @@ function RideBookingPage() {
                   Use My Location
                 </button>
               </div>
+              <div className="saved-places-trigger" onClick={() => openSavedPlaces('pickup')}>
+                <span className="saved-places-icon">&#9733;</span> Saved places
+              </div>
             </div>
             <div className="form-group">
               <label>Dropoff Address</label>
@@ -114,6 +139,9 @@ function RideBookingPage() {
                 placeholder="Search dropoff address"
                 userLocation={userLocation}
               />
+              <div className="saved-places-trigger" onClick={() => openSavedPlaces('dropoff')}>
+                <span className="saved-places-icon">&#9733;</span> Saved places
+              </div>
             </div>
           </div>
 
@@ -158,6 +186,13 @@ function RideBookingPage() {
           </div>
         </div>
       </div>
+
+      <SavedPlacesModal
+        isOpen={savedPlacesOpen}
+        onClose={() => setSavedPlacesOpen(false)}
+        onSelect={handleSavedPlaceSelect}
+        userLocation={userLocation}
+      />
     </div>
   );
 }

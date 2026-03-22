@@ -16,6 +16,7 @@ const notificationRoutes = require("./routes/notifications");
 const analyticsRoutes = require("./routes/analytics");
 const supportRoutes = require("./routes/support");
 const supportStaffRoutes = require("./routes/supportStaff");
+const savedPlacesRoutes = require("./routes/savedPlaces");
 const { startScheduler } = require("./scheduler");
 
 const app = express(); 
@@ -78,6 +79,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/support-staff", supportStaffRoutes);
+app.use("/api/saved-places", savedPlacesRoutes);
 
 // 404 handler
 app.use((req, res) => {
