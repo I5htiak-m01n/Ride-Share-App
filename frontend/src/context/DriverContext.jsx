@@ -216,15 +216,14 @@ export function DriverProvider({ children }) {
     try {
       const res = await ridesAPI.getDriverActive();
       if (!res.data.active && ['ride_accepted', 'ride_started'].includes(driverPhaseRef.current)) {
-        // Ride was cancelled by the rider (or otherwise ended)
+        // Ride was cancelled by the rider (or otherwise ended) — return to online
         stopRidePolling();
         fetchWalletBalance();
         setActiveRide(null);
-        setDriverPhase('offline');
-        stopLocationSync();
-        stopGeolocationWatch();
+        setDriverPhase('online');
         stopRouteChecking();
         clearRoute();
+        startPolling();
       } else if (res.data.active) {
         // REFRESH: Update activeRide data from database to sync any changes
         // This ensures pickup/dropoff coordinates are current for:
@@ -237,7 +236,7 @@ export function DriverProvider({ children }) {
     } catch (err) {
       console.error('checkActiveRide error:', err);
     }
-  }, [stopRidePolling, fetchWalletBalance, stopLocationSync, stopGeolocationWatch, stopRouteChecking, clearRoute]);
+  }, [stopRidePolling, fetchWalletBalance, stopRouteChecking, clearRoute, startPolling]);
 
   const startRidePolling = useCallback(() => {
     stopRidePolling();
@@ -314,13 +313,12 @@ export function DriverProvider({ children }) {
           setShowRatingModal(true);
         }
         setActiveRide(null);
-        setDriverPhase('offline');
-        stopLocationSync();
-        stopGeolocationWatch();
+        setDriverPhase('online');
         fetchWalletBalance();
         stopRouteChecking();
         stopRidePolling();
         clearRoute();
+        startPolling();
       } else if (status === 'started') {
         setActiveRide((prev) => ({ ...prev, ride: res.data.ride }));
         setDriverPhase('ride_started');
@@ -332,7 +330,7 @@ export function DriverProvider({ children }) {
       const msg = err.response?.data?.error || err.response?.data?.details || 'Failed to update ride status';
       setError(msg);
     }
-  }, [activeRide, stopLocationSync, stopGeolocationWatch, fetchWalletBalance, stopRouteChecking, stopRidePolling, clearRoute]);
+  }, [activeRide, fetchWalletBalance, stopRouteChecking, stopRidePolling, clearRoute, startPolling]);
 
   const activateVehicle = useCallback(async (vehicleId) => {
     try {
@@ -410,18 +408,17 @@ export function DriverProvider({ children }) {
       setCancelFee(null);
       setCancelLoading(false);
       setActiveRide(null);
-      setDriverPhase('offline');
-      stopLocationSync();
-      stopGeolocationWatch();
+      setDriverPhase('online');
       stopRouteChecking();
       stopRidePolling();
       clearRoute();
+      startPolling();
     } catch (err) {
       setCancelLoading(false);
       setShowCancelReason(false);
       setError(err.response?.data?.error || 'Failed to cancel ride');
     }
-  }, [activeRide, stopLocationSync, stopGeolocationWatch, stopRouteChecking, stopRidePolling, clearRoute, fetchWalletBalance]);
+  }, [activeRide, stopRouteChecking, stopRidePolling, clearRoute, fetchWalletBalance, startPolling]);
 
   const abortCancel = useCallback(() => {
     setShowCancelConfirm(false);
@@ -432,13 +429,12 @@ export function DriverProvider({ children }) {
   const handleMutualCancellation = useCallback(() => {
     fetchWalletBalance();
     setActiveRide(null);
-    setDriverPhase('offline');
-    stopLocationSync();
-    stopGeolocationWatch();
+    setDriverPhase('online');
     stopRouteChecking();
     stopRidePolling();
     clearRoute();
-  }, [stopLocationSync, stopGeolocationWatch, stopRouteChecking, stopRidePolling, clearRoute, fetchWalletBalance]);
+    startPolling();
+  }, [stopRouteChecking, stopRidePolling, clearRoute, fetchWalletBalance, startPolling]);
 
   // ── On mount: restore state ──
 
@@ -467,6 +463,13 @@ export function DriverProvider({ children }) {
           startGeolocationWatch();
           startLocationSync();
           startRidePolling();
+        } else if (saved?.driverPhase === 'online') {
+          // Was online but no active ride — restore online state
+          setActiveRide(null);
+          setDriverPhase('online');
+          startGeolocationWatch();
+          startPolling();
+          startLocationSync();
         } else {
           // No active ride on server — clear any stale saved state
           setActiveRide(null);

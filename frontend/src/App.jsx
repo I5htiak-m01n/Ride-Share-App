@@ -13,7 +13,6 @@ import RideSearchingPage from './pages/RideSearchingPage';
 import RiderRidePage from './pages/RiderRidePage';
 import { DriverProviderLayout } from './context/DriverContext';
 import DriverDashboard from './pages/DriverDashboard';
-import DriverOnlinePage from './pages/DriverOnlinePage';
 import DriverRidePage from './pages/DriverRidePage';
 import DriverVehiclesPage from './pages/DriverVehiclesPage';
 import ProfileSettings from './pages/ProfileSettings';
@@ -71,7 +70,6 @@ function App() {
           }>
             <Route element={<OnboardingGuard />}>
               <Route path="/driver/dashboard" element={<DriverDashboard />} />
-              <Route path="/driver/online" element={<DriverOnlinePage />} />
               <Route path="/driver/ride" element={<DriverRidePage />} />
               <Route path="/driver/vehicles" element={<DriverVehiclesPage />} />
             </Route>

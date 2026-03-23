@@ -37,7 +37,7 @@ function DriverRidePage() {
     if (driverPhase === 'offline') {
       navigate('/driver/dashboard', { replace: true });
     } else if (driverPhase === 'online') {
-      navigate('/driver/online', { replace: true });
+      navigate('/driver/dashboard', { replace: true });
     }
   }, [driverPhase, navigate]);
 
@@ -103,6 +103,12 @@ function DriverRidePage() {
         {/* Left Panel: Ride Details */}
         <div className="uber-left-panel">
           <div className="driver-panel-scroll">
+            <button
+              onClick={() => navigate('/driver/dashboard')}
+              className="page-back-btn"
+            >
+              &larr; Back
+            </button>
             <div className="uber-greeting">
               <h1>Active Ride</h1>
               <p style={{ textTransform: 'capitalize' }}>

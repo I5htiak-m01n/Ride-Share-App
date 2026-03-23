@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useDriver } from '../context/DriverContext';
 import BookingMap from '../components/BookingMap';
+import RideMap from '../components/RideMap';
 import RatingModal from '../components/RatingModal';
 import RatingBadge from '../components/RatingBadge';
 import NotificationDropdown from '../components/NotificationDropdown';
@@ -15,33 +15,44 @@ function DriverDashboard() {
     driverPhase,
     driverLocation, locationError,
     walletBalance, userRating,
-    error, clearError,
+    error,
     fakeVehicles,
-    goOnline,
+    goOnline, goOffline,
+    nearbyRequests,
+    acceptRequest, rejectRequest,
+    activeRide,
+    routePath, routeInfo, routeLoading, eta, wasRerouted,
     // Rating modal
     showRatingModal, ratingTarget, ratingLoading,
     handleSubmitRating, handleSkipRating,
   } = useDriver();
 
-  // Route guard: redirect to appropriate page if not offline
-  useEffect(() => {
-    if (driverPhase === 'online') {
-      navigate('/driver/online', { replace: true });
-    } else if (driverPhase === 'ride_accepted' || driverPhase === 'ride_started') {
-      navigate('/driver/ride', { replace: true });
-    }
-  }, [driverPhase, navigate]);
+  const isOnline = driverPhase === 'online';
+  const hasActiveRide = ['ride_accepted', 'ride_started'].includes(driverPhase);
 
   const handleGoOnline = async () => {
     try {
       await goOnline();
-      navigate('/driver/online');
+    } catch {
+      // error is set in context
+    }
+  };
+
+  const handleGoOffline = () => {
+    goOffline();
+  };
+
+  const handleAccept = async (requestId) => {
+    try {
+      await acceptRequest(requestId);
+      navigate('/driver/ride');
     } catch {
       // error is set in context
     }
   };
 
   const handleLogout = async () => {
+    if (isOnline) goOffline();
     await logout();
     navigate('/login');
   };
@@ -67,8 +78,17 @@ function DriverDashboard() {
         <div className="uber-left-panel">
           <div className="driver-panel-scroll">
             <div className="uber-greeting">
-              <h1>Good {greeting}, {user?.name || 'Driver'}</h1>
-              <p>Go online to start accepting rides</p>
+              {isOnline ? (
+                <>
+                  <h1>You&apos;re Online</h1>
+                  <p>Accepting rides nearby</p>
+                </>
+              ) : (
+                <>
+                  <h1>Good {greeting}, {user?.name || 'Driver'}</h1>
+                  <p>Go online to start accepting rides</p>
+                </>
+              )}
             </div>
 
             {walletBalance !== null && (
@@ -82,12 +102,79 @@ function DriverDashboard() {
             {error && <div className="uber-panel-alert">{error}</div>}
 
             <div className="uber-status-section">
-              <button onClick={handleGoOnline} className="status-toggle offline">
-                Tap to Go Online
-              </button>
+              {isOnline ? (
+                <button onClick={handleGoOffline} className="status-toggle online">
+                  Online &mdash; Accepting Rides
+                </button>
+              ) : (
+                <button onClick={handleGoOnline} className="status-toggle offline">
+                  Tap to Go Online
+                </button>
+              )}
             </div>
 
-            {/* Quick actions */}
+            {/* Nearby requests (online only) */}
+            {isOnline && (
+              <>
+                {nearbyRequests.length > 0 ? (
+                  <div className="uber-request-list">
+                    <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 600 }}>
+                      Nearby Requests ({nearbyRequests.length})
+                    </h3>
+                    {nearbyRequests.map((req) => (
+                      <div key={req.request_id} className="uber-request-card">
+                        <h4>{req.rider_name}</h4>
+                        <p className="req-detail">From: {req.pickup_addr}</p>
+                        <p className="req-detail">To: {req.dropoff_addr}</p>
+                        <p className="req-detail">
+                          Distance: {(req.distance_meters / 1000).toFixed(1)} km away
+                        </p>
+                        {req.estimated_fare && (
+                          <p className="req-fare">{req.estimated_fare} BDT</p>
+                        )}
+                        <div className="req-actions">
+                          <button className="accept-btn" onClick={() => handleAccept(req.request_id)}>
+                            Accept
+                          </button>
+                          <button className="reject-btn" onClick={() => rejectRequest(req.request_id)}>
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : driverLocation ? (
+                  <p className="uber-waiting-text">No ride requests within 5 km. Waiting...</p>
+                ) : null}
+              </>
+            )}
+
+            {/* Ongoing ride card (ride_accepted / ride_started) */}
+            {hasActiveRide && activeRide && (
+              <div className="ongoing-ride-section">
+                <h3>Ongoing Ride</h3>
+                <div
+                  className="ongoing-ride-card"
+                  onClick={() => navigate('/driver/ride')}
+                >
+                  <div className="ongoing-ride-status">
+                    <div className="status-dot active" />
+                    <span>{driverPhase === 'ride_accepted' ? 'Heading to pickup' : 'Ride in progress'}</span>
+                  </div>
+                  <div className="ongoing-ride-route">
+                    <span>{activeRide.ride?.pickup_addr}</span>
+                    <span className="route-arrow">&rarr;</span>
+                    <span>{activeRide.ride?.dropoff_addr}</span>
+                  </div>
+                  <div className="ongoing-ride-meta">
+                    <span>{activeRide.rider_name}</span>
+                    <span>{activeRide.estimated_fare} BDT</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quick actions — always visible */}
             <div className="uber-quick-actions">
               <div className="uber-quick-card" onClick={() => navigate('/driver/vehicles')}>
                 <div className="card-icon">
@@ -171,13 +258,35 @@ function DriverDashboard() {
           </div>
         </div>
 
-        {/* Right Panel: Idle Map */}
+        {/* Right Panel: Map */}
         <div className="uber-right-map">
-          <BookingMap
-            fullscreen
-            userLocation={driverLocation}
-            nearbyVehicles={fakeVehicles}
-          />
+          {isOnline ? (
+            <div className="uber-ridemap-wrapper">
+              {driverLocation ? (
+                <RideMap
+                  driverLocation={driverLocation}
+                  rideRequests={nearbyRequests}
+                  onAccept={handleAccept}
+                  onReject={rejectRequest}
+                  routePath={routePath}
+                  routeInfo={routeInfo}
+                  routeLoading={routeLoading}
+                  eta={eta}
+                  wasRerouted={wasRerouted}
+                />
+              ) : (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F6F6F6', color: '#6B6B6B', fontSize: '14px' }}>
+                  Waiting for GPS location...
+                </div>
+              )}
+            </div>
+          ) : (
+            <BookingMap
+              fullscreen
+              userLocation={driverLocation}
+              nearbyVehicles={fakeVehicles}
+            />
+          )}
         </div>
       </div>
 
