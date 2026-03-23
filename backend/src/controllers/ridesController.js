@@ -867,7 +867,12 @@ const getRiderScheduledRides = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT request_id, status, pickup_addr, dropoff_addr,
+              ST_Y(pickup_location::geometry) AS pickup_lat,
+              ST_X(pickup_location::geometry) AS pickup_lng,
+              ST_Y(dropoff_location::geometry) AS dropoff_lat,
+              ST_X(dropoff_location::geometry) AS dropoff_lng,
               estimated_fare, estimated_distance_km,
+              estimated_duration_min,
               scheduled_time, vehicle_type, created_at
        FROM ride_requests
        WHERE rider_id = $1 AND status = 'scheduled'

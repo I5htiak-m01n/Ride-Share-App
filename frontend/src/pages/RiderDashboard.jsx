@@ -12,7 +12,7 @@ function RiderDashboard() {
   const navigate = useNavigate();
   const {
     ridePhase,
-    walletBalance, statusMessage, userLocation, nearbyVehicles,
+    walletBalance, statusMessage, setStatusMessage, userLocation, nearbyVehicles,
     stopPolling, userRating,
     scheduledRides, handleCancelScheduledRide, scheduleSuccess, setScheduleSuccess,
     activeRequest, activeRide,
@@ -69,7 +69,12 @@ function RiderDashboard() {
           )}
 
           {statusMessage && (
-            <div className="uber-panel-info">{statusMessage}</div>
+            <div className="uber-panel-info">
+              {statusMessage}
+              <button onClick={() => setStatusMessage(null)} style={{ marginLeft: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, color: 'inherit' }}>
+                Dismiss
+              </button>
+            </div>
           )}
 
           {scheduleSuccess && (
@@ -136,13 +141,23 @@ function RiderDashboard() {
 
           {scheduledRides.length > 0 && (
             <div className="scheduled-rides-section">
-              <h3>Upcoming Scheduled Rides</h3>
+              <div className="scheduled-rides-header">
+                <h3>Upcoming Scheduled Rides</h3>
+                <button
+                  className="scheduled-rides-view-all"
+                  onClick={() => navigate('/rider/scheduled')}
+                >
+                  View All &rarr;
+                </button>
+              </div>
               {scheduledRides.map((ride) => {
                 const st = new Date(ride.scheduled_time);
-                const msUntil = st.getTime() - Date.now();
-                const isFreeCancel = msUntil >= 30 * 60 * 1000;
                 return (
-                  <div key={ride.request_id} className="scheduled-ride-card">
+                  <div
+                    key={ride.request_id}
+                    className="scheduled-ride-card scheduled-ride-card--clickable"
+                    onClick={() => navigate('/rider/scheduled')}
+                  >
                     <div className="scheduled-ride-info">
                       <div className="scheduled-ride-time">
                         {st.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} at{' '}
@@ -158,19 +173,7 @@ function RiderDashboard() {
                         <span>{ride.vehicle_type}</span>
                       </div>
                     </div>
-                    <button
-                      className="scheduled-ride-cancel"
-                      onClick={() => {
-                        const msg = isFreeCancel
-                          ? 'Cancel this scheduled ride? No charges will apply.'
-                          : 'This ride is within 30 minutes of pickup. A cancellation fee may apply. Continue?';
-                        if (window.confirm(msg)) {
-                          handleCancelScheduledRide(ride.request_id);
-                        }
-                      }}
-                    >
-                      Cancel
-                    </button>
+                    <span className="scheduled-ride-chevron">&rsaquo;</span>
                   </div>
                 );
               })}

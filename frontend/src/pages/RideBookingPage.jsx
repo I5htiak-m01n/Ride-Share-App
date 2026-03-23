@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
+import { useRoute } from '../context/RouteContext';
 import BookingMap from '../components/BookingMap';
 import PlacesAutocomplete from '../components/PlacesAutocomplete';
 import SavedPlacesModal from '../components/SavedPlacesModal';
@@ -19,6 +20,7 @@ function RideBookingPage() {
     resetBooking, error, setError, loading, userLocation,
     routePath, routeInfo, routeLoading, stopPolling,
   } = useRide();
+  const { clearRoute } = useRoute();
 
   const [savedPlacesOpen, setSavedPlacesOpen] = useState(false);
   const [savedPlacesTarget, setSavedPlacesTarget] = useState('pickup'); // 'pickup' | 'dropoff'
@@ -58,6 +60,7 @@ function RideBookingPage() {
       setClickMode('pickup');
       setRidePhase('booking');
       setError(null);
+      clearRoute();
     }
   }, []);
 

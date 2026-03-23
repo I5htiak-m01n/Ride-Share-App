@@ -286,6 +286,7 @@ function RiderRidePage() {
           <div className="uber-ridemap-wrapper">
             {ridePhase !== 'completed' && activeRequest ? (
               <BookingMap
+                fullHeight
                 pickupLocation={{ lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) }}
                 dropoffLocation={{ lat: parseFloat(activeRequest.dropoff_lat), lng: parseFloat(activeRequest.dropoff_lng) }}
                 driverLocation={driverLocation}

@@ -11,6 +11,7 @@ import RideBookingPage from './pages/RideBookingPage';
 import RideConfirmPage from './pages/RideConfirmPage';
 import RideSearchingPage from './pages/RideSearchingPage';
 import RiderRidePage from './pages/RiderRidePage';
+import ScheduledRidesPage from './pages/ScheduledRidesPage';
 import { DriverProviderLayout } from './context/DriverContext';
 import DriverDashboard from './pages/DriverDashboard';
 import DriverRidePage from './pages/DriverRidePage';
@@ -60,6 +61,7 @@ function App() {
             <Route path="/rider/confirm" element={<RideConfirmPage />} />
             <Route path="/rider/searching" element={<RideSearchingPage />} />
             <Route path="/rider/ride" element={<RiderRidePage />} />
+            <Route path="/rider/scheduled" element={<ScheduledRidesPage />} />
           </Route>
 
           {/* Driver routes — wrapped in DriverProvider layout + OnboardingGuard */}

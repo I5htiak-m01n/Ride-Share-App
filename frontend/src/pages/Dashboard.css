@@ -3038,6 +3038,162 @@
   border-color: #E11900;
 }
 
+/* Dashboard scheduled rides header with "View All" link */
+.scheduled-rides-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.scheduled-rides-header h3 {
+  margin: 0;
+}
+.scheduled-rides-view-all {
+  background: none;
+  border: none;
+  color: #276EF1;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.scheduled-rides-view-all:hover {
+  text-decoration: underline;
+}
+
+/* Clickable scheduled ride cards on dashboard */
+.scheduled-ride-card--clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.scheduled-ride-card--clickable:hover {
+  border-color: #276EF1;
+  box-shadow: 0 2px 8px rgba(39, 110, 241, 0.08);
+}
+.scheduled-ride-chevron {
+  font-size: 22px;
+  color: #999;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ── Scheduled Rides Detail Page ── */
+.sched-detail-card {
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.sched-detail-card:hover {
+  border-color: #bbb;
+}
+.sched-detail-card--active {
+  border-color: #276EF1;
+  box-shadow: 0 2px 12px rgba(39, 110, 241, 0.10);
+}
+
+.sched-detail-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sched-detail-left {
+  flex: 1;
+  min-width: 0;
+}
+.sched-detail-time {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 4px;
+}
+.sched-detail-route {
+  font-size: 13px;
+  color: #6b6b6b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sched-detail-route span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.sched-detail-fare {
+  font-size: 15px;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+}
+
+/* Expanded detail section */
+.sched-detail-expanded {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eee;
+}
+.sched-detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.sched-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f4f4f4;
+  font-size: 13px;
+}
+.sched-detail-row:last-child {
+  border-bottom: none;
+}
+.sched-detail-row span {
+  color: #6b6b6b;
+  flex-shrink: 0;
+}
+.sched-detail-row strong {
+  color: #000;
+  text-align: right;
+  word-break: break-word;
+  max-width: 60%;
+}
+
+.sched-detail-notice {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #F0F7FF;
+  border: 1px solid #276EF1;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #276EF1;
+  font-weight: 500;
+}
+
+.sched-detail-cancel-btn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e2e2e2;
+  background: #fff;
+  color: #E11900;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sched-detail-cancel-btn:hover {
+  background: #FEF2F2;
+  border-color: #E11900;
+}
+
 /* ── Ongoing Ride Cards (Dashboard) ── */
 .ongoing-ride-section {
   margin-bottom: 20px;

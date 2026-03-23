@@ -617,7 +617,7 @@ export function RideProvider({ children }) {
     // Fare
     fareEstimate,
     // Active ride
-    activeRequest, activeRide, statusMessage,
+    activeRequest, activeRide, statusMessage, setStatusMessage,
     // UI
     error, setError, loading, userLocation,
     // Wallet & Promo
