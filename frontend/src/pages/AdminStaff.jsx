@@ -54,12 +54,8 @@ export default function AdminStaff() {
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-          <button
-            className="admin-btn unban"
-            onClick={() => navigate('/admin/dashboard')}
-            style={{ padding: '8px 16px' }}
-          >
-            &larr; Back to Dashboard
+          <button className="page-back-btn" onClick={() => navigate('/admin/dashboard')}>
+            &larr; Back
           </button>
           <h1 style={{ margin: 0, fontSize: 28 }}>Support Staff</h1>
         </div>

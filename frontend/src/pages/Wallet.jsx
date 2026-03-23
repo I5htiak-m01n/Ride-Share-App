@@ -126,17 +126,11 @@ function Wallet() {
       </nav>
 
       <div className="dashboard-content">
-        <div className="dashboard-header">
-          <div>
-            <h1>Wallet</h1>
-            <p>Manage your balance and top up via SSLCommerz</p>
-          </div>
-          <button
-            onClick={() => navigate(getDashboardPath())}
-            className="card-button secondary"
-          >
-            Back to Dashboard
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={() => navigate(getDashboardPath())}>
+            &larr; Back
           </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Wallet</h1>
         </div>
 
         {error && <div className="error-banner">{error}</div>}

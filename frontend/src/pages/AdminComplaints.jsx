@@ -72,12 +72,8 @@ export default function AdminComplaints() {
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-          <button
-            className="admin-btn unban"
-            onClick={() => navigate('/admin/dashboard')}
-            style={{ padding: '8px 16px' }}
-          >
-            &larr; Back to Dashboard
+          <button className="page-back-btn" onClick={() => navigate('/admin/dashboard')}>
+            &larr; Back
           </button>
           <h1 style={{ margin: 0, fontSize: 28 }}>Complaints</h1>
         </div>
@@ -132,7 +128,7 @@ export default function AdminComplaints() {
         {/* Detail view */}
         {selectedTicketId && (
           <div>
-            <button className="admin-btn unban" onClick={handleCloseDetail} style={{ marginBottom: 16 }}>
+            <button className="page-back-btn" onClick={handleCloseDetail} style={{ marginBottom: 16 }}>
               &larr; Back to list
             </button>
 

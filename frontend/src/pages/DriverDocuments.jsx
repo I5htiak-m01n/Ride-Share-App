@@ -113,22 +113,20 @@ function DriverDocuments() {
         </div>
         <div className="nav-user">
           <span>Hi, {user?.name || 'Driver'}</span>
-          <button onClick={() => navigate('/driver/dashboard')} className="logout-btn">
-            Back
-          </button>
         </div>
       </nav>
 
       <div className="dashboard-content">
-        <div className="dashboard-header">
-          <div>
-            <h1>Documents</h1>
-            <p>Upload and manage your driver documents</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={() => navigate('/driver/dashboard')}>
+            &larr; Back
+          </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Documents</h1>
           {!showForm && (
             <button
               className="card-button"
               onClick={() => { setShowForm(true); setError(null); setSuccess(null); }}
+              style={{ marginLeft: 'auto' }}
             >
               Add Document
             </button>

@@ -82,19 +82,16 @@ export default function AdminPricing() {
         <div className="nav-brand"><h2>Pricing Standards</h2></div>
         <div className="nav-user">
           <span>Welcome, {user?.first_name}</span>
-          <button className="card-button secondary" onClick={() => navigate('/admin/dashboard')} style={{ marginRight: 8 }}>
-            ← Dashboard
-          </button>
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
         </div>
       </nav>
 
       <div className="dashboard-content" style={{ padding: '32px 40px', maxWidth: 700 }}>
-        <div className="dashboard-header">
-          <div>
-            <h1>Pricing Configuration</h1>
-            <p>Set fare rates, platform fee, and surge pricing parameters</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={() => navigate('/admin/dashboard')}>
+            &larr; Back
+          </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Pricing Configuration</h1>
         </div>
 
         {error && <div className="error-banner">{error}</div>}

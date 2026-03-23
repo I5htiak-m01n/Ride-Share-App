@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { analyticsAPI } from '../api/client';
 import './Dashboard.css';
@@ -44,14 +44,17 @@ export default function AdminAnalytics() {
         <div className="nav-brand"><h2>Admin Analytics</h2></div>
         <div className="nav-user">
           <span>Welcome, {user?.first_name}</span>
-          <Link to="/admin/dashboard" style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14 }}>
-            ← Dashboard
-          </Link>
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
         </div>
       </nav>
 
       <div className="dashboard-content" style={{ padding: '32px 40px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={() => navigate('/admin/dashboard')}>
+            &larr; Back
+          </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Analytics</h1>
+        </div>
         {loading && <p>Loading analytics…</p>}
         {error && <p style={{ color: 'red' }}>{error}</p>}
 

@@ -67,6 +67,15 @@ function RiderRidePage() {
         {/* Left Panel: Ride Details */}
         <div className="uber-left-panel">
           <div className="driver-panel-scroll">
+            {(ridePhase === 'matched' || ridePhase === 'in_progress') && (
+              <button
+                onClick={() => navigate('/rider/dashboard')}
+                className="page-back-btn"
+                style={{ marginBottom: 12 }}
+              >
+                &larr; Back
+              </button>
+            )}
             {error && <div className="uber-panel-alert">{error}</div>}
 
             {/* MATCHED */}

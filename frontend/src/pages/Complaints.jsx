@@ -125,18 +125,17 @@ export default function Complaints() {
         <div className="nav-brand"><h2>{isDriver ? 'RideShare Driver' : 'RideShare'}</h2></div>
         <div className="nav-user">
           <span>Hi, {user?.name || 'User'}</span>
-          <button onClick={goBack} className="logout-btn">Back</button>
         </div>
       </nav>
 
       <div className="dashboard-content">
-        <div className="dashboard-header">
-          <div>
-            <h1>Complaints</h1>
-            <p>File and track your complaints</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={goBack}>
+            &larr; Back
+          </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Complaints</h1>
           {!showForm && !selectedTicketId && (
-            <button className="card-button" onClick={() => setShowForm(true)}>File a Complaint</button>
+            <button className="card-button" onClick={() => setShowForm(true)} style={{ marginLeft: 'auto' }}>File a Complaint</button>
           )}
         </div>
 
@@ -195,11 +194,11 @@ export default function Complaints() {
         {selectedTicketId && (
           <div style={{ marginTop: 16 }}>
             <button
-              className="admin-btn unban"
+              className="page-back-btn"
               onClick={handleCloseDetail}
-              style={{ marginBottom: 16, padding: '8px 16px' }}
+              style={{ marginBottom: 16 }}
             >
-              &larr; Back to complaints
+              &larr; Back to list
             </button>
 
             {detailLoading && (

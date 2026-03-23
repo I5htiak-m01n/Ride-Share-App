@@ -112,23 +112,21 @@ function DriverVehiclesPage() {
           <NotificationDropdown />
           <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
           <span>Hi, {user?.name || 'Driver'}</span>
-          <button className="card-button secondary" onClick={() => navigate('/driver/dashboard')} style={{ marginRight: 8 }}>
-            ← Dashboard
-          </button>
           <button onClick={handleLogout} className="logout-btn">Log out</button>
         </div>
       </nav>
 
       <div className="dashboard-content" style={{ padding: '32px 40px', maxWidth: 700 }}>
-        <div className="dashboard-header">
-          <div>
-            <h1>Vehicle Management</h1>
-            <p>Add vehicles and activate one to start accepting rides</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={() => navigate('/driver/dashboard')}>
+            &larr; Back
+          </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Vehicle Management</h1>
           {!showForm && (
             <button
               className="card-button"
               onClick={() => { setShowForm(true); setError(null); setSuccess(null); }}
+              style={{ marginLeft: 'auto' }}
             >
               Add New Vehicle
             </button>

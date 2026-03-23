@@ -15,18 +15,17 @@ function RiderDashboard() {
     walletBalance, statusMessage, userLocation, nearbyVehicles,
     stopPolling, userRating,
     scheduledRides, handleCancelScheduledRide, scheduleSuccess, setScheduleSuccess,
+    activeRequest, activeRide,
   } = useRide();
 
-  // If we're in a booking/confirming/searching phase, redirect to the correct page
+  // If we're in a booking/confirming phase, redirect to the correct page.
+  // For searching/matched/in_progress, let the user stay on dashboard and see
+  // the ongoing ride card instead of force-redirecting.
   useEffect(() => {
     if (ridePhase === 'booking') {
       navigate('/rider/book', { replace: true });
     } else if (ridePhase === 'confirming') {
       navigate('/rider/confirm', { replace: true });
-    } else if (ridePhase === 'searching') {
-      navigate('/rider/searching', { replace: true });
-    } else if (['matched', 'in_progress', 'completed'].includes(ridePhase)) {
-      navigate('/rider/ride', { replace: true });
     }
   }, [ridePhase, navigate]);
 
@@ -86,6 +85,54 @@ function RiderDashboard() {
             <div className="search-dot" />
             <span>Where to?</span>
           </div>
+
+          {ridePhase === 'searching' && activeRequest && (
+            <div className="ongoing-ride-section">
+              <h3>Ongoing Ride Request</h3>
+              <div
+                className="ongoing-ride-card"
+                onClick={() => navigate('/rider/searching')}
+              >
+                <div className="ongoing-ride-status">
+                  <div className="pulse-dot" />
+                  <span>Searching for driver...</span>
+                </div>
+                <div className="ongoing-ride-route">
+                  <span>{activeRequest.pickup_addr}</span>
+                  <span className="route-arrow">&rarr;</span>
+                  <span>{activeRequest.dropoff_addr}</span>
+                </div>
+                <div className="ongoing-ride-meta">
+                  <span>{activeRequest.estimated_fare} BDT</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {['matched', 'in_progress'].includes(ridePhase) && activeRide && (
+            <div className="ongoing-ride-section">
+              <h3>Ongoing Ride</h3>
+              <div
+                className="ongoing-ride-card"
+                onClick={() => navigate('/rider/ride')}
+              >
+                <div className="ongoing-ride-status">
+                  <div className="status-dot active" />
+                  <span>{ridePhase === 'matched' ? 'Driver on the way' : 'Ride in progress'}</span>
+                </div>
+                <div className="ongoing-ride-route">
+                  <span>{activeRide.pickup_addr}</span>
+                  <span className="route-arrow">&rarr;</span>
+                  <span>{activeRide.dropoff_addr}</span>
+                </div>
+                <div className="ongoing-ride-meta">
+                  <span>{activeRide.driver_name}</span>
+                  <span>{activeRide.estimated_fare} BDT</span>
+                  {activeRide.vehicle_plate && <span>{activeRide.vehicle_plate}</span>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {scheduledRides.length > 0 && (
             <div className="scheduled-rides-section">

@@ -55,13 +55,7 @@ export default function RiderPromos() {
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-          <button
-            onClick={() => navigate('/rider/dashboard')}
-            style={{
-              background: 'transparent', border: '1px solid #ccc', padding: '8px 16px',
-              borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500,
-            }}
-          >
+          <button className="page-back-btn" onClick={() => navigate('/rider/dashboard')}>
             &larr; Back
           </button>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700 }}>Available Promos</h1>

@@ -22,7 +22,7 @@ function RideSearchingPage() {
   // Watch for phase transitions from polling
   useEffect(() => {
     if (ridePhase === 'matched' || ridePhase === 'in_progress' || ridePhase === 'completed') {
-      navigate('/rider/dashboard', { replace: true });
+      navigate('/rider/ride', { replace: true });
     } else if (ridePhase === 'idle') {
       // Ride was cancelled server-side or timed out
       navigate('/rider/dashboard', { replace: true });
@@ -88,6 +88,13 @@ function RideSearchingPage() {
             }}
           >
             Cancel Request
+          </button>
+          <button
+            onClick={() => navigate('/rider/dashboard')}
+            className="page-back-btn"
+            style={{ marginTop: 12 }}
+          >
+            &larr; Back
           </button>
         </div>
       </div>

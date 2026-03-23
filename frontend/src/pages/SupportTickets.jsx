@@ -115,18 +115,17 @@ export default function SupportTickets() {
         <div className="nav-brand"><h2>{isDriver ? 'RideShare Driver' : 'RideShare'}</h2></div>
         <div className="nav-user">
           <span>Hi, {user?.name || 'User'}</span>
-          <button onClick={goBack} className="logout-btn">Back</button>
         </div>
       </nav>
 
       <div className="dashboard-content">
-        <div className="dashboard-header">
-          <div>
-            <h1>Support</h1>
-            <p>Get help with your account or rides</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={goBack}>
+            &larr; Back
+          </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Support</h1>
           {!showForm && (
-            <button className="card-button" onClick={() => setShowForm(true)}>Ask for Support</button>
+            <button className="card-button" onClick={() => setShowForm(true)} style={{ marginLeft: 'auto' }}>Ask for Support</button>
           )}
         </div>
 

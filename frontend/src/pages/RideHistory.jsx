@@ -87,7 +87,7 @@ function RideHistory() {
 
     return (
       <div className="ride-detail-panel">
-        <button className="ride-detail-back-btn" onClick={closeDetail}>&larr; Back to list</button>
+        <button className="page-back-btn" onClick={closeDetail} style={{ marginBottom: 20 }}>&larr; Back to list</button>
 
         {/* Ride Summary */}
         <div className="ride-detail-section">
@@ -185,17 +185,16 @@ function RideHistory() {
         </div>
         <div className="nav-user">
           <span>Hi, {user?.name || 'User'}</span>
-          <button onClick={goBack} className="logout-btn">Back</button>
         </div>
       </nav>
 
       <div className="dashboard-content">
         {!selectedRideId && (
-          <div className="dashboard-header">
-            <div>
-              <h1>Ride History</h1>
-              <p>{isDriver ? 'Your completed trips and earnings' : 'Your past rides'}</p>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+            <button className="page-back-btn" onClick={goBack}>
+              &larr; Back
+            </button>
+            <h1 style={{ margin: 0, fontSize: 28 }}>Ride History</h1>
           </div>
         )}
 

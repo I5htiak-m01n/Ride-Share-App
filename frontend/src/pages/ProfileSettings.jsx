@@ -58,16 +58,15 @@ function ProfileSettings() {
         </div>
         <div className="nav-user">
           <span>Hi, {user?.name || 'User'}</span>
-          <button onClick={goBack} className="logout-btn">Back</button>
         </div>
       </nav>
 
       <div className="dashboard-content">
-        <div className="dashboard-header">
-          <div>
-            <h1>Profile Settings</h1>
-            <p>Update your account information</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <button className="page-back-btn" onClick={goBack}>
+            &larr; Back
+          </button>
+          <h1 style={{ margin: 0, fontSize: 28 }}>Profile Settings</h1>
         </div>
 
         {error && <div className="error-banner">{error}</div>}
