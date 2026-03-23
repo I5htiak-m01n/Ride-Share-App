@@ -148,23 +148,10 @@ function RideConfirmPage() {
         </div>
       </nav>
 
-      <div className="dashboard-content">
-        {error && <div className="error-banner">{error}</div>}
-
-        <div className="confirm-panel">
+      <div className="confirm-split-layout">
+        <div className="confirm-left-panel">
+          {error && <div className="error-banner">{error}</div>}
           <h2>Confirm Your Ride</h2>
-
-          {routePath.length > 1 && (
-            <BookingMap
-              pickupLocation={pickupCoords}
-              dropoffLocation={dropoffCoords}
-              routePath={routePath}
-              routeInfo={routeInfo}
-              eta={eta}
-              wasRerouted={wasRerouted}
-              routeLoading={routeLoading}
-            />
-          )}
 
           <div className="ride-summary">
             <div className="summary-row">
@@ -323,6 +310,21 @@ function RideConfirmPage() {
               {loading ? 'Requesting...' : (pickupMode === 'schedule' ? 'Schedule Ride' : 'Confirm Ride')}
             </button>
           </div>
+        </div>
+
+        <div className="confirm-map-panel">
+          {routePath.length > 1 && (
+            <BookingMap
+              pickupLocation={pickupCoords}
+              dropoffLocation={dropoffCoords}
+              routePath={routePath}
+              routeInfo={routeInfo}
+              eta={eta}
+              wasRerouted={wasRerouted}
+              routeLoading={routeLoading}
+              fullHeight
+            />
+          )}
         </div>
       </div>
     </div>

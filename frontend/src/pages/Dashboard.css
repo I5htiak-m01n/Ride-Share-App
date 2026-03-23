@@ -433,6 +433,32 @@
   cursor: not-allowed;
 }
 
+/* ── Confirm Split Layout (desktop two-panel) ─────────────── */
+.confirm-split-layout {
+  display: flex;
+  height: calc(100vh - 64px);
+}
+
+.confirm-left-panel {
+  width: 420px;
+  min-width: 420px;
+  padding: 32px;
+  overflow-y: auto;
+  background: var(--uber-gray-10);
+  border-right: 1px solid var(--uber-gray-20);
+}
+
+.confirm-left-panel h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.confirm-map-panel {
+  flex: 1;
+  position: relative;
+}
+
 /* ── Confirm / Active / Completion Panels ─────────────────── */
 .confirm-panel,
 .ride-active-panel,

@@ -18,6 +18,12 @@ const FULLSCREEN_STYLE = {
   borderRadius: '12px',
 };
 
+const FILL_PARENT_STYLE = {
+  width: '100%',
+  height: '100%',
+  borderRadius: 0,
+};
+
 const PICKUP_ICON = {
   path: 'M 0,0 m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0',
   fillColor: '#05944F',
@@ -64,6 +70,7 @@ function BookingMap({
   centerLocation,
   panTo,
   fullscreen = false,
+  fullHeight = false,
   userLocation,
   nearbyVehicles = [],
   driverLocation = null,
@@ -108,7 +115,7 @@ function BookingMap({
     }
   }, [onMapClick]);
 
-  const containerStyle = fullscreen ? FULLSCREEN_STYLE : DEFAULT_STYLE;
+  const containerStyle = fullHeight ? FILL_PARENT_STYLE : fullscreen ? FULLSCREEN_STYLE : DEFAULT_STYLE;
 
   if (loadError) {
     return (
