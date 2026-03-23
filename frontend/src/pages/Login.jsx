@@ -49,6 +49,9 @@ function Login() {
 
   return (
     <div className="auth-container">
+      <button className="auth-back-btn" onClick={() => navigate('/')}>
+        &larr; Back
+      </button>
       <div className="auth-brand-panel">
         <h1>RideShare</h1>
         <p>Move the way you want. Request a ride, hop in, and go.</p>

@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { RouteProvider } from './context/RouteContext';
 import { RideProviderLayout } from './context/RideContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import HomePage from './pages/HomePage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RiderDashboard from './pages/RiderDashboard';
@@ -45,6 +46,7 @@ function App() {
         <RouteProvider>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
@@ -270,8 +272,7 @@ function App() {
           />
 
           {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </RouteProvider>
       </AuthProvider>

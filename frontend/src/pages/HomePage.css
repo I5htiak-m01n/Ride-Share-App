@@ -1,0 +1,247 @@
+/* ── Homepage — Uber-style Landing ─────────────────────────── */
+
+.homepage {
+  width: 100%;
+  background: var(--uber-black);
+  color: var(--uber-white);
+}
+
+/* ── Navbar ────────────────────────────────────────────────── */
+
+.homepage-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  height: 72px;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.homepage-nav-brand {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--uber-white);
+  letter-spacing: -0.3px;
+}
+
+.homepage-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.homepage-nav-link {
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--uber-white);
+  background: transparent;
+  border: none;
+  border-radius: 500px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.homepage-nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.homepage-nav-link.inert {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.homepage-nav-link.inert:hover {
+  background: transparent;
+}
+
+/* ── Hero Section ──────────────────────────────────────────── */
+
+.homepage-hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 48px 80px;
+  background: var(--uber-black);
+}
+
+.homepage-hero h1 {
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  color: var(--uber-white);
+  max-width: 800px;
+  margin-bottom: 24px;
+}
+
+.homepage-hero p {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 520px;
+  line-height: 1.6;
+  margin-bottom: 48px;
+}
+
+.homepage-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 40px;
+  background: var(--uber-white);
+  color: var(--uber-black);
+  border: none;
+  border-radius: 500px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.homepage-cta-btn:hover {
+  background: #e5e5e5;
+}
+
+.homepage-cta-btn:active {
+  transform: scale(0.98);
+}
+
+/* ── How It Works ──────────────────────────────────────────── */
+
+.homepage-steps {
+  padding: 120px 48px;
+  background: #0a0a0a;
+}
+
+.homepage-steps-header {
+  text-align: center;
+  margin-bottom: 80px;
+}
+
+.homepage-steps-header h2 {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--uber-white);
+}
+
+.homepage-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.homepage-step {
+  text-align: center;
+  padding: 0 16px;
+}
+
+.homepage-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--uber-white);
+  margin-bottom: 28px;
+}
+
+.homepage-step h3 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--uber-white);
+  margin-bottom: 12px;
+}
+
+.homepage-step p {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* ── Driver CTA Section ────────────────────────────────────── */
+
+.homepage-driver {
+  padding: 120px 48px;
+  background: #111111;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.homepage-driver h2 {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--uber-white);
+  margin-bottom: 16px;
+}
+
+.homepage-driver p {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 480px;
+  line-height: 1.6;
+  margin-bottom: 40px;
+}
+
+.homepage-driver-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 36px;
+  background: transparent;
+  color: var(--uber-white);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 500px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.homepage-driver-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Footer ────────────────────────────────────────────────── */
+
+.homepage-footer {
+  padding: 48px;
+  background: var(--uber-black);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.homepage-footer-brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--uber-white);
+  margin-bottom: 8px;
+}
+
+.homepage-footer p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.35);
+}
