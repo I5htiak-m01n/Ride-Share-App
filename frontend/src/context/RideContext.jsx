@@ -65,6 +65,7 @@ export function RideProvider({ children }) {
 
   // Live driver location (from poll) and rider location tracking
   const [driverLocation, setDriverLocation] = useState(null);
+  const [riderLocation, setRiderLocation] = useState(null);
   const riderWatchIdRef = useRef(null);
   const riderSyncIntervalRef = useRef(null);
   const activeRideIdRef = useRef(null);

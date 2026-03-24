@@ -174,11 +174,11 @@ function RideBookingPage() {
             centerLocation={userLocation}
             userLocation={userLocation}
             panTo={mapCenter}
-            userLocation={riderLocation || userLocation}
             routePath={routePath}
             routeInfo={routeInfo}
             routeLoading={routeLoading}
             ridePhase="booking"
+            riderLocation={riderLocation}
           />
 
           <div className="booking-actions">
