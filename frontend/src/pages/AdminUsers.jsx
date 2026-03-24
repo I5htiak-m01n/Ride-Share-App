@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { adminAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 export default function AdminUsers() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
@@ -37,22 +36,11 @@ export default function AdminUsers() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand"><h2>RideShare Admin</h2></div>
-        <div className="nav-user">
-          <span>{user?.first_name || 'Admin'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar brandText="RideShare Admin" />
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

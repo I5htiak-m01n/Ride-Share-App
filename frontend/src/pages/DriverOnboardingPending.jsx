@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { driversAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 function DriverOnboardingPending() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [documents, setDocuments] = useState([]);
@@ -74,13 +75,7 @@ function DriverOnboardingPending() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand"><h2>RideShare</h2></div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'Driver'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar onLogout={handleLogout} />
 
       <div className="dashboard-content">
         <div className="onboarding-container">

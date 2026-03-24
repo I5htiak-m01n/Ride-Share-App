@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDriver } from '../context/DriverContext';
 import { driversAPI, ridesAPI } from '../api/client';
-import RatingBadge from '../components/RatingBadge';
-import NotificationDropdown from '../components/NotificationDropdown';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const STATUS_COLORS = {
@@ -104,17 +103,12 @@ function DriverVehiclesPage() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>My Vehicles</h2>
-        </div>
-        <div className="nav-user">
-          <NotificationDropdown />
-          <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
-          <span>Hi, {user?.name || 'Driver'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar
+        brandText="My Vehicles"
+        showNotifications
+        ratingAvg={userRating.rating_avg}
+        ratingCount={userRating.rating_count}
+      />
 
       <div className="dashboard-content" style={{ padding: '32px 40px', maxWidth: 700 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

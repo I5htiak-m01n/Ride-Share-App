@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ridesAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const STATUS_COLORS = {
@@ -179,14 +180,7 @@ function RideHistory() {
   /* ── Render ──────────────────────────────────────────── */
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>{isDriver ? 'RideShare Driver' : 'RideShare'}</h2>
-        </div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'User'}</span>
-        </div>
-      </nav>
+      <NavBar brandText={isDriver ? 'RideShare Driver' : 'RideShare'} />
 
       <div className="dashboard-content">
         {!selectedRideId && (

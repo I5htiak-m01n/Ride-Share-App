@@ -8,8 +8,7 @@ import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
 import CancelConfirmModal from '../components/CancelConfirmModal';
 import CancelReasonForm from '../components/CancelReasonFormDriver';
-import RatingBadge from '../components/RatingBadge';
-import NotificationDropdown from '../components/NotificationDropdown';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 function DriverRidePage() {
@@ -87,17 +86,12 @@ function DriverRidePage() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare Driver</h2>
-        </div>
-        <div className="nav-user">
-          <NotificationDropdown />
-          <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
-          <span>Hi, {user?.name || 'Driver'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar
+        brandText="RideShare Driver"
+        showNotifications
+        ratingAvg={userRating.rating_avg}
+        ratingCount={userRating.rating_count}
+      />
 
       <div className="uber-split-layout">
         {/* Left Panel: Ride Details */}

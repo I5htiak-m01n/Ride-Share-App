@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { analyticsAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 export default function AdminAnalytics() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [topDrivers, setTopDrivers] = useState([]);
@@ -33,20 +32,9 @@ export default function AdminAnalytics() {
     fetchAll();
   }, []);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand"><h2>Admin Analytics</h2></div>
-        <div className="nav-user">
-          <span>Welcome, {user?.first_name}</span>
-          <button className="logout-btn" onClick={handleLogout}>Logout</button>
-        </div>
-      </nav>
+      <NavBar brandText="Admin Analytics" />
 
       <div className="dashboard-content" style={{ padding: '32px 40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

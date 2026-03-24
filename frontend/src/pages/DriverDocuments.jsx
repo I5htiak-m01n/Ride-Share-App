@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { driversAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const DOC_TYPES = [
@@ -107,14 +108,7 @@ function DriverDocuments() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare Driver</h2>
-        </div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'Driver'}</span>
-        </div>
-      </nav>
+      <NavBar brandText="RideShare Driver" />
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

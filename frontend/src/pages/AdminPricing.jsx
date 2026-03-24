@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { adminAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const FIELDS = [
@@ -17,7 +17,6 @@ const FIELDS = [
 ];
 
 export default function AdminPricing() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({});
@@ -71,20 +70,9 @@ export default function AdminPricing() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand"><h2>Pricing Standards</h2></div>
-        <div className="nav-user">
-          <span>Welcome, {user?.first_name}</span>
-          <button className="logout-btn" onClick={handleLogout}>Logout</button>
-        </div>
-      </nav>
+      <NavBar brandText="Pricing Standards" />
 
       <div className="dashboard-content" style={{ padding: '32px 40px', maxWidth: 700 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

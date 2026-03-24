@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supportAPI, ridesAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const PRIORITY_LABELS = { 1: 'Low', 2: 'Normal', 3: 'Medium', 4: 'High', 5: 'Critical' };
@@ -111,12 +112,7 @@ export default function SupportTickets() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand"><h2>{isDriver ? 'RideShare Driver' : 'RideShare'}</h2></div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'User'}</span>
-        </div>
-      </nav>
+      <NavBar brandText={isDriver ? 'RideShare Driver' : 'RideShare'} />
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 function RideSearchingPage() {
@@ -42,15 +43,7 @@ function RideSearchingPage() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare</h2>
-        </div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'Rider'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar onLogout={handleLogout} />
 
       <div className="dashboard-content">
         {error && <div className="error-banner">{error}</div>}

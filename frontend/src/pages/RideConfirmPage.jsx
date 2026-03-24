@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 import { ridesAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 function RideConfirmPage() {
@@ -138,15 +139,7 @@ function RideConfirmPage() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare</h2>
-        </div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'Rider'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar onLogout={handleLogout} />
 
       <div className="confirm-split-layout">
         <div className="confirm-left-panel">

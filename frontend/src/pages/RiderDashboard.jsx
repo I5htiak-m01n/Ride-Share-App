@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 import BookingMap from '../components/BookingMap';
-import RatingBadge from '../components/RatingBadge';
-import NotificationDropdown from '../components/NotificationDropdown';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 function RiderDashboard() {
@@ -41,17 +40,12 @@ function RiderDashboard() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare</h2>
-        </div>
-        <div className="nav-user">
-          <NotificationDropdown />
-          <RatingBadge ratingAvg={userRating.rating_avg} ratingCount={userRating.rating_count} />
-          <span>Hi, {user?.name || 'Rider'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar
+        showNotifications
+        ratingAvg={userRating.rating_avg}
+        ratingCount={userRating.rating_count}
+        onLogout={handleLogout}
+      />
 
       {/* === IDLE — Split layout === */}
       <div className="uber-split-layout">
@@ -206,30 +200,6 @@ function RiderDashboard() {
                 <p>View your past trips</p>
               </div>
             </div>
-            <div className="uber-quick-card" onClick={() => navigate('/wallet')}>
-              <div className="card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="5" width="20" height="14" rx="2" />
-                  <line x1="2" y1="10" x2="22" y2="10" />
-                </svg>
-              </div>
-              <div>
-                <h4>Wallet</h4>
-                <p>Top up and view transactions</p>
-              </div>
-            </div>
-            <div className="uber-quick-card" onClick={() => navigate('/rider/profile')}>
-              <div className="card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M20 21a8 8 0 1 0-16 0" />
-                </svg>
-              </div>
-              <div>
-                <h4>Profile</h4>
-                <p>Manage your account</p>
-              </div>
-            </div>
             <div className="uber-quick-card" onClick={() => navigate('/complaints')}>
               <div className="card-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -253,19 +223,6 @@ function RiderDashboard() {
               <div>
                 <h4>Promos</h4>
                 <p>View available discounts</p>
-              </div>
-            </div>
-            <div className="uber-quick-card" onClick={() => navigate('/support/tickets')}>
-              <div className="card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              </div>
-              <div>
-                <h4>Need Help?</h4>
-                <p>Contact support</p>
               </div>
             </div>
           </div>

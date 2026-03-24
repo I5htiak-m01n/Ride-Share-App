@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { supportStaffAPI } from '../api/client';
-import NotificationDropdown from '../components/NotificationDropdown';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const PRIORITY_LABELS = { 1: 'Low', 2: 'Normal', 3: 'Medium', 4: 'High', 5: 'Critical' };
 
 export default function SupportDashboard() {
-  const { user, logout } = useAuth();
-
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -86,10 +83,6 @@ export default function SupportDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-  };
-
   const fmtDate = (d) => {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('en-US', {
@@ -106,14 +99,7 @@ export default function SupportDashboard() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand"><h2>RideShare Support</h2></div>
-        <div className="nav-user">
-          <NotificationDropdown />
-          <span>Hi, {user?.name || 'Staff'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar brandText="RideShare Support" showNotifications />
 
       <div className="dashboard-content">
         <div className="dashboard-header">

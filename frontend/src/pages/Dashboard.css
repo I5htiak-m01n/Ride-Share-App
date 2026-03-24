@@ -32,7 +32,7 @@
   gap: 20px;
 }
 
-.nav-user span {
+.nav-user > span {
   font-weight: 500;
   color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
@@ -280,7 +280,7 @@
     font-size: 18px;
   }
 
-  .nav-user span {
+  .nav-user > span {
     display: none;
   }
 
@@ -3496,4 +3496,207 @@
 .saved-place-save-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+/* ── User Dropdown ──────────────────────────────────────── */
+.user-dropdown-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 500px;
+  padding: 4px 14px 4px 4px;
+  cursor: pointer;
+  color: var(--uber-white);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+.user-dropdown-trigger:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.user-dropdown-trigger-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #276EF1;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-dropdown-trigger-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.user-dropdown-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.user-dropdown-chevron--open {
+  transform: rotate(180deg);
+}
+
+.user-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  z-index: 200;
+  overflow: hidden;
+  animation: udFadeIn 0.15s ease;
+}
+
+@keyframes udFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.user-dropdown-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 20px 16px;
+}
+
+.user-dropdown-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #276EF1;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-dropdown-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.user-dropdown-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-dropdown-email {
+  font-size: 13px;
+  color: #6B6B6B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-dropdown-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  margin-top: 2px;
+}
+.user-dropdown-rating svg {
+  flex-shrink: 0;
+}
+.user-dropdown-rating-count {
+  font-size: 12px;
+  color: #6B6B6B;
+}
+
+.user-dropdown-divider {
+  height: 1px;
+  background: #E8E8E8;
+  margin: 0;
+}
+
+.user-dropdown-menu {
+  padding: 4px 0;
+}
+
+.user-dropdown-panel span,
+.user-dropdown-panel div:not(.user-dropdown-avatar) {
+  color: inherit;
+}
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000;
+  text-align: left;
+  transition: background-color 0.1s;
+}
+.user-dropdown-item:hover {
+  background: #F6F6F6;
+}
+.user-dropdown-item svg {
+  flex-shrink: 0;
+  color: #000;
+}
+
+.user-dropdown-signout {
+  display: block;
+  width: 100%;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #C30000;
+  text-align: left;
+  transition: background-color 0.1s;
+}
+.user-dropdown-signout:hover {
+  background: #FFF5F5;
+}
+
+/* Mobile adjustments for user dropdown */
+@media (max-width: 768px) {
+  .user-dropdown-trigger-name {
+    display: none;
+  }
+  .user-dropdown-trigger {
+    padding: 4px 8px 4px 4px;
+  }
+  .user-dropdown-panel {
+    width: calc(100vw - 40px);
+    right: -10px;
+  }
 }

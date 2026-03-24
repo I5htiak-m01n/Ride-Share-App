@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { ridesAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 export default function RiderPromos() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [promos, setPromos] = useState([]);
@@ -28,11 +27,6 @@ export default function RiderPromos() {
     fetchPromos();
   }, [fetchPromos]);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', {
     year: 'numeric', month: 'short', day: 'numeric',
   }) : null;
@@ -43,15 +37,7 @@ export default function RiderPromos() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare</h2>
-        </div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'Rider'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar />
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

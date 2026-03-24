@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { userAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 function ProfileSettings() {
@@ -52,14 +53,7 @@ function ProfileSettings() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare</h2>
-        </div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'User'}</span>
-        </div>
-      </nav>
+      <NavBar />
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>

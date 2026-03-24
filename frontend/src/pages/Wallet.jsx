@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { walletAPI, paymentAPI } from '../api/client';
+import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const PRESET_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
@@ -115,15 +116,7 @@ function Wallet() {
 
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <h2>RideShare</h2>
-        </div>
-        <div className="nav-user">
-          <span>Hi, {user?.name || 'User'}</span>
-          <button onClick={handleLogout} className="logout-btn">Log out</button>
-        </div>
-      </nav>
+      <NavBar />
 
       <div className="dashboard-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
