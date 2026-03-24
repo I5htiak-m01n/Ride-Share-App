@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, us
 import { Outlet } from 'react-router-dom';
 import { useRoute } from './RouteContext';
 import { ridesAPI, walletAPI, ratingsAPI, driversAPI } from '../api/client';
+import { haversineDistance, estimateTime } from '../utils/geo';
 
 const DriverContext = createContext(null);
 
@@ -55,6 +56,10 @@ export function DriverProvider({ children }) {
 
   // Active ride
   const [activeRide, setActiveRide] = useState(saved?.activeRide || null);
+
+  // Rider location (from API, for driver to see rider approaching)
+  const [riderLocation, setRiderLocation] = useState(null);
+  const [riderToPickupDistance, setRiderToPickupDistance] = useState(null);
 
   // Error
   const [error, setError] = useState(null);
@@ -220,18 +225,31 @@ export function DriverProvider({ children }) {
         stopRidePolling();
         fetchWalletBalance();
         setActiveRide(null);
+        setRiderLocation(null);
+        setRiderToPickupDistance(null);
         setDriverPhase('online');
         stopRouteChecking();
         clearRoute();
         startPolling();
       } else if (res.data.active) {
         // REFRESH: Update activeRide data from database to sync any changes
-        // This ensures pickup/dropoff coordinates are current for:
-        // 1. Test location simulation (script updates database, need to reflect on frontend)
-        // 2. Dynamic rerouting (dropoff may change server-side)
-        // 3. Distance calculations (displayed on DriverRidePage using activeRide)
-        // Called every 5 seconds (RIDE_POLL_MS) during active ride
         setActiveRide(res.data);
+
+        // Extract rider location from API response
+        if (res.data.rider_location) {
+          setRiderLocation(res.data.rider_location);
+          // Calculate rider-to-pickup distance during matched phase
+          if (res.data.ride?.status === 'driver_assigned' && res.data.ride?.pickup_lat) {
+            const riderDist = haversineDistance(
+              res.data.rider_location.lat, res.data.rider_location.lng,
+              parseFloat(res.data.ride.pickup_lat), parseFloat(res.data.ride.pickup_lng)
+            );
+            setRiderToPickupDistance(riderDist);
+          }
+        } else {
+          setRiderLocation(null);
+          setRiderToPickupDistance(null);
+        }
       }
     } catch (err) {
       console.error('checkActiveRide error:', err);
@@ -313,6 +331,8 @@ export function DriverProvider({ children }) {
           setShowRatingModal(true);
         }
         setActiveRide(null);
+        setRiderLocation(null);
+        setRiderToPickupDistance(null);
         setDriverPhase('online');
         fetchWalletBalance();
         stopRouteChecking();
@@ -408,6 +428,8 @@ export function DriverProvider({ children }) {
       setCancelFee(null);
       setCancelLoading(false);
       setActiveRide(null);
+      setRiderLocation(null);
+      setRiderToPickupDistance(null);
       setDriverPhase('online');
       stopRouteChecking();
       stopRidePolling();
@@ -429,6 +451,8 @@ export function DriverProvider({ children }) {
   const handleMutualCancellation = useCallback(() => {
     fetchWalletBalance();
     setActiveRide(null);
+    setRiderLocation(null);
+    setRiderToPickupDistance(null);
     setDriverPhase('online');
     stopRouteChecking();
     stopRidePolling();
@@ -505,6 +529,20 @@ export function DriverProvider({ children }) {
     };
   }, []);
 
+  // Proximity helper: driver distance/time to pickup
+  const proximityToPickup = useMemo(() => {
+    if (!driverLocation || !activeRide?.ride?.pickup_lat) return null;
+    const dist = haversineDistance(
+      driverLocation.lat, driverLocation.lng,
+      parseFloat(activeRide.ride.pickup_lat), parseFloat(activeRide.ride.pickup_lng)
+    );
+    return {
+      distance: dist,
+      time: estimateTime(dist / 1000),
+      withinProximity: dist <= 100,
+    };
+  }, [driverLocation, activeRide]);
+
   const value = {
     // Phase
     driverPhase, setDriverPhase, driverPhaseRef,
@@ -514,6 +552,8 @@ export function DriverProvider({ children }) {
     nearbyRequests,
     // Active ride
     activeRide,
+    // Rider location & proximity
+    riderLocation, riderToPickupDistance, proximityToPickup,
     // Error
     error, setError, clearError,
     // Wallet & Rating

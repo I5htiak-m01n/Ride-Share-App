@@ -60,7 +60,6 @@ export function RideProvider({ children }) {
 
   // Live driver location (from poll) and rider location tracking
   const [driverLocation, setDriverLocation] = useState(null);
-  const [riderLocation, setRiderLocation] = useState(null);
   const riderWatchIdRef = useRef(null);
   const riderSyncIntervalRef = useRef(null);
   const activeRideIdRef = useRef(null);
@@ -143,7 +142,7 @@ export function RideProvider({ children }) {
 
     riderWatchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setRiderLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000 }
@@ -175,7 +174,6 @@ export function RideProvider({ children }) {
       clearInterval(riderSyncIntervalRef.current);
       riderSyncIntervalRef.current = null;
     }
-    setRiderLocation(null);
   }, []);
 
   const checkActiveRide = useCallback(async () => {
@@ -592,18 +590,10 @@ export function RideProvider({ children }) {
         startPolling();
       }
     });
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {}
-      );
-    }
+    startRiderLocationTracking();
     return () => {
       stopPolling();
-      if (riderWatchIdRef.current != null) {
-        navigator.geolocation.clearWatch(riderWatchIdRef.current);
-      }
-      clearInterval(riderSyncIntervalRef.current);
+      stopRiderLocationTracking();
     };
   }, []);
 

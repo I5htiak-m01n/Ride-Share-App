@@ -21,7 +21,7 @@ function RideBookingPage() {
     resetBooking, error, setError, loading, userLocation,
     routePath, routeInfo, routeLoading, stopPolling,
   } = useRide();
-  const { clearRoute } = useRoute();
+  const { clearRoute, fetchRoutePreview } = useRoute();
 
   const [savedPlacesOpen, setSavedPlacesOpen] = useState(false);
   const [savedPlacesTarget, setSavedPlacesTarget] = useState('pickup'); // 'pickup' | 'dropoff'
@@ -43,6 +43,13 @@ function RideBookingPage() {
       setMapCenter({ lat, lng });
     }
   };
+
+  // Auto-preview route when both pickup and dropoff are set
+  useEffect(() => {
+    if (pickupCoords && dropoffCoords) {
+      fetchRoutePreview(pickupCoords.lat, pickupCoords.lng, dropoffCoords.lat, dropoffCoords.lng);
+    }
+  }, [pickupCoords, dropoffCoords]);
 
   // Route guard: redirect if in an active ride phase
   useEffect(() => {
@@ -165,10 +172,12 @@ function RideBookingPage() {
             dropoffLocation={dropoffCoords}
             onMapClick={handleMapClick}
             centerLocation={userLocation}
+            userLocation={userLocation}
             panTo={mapCenter}
             routePath={routePath}
             routeInfo={routeInfo}
             routeLoading={routeLoading}
+            ridePhase="booking"
           />
 
           <div className="booking-actions">

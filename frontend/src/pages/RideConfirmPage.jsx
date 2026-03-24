@@ -20,6 +20,7 @@ function RideConfirmPage() {
     handleValidatePromo, handleConfirmRide,
     error, loading, stopPolling,
     routePath, routeInfo, eta, wasRerouted, routeLoading,
+    userLocation,
   } = useRide();
 
   const [availablePromos, setAvailablePromos] = useState([]);
@@ -315,6 +316,8 @@ function RideConfirmPage() {
               eta={eta}
               wasRerouted={wasRerouted}
               routeLoading={routeLoading}
+              userLocation={userLocation}
+              ridePhase="confirming"
               fullHeight
             />
           )}

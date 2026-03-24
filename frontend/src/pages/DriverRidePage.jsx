@@ -1,8 +1,10 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDriver } from '../context/DriverContext';
-import { haversineDistance } from '../utils/geo';
+import { ridesAPI } from '../api/client';
+import { decodePolyline } from '../utils/polyline';
+import { haversineDistance, formatDistance, estimateTime } from '../utils/geo';
 import RideMap from '../components/RideMap';
 import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
@@ -18,6 +20,7 @@ function DriverRidePage() {
     driverPhase,
     driverLocation, locationError,
     activeRide,
+    riderLocation, riderToPickupDistance, proximityToPickup,
     error,
     userRating,
     updateRideStatus,
@@ -47,15 +50,55 @@ function DriverRidePage() {
 
   const [proximityWarning, setProximityWarning] = useState(null);
 
-  // Calculate distances to pickup and dropoff
-  const distanceToPickup = useMemo(() => {
-    if (!driverLocation || !activeRide?.ride?.pickup_lat) return null;
-    return haversineDistance(
+  // Phase-specific routes for RideMap
+  const [driverToPickupRoute, setDriverToPickupRoute] = useState(null);
+  const [riderToPickupRoute, setRiderToPickupRoute] = useState(null);
+  const prevStatusRef = useRef(activeRide?.ride?.status);
+
+  // Fetch driver→pickup route during driver_assigned phase
+  useEffect(() => {
+    if (activeRide?.ride?.status !== 'driver_assigned' || !driverLocation || !activeRide.ride.pickup_lat) return;
+    let cancelled = false;
+    ridesAPI.getDirections(
       driverLocation.lat, driverLocation.lng,
       parseFloat(activeRide.ride.pickup_lat), parseFloat(activeRide.ride.pickup_lng)
-    );
-  }, [driverLocation, activeRide]);
+    ).then((res) => {
+      if (!cancelled && res.data.route?.overview_polyline) {
+        setDriverToPickupRoute(decodePolyline(res.data.route.overview_polyline));
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeRide?.ride?.status, driverLocation, activeRide?.ride?.pickup_lat, activeRide?.ride?.pickup_lng]);
 
+  // Fetch rider→pickup route (walking) during driver_assigned phase
+  useEffect(() => {
+    if (activeRide?.ride?.status !== 'driver_assigned' || !riderLocation || !activeRide.ride.pickup_lat) return;
+    let cancelled = false;
+    ridesAPI.getDirections(
+      riderLocation.lat, riderLocation.lng,
+      parseFloat(activeRide.ride.pickup_lat), parseFloat(activeRide.ride.pickup_lng),
+      'walking'
+    ).then((res) => {
+      if (!cancelled && res.data.route?.overview_polyline) {
+        setRiderToPickupRoute(decodePolyline(res.data.route.overview_polyline));
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeRide?.ride?.status, riderLocation, activeRide?.ride?.pickup_lat, activeRide?.ride?.pickup_lng]);
+
+  // Clear phase-specific routes on status change
+  useEffect(() => {
+    const currentStatus = activeRide?.ride?.status;
+    if (prevStatusRef.current !== currentStatus) {
+      if (currentStatus !== 'driver_assigned') {
+        setDriverToPickupRoute(null);
+        setRiderToPickupRoute(null);
+      }
+      prevStatusRef.current = currentStatus;
+    }
+  }, [activeRide?.ride?.status]);
+
+  // Distance to dropoff for completion check
   const distanceToDropoff = useMemo(() => {
     if (!driverLocation || !activeRide?.ride?.dropoff_lat) return null;
     return haversineDistance(
@@ -65,17 +108,33 @@ function DriverRidePage() {
   }, [driverLocation, activeRide]);
 
   const handleStartRide = () => {
-    if (distanceToPickup !== null && distanceToPickup > 50) {
-      setProximityWarning(`You must be within 50m of the pickup to start. Currently ${Math.round(distanceToPickup)}m away.`);
+    // DUAL-PROXIMITY VALIDATION: both driver AND rider must be within 100m of pickup
+    if (!proximityToPickup || proximityToPickup.distance > 100) {
+      setProximityWarning(
+        `You must be within 100m of pickup. Currently ${formatDistance(proximityToPickup?.distance || 0)} away (~${proximityToPickup?.time || '?'} min).`
+      );
       return;
+    }
+    if (riderLocation && activeRide?.ride?.pickup_lat) {
+      const riderDist = haversineDistance(
+        riderLocation.lat, riderLocation.lng,
+        parseFloat(activeRide.ride.pickup_lat),
+        parseFloat(activeRide.ride.pickup_lng)
+      );
+      if (riderDist > 100) {
+        setProximityWarning(
+          `Waiting for rider to arrive at pickup. Rider is ${formatDistance(riderDist)} away (~${estimateTime(riderDist / 1000)} min).`
+        );
+        return;
+      }
     }
     setProximityWarning(null);
     updateRideStatus('started');
   };
 
   const handleCompleteRide = () => {
-    if (distanceToDropoff !== null && distanceToDropoff > 50) {
-      setProximityWarning(`You must be within 50m of the dropoff to complete. Currently ${Math.round(distanceToDropoff)}m away.`);
+    if (distanceToDropoff !== null && distanceToDropoff > 100) {
+      setProximityWarning(`You must be within 100m of the dropoff to complete. Currently ${formatDistance(distanceToDropoff)} away.`);
       return;
     }
     setProximityWarning(null);
@@ -137,24 +196,30 @@ function DriverRidePage() {
                 </strong>
               </div>
 
-              {/* Proximity info */}
-              {activeRide.ride?.status === 'driver_assigned' && distanceToPickup !== null && (
+              {/* Proximity info — driver to pickup */}
+              {activeRide.ride?.status === 'driver_assigned' && proximityToPickup && (
                 <div className="ride-detail-row">
-                  <span>Distance to pickup</span>
-                  <strong style={{ color: distanceToPickup <= 50 ? '#05944F' : '#E11900' }}>
-                    {distanceToPickup < 1000
-                      ? `${Math.round(distanceToPickup)}m`
-                      : `${(distanceToPickup / 1000).toFixed(1)}km`}
+                  <span>You → Pickup</span>
+                  <strong style={{ color: proximityToPickup.withinProximity ? '#05944F' : '#E11900' }}>
+                    {formatDistance(proximityToPickup.distance)} (~{proximityToPickup.time} min)
                   </strong>
                 </div>
               )}
+              {/* Rider location info — rider to pickup */}
+              {activeRide.ride?.status === 'driver_assigned' && riderToPickupDistance !== null && (
+                <div className="ride-detail-row">
+                  <span>Rider → Pickup</span>
+                  <strong style={{ color: riderToPickupDistance <= 100 ? '#05944F' : '#F5A623' }}>
+                    {formatDistance(riderToPickupDistance)} (~{estimateTime(riderToPickupDistance / 1000)} min)
+                  </strong>
+                </div>
+              )}
+              {/* Distance to dropoff during ride */}
               {activeRide.ride?.status === 'started' && distanceToDropoff !== null && (
                 <div className="ride-detail-row">
                   <span>Distance to dropoff</span>
-                  <strong style={{ color: distanceToDropoff <= 50 ? '#05944F' : '#E11900' }}>
-                    {distanceToDropoff < 1000
-                      ? `${Math.round(distanceToDropoff)}m`
-                      : `${(distanceToDropoff / 1000).toFixed(1)}km`}
+                  <strong style={{ color: distanceToDropoff <= 100 ? '#05944F' : '#E11900' }}>
+                    {formatDistance(distanceToDropoff)}
                   </strong>
                 </div>
               )}
@@ -204,6 +269,7 @@ function DriverRidePage() {
             {driverLocation ? (
               <RideMap
                 driverLocation={driverLocation}
+                riderLocation={riderLocation}
                 rideRequests={[]}
                 onAccept={() => {}}
                 onReject={() => {}}
@@ -220,6 +286,9 @@ function DriverRidePage() {
                   lat: parseFloat(activeRide.ride.dropoff_lat),
                   lng: parseFloat(activeRide.ride.dropoff_lng)
                 } : null}
+                rideStatus={activeRide.ride?.status}
+                driverToPickupRoute={driverToPickupRoute}
+                riderToPickupRoute={riderToPickupRoute}
               />
             ) : (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F6F6F6', color: '#6B6B6B', fontSize: '14px' }}>

@@ -756,9 +756,12 @@ const getDriverActiveRide = async (req, res) => {
               ST_Y(r.pickup_location::geometry) AS pickup_lat,
               ST_X(r.pickup_location::geometry) AS pickup_lng,
               ST_Y(r.dropoff_location::geometry) AS dropoff_lat,
-              ST_X(r.dropoff_location::geometry) AS dropoff_lng
+              ST_X(r.dropoff_location::geometry) AS dropoff_lng,
+              ST_Y(rid.current_location::geometry) AS rider_lat,
+              ST_X(rid.current_location::geometry) AS rider_lng
        FROM v_ride_details v
        JOIN rides r ON r.ride_id = v.ride_id
+       LEFT JOIN riders rid ON v.rider_id = rid.rider_id
        WHERE v.driver_id = $1 AND v.status IN ('driver_assigned', 'started')
        ORDER BY v.ride_id DESC
        LIMIT 1`,
@@ -785,6 +788,10 @@ const getDriverActiveRide = async (req, res) => {
         dropoff_lng: row.dropoff_lng,
       },
       rider_name: row.rider_name,
+      rider_location: row.rider_lat && row.rider_lng ? {
+        lat: parseFloat(row.rider_lat),
+        lng: parseFloat(row.rider_lng),
+      } : null,
       estimated_fare: row.estimated_fare,
     });
   } catch (err) {

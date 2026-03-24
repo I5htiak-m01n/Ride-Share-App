@@ -74,11 +74,17 @@ function BookingMap({
   userLocation,
   nearbyVehicles = [],
   driverLocation = null,
+  riderLocation = null,
   routePath = [],
   routeInfo = null,
   routeLoading = false,
   eta = null,
   wasRerouted = false,
+  // Phase-aware route props (optional — backwards-compatible)
+  ridePhase = null,
+  driverToPickupRoute = null,
+  riderToPickupRoute = null,
+  inProgressRoute = null,
 }) {
   const mapRef = useRef(null);
 
@@ -95,15 +101,34 @@ function BookingMap({
     }
   }, [panTo]);
 
-  // Fit bounds to route when routePath or driverLocation changes
+  // Fit bounds to active route(s) when they change
   useEffect(() => {
-    if (routePath.length > 1 && mapRef.current) {
-      const bounds = new window.google.maps.LatLngBounds();
+    if (!mapRef.current) return;
+    const bounds = new window.google.maps.LatLngBounds();
+    let hasPoints = false;
+
+    // Phase-aware: use phase-specific routes when available
+    if (ridePhase === 'matched') {
+      [driverToPickupRoute, riderToPickupRoute].forEach((route) => {
+        if (route && route.length > 1) {
+          route.forEach((p) => bounds.extend(p));
+          hasPoints = true;
+        }
+      });
+      if (pickupLocation) { bounds.extend(pickupLocation); hasPoints = true; }
+    } else if (ridePhase === 'in_progress' && inProgressRoute && inProgressRoute.length > 1) {
+      inProgressRoute.forEach((p) => bounds.extend(p));
+      hasPoints = true;
+    } else if (routePath.length > 1) {
       routePath.forEach((point) => bounds.extend(point));
-      if (driverLocation) bounds.extend(driverLocation);
+      hasPoints = true;
+    }
+
+    if (driverLocation) { bounds.extend(driverLocation); hasPoints = true; }
+    if (hasPoints) {
       mapRef.current.fitBounds(bounds, { top: 60, bottom: 60, left: 40, right: 40 });
     }
-  }, [routePath, driverLocation]);
+  }, [routePath, driverLocation, ridePhase, driverToPickupRoute, riderToPickupRoute, inProgressRoute, pickupLocation]);
 
   const handleLoad = useCallback((map) => {
     mapRef.current = map;
@@ -154,23 +179,44 @@ function BookingMap({
         ],
       }}
     >
-      {/* User location blue dot */}
-      {userLocation && !pickupLocation && (
+      {/* User / Rider location blue dot */}
+      {!ridePhase && userLocation && !pickupLocation && (
         <Marker position={userLocation} icon={USER_DOT_ICON} title="Your location" zIndex={15} />
       )}
-
-      {/* Pickup marker */}
-      {pickupLocation && (
-        <Marker position={pickupLocation} icon={PICKUP_ICON} title="Pickup" zIndex={10} />
+      {ridePhase && (riderLocation || userLocation) && (
+        <Marker position={riderLocation || userLocation} icon={USER_DOT_ICON} title="Your location" zIndex={15} />
       )}
 
-      {/* Dropoff marker */}
-      {dropoffLocation && (
+      {/* Pickup marker — hide during in_progress phase (already passed) */}
+      {pickupLocation && ridePhase !== 'in_progress' && (
+        <Marker position={pickupLocation} icon={PICKUP_ICON} title="Pickup" zIndex={10} />
+      )}
+      {/* Grayed-out pickup during in_progress */}
+      {pickupLocation && ridePhase === 'in_progress' && (
+        <Marker position={pickupLocation} icon={{ ...PICKUP_ICON, fillOpacity: 0.35, strokeWeight: 1 }} title="Pickup (passed)" zIndex={6} />
+      )}
+
+      {/* Dropoff marker — hidden during matched phase */}
+      {dropoffLocation && (!ridePhase || (ridePhase !== 'matched')) && (
         <Marker position={dropoffLocation} icon={DROPOFF_ICON} title="Dropoff" zIndex={9} />
       )}
 
-      {/* Route polyline */}
-      {routePath.length > 1 && (
+      {/* Route polylines — phase-aware */}
+      {ridePhase === 'matched' && (
+        <>
+          {driverToPickupRoute && driverToPickupRoute.length > 1 && (
+            <RoutePolyline path={driverToPickupRoute} active={false} />
+          )}
+          {riderToPickupRoute && riderToPickupRoute.length > 1 && (
+            <RoutePolyline path={riderToPickupRoute} active />
+          )}
+        </>
+      )}
+      {ridePhase === 'in_progress' && inProgressRoute && inProgressRoute.length > 1 && (
+        <RoutePolyline path={inProgressRoute} active />
+      )}
+      {/* Default route (booking/confirming/searching or no phase) */}
+      {(!ridePhase || ridePhase === 'booking' || ridePhase === 'confirming' || ridePhase === 'searching') && routePath.length > 1 && (
         <RoutePolyline path={routePath} active />
       )}
 

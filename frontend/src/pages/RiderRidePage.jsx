@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
+import { ridesAPI } from '../api/client';
+import { decodePolyline } from '../utils/polyline';
+import { haversineDistance, formatDistance, estimateTime } from '../utils/geo';
 import BookingMap from '../components/BookingMap';
 import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
@@ -19,13 +22,79 @@ function RiderRidePage() {
     activeRequest, activeRide,
     resetBooking, stopPolling,
     routePath, routeInfo, eta, wasRerouted, routeLoading,
-    driverLocation,
+    driverLocation, userLocation,
     showRatingModal, ratingTarget, ratingLoading, userRating,
     handleSubmitRating, handleSkipRating,
     showCancelConfirm, showCancelReason, cancelFee, cancelLoading,
     initiateCancelRide, confirmCancelRide, submitCancelReason, abortCancel,
     handleMutualCancellation,
   } = useRide();
+
+  // Phase-specific routes for BookingMap
+  const [driverToPickupRoute, setDriverToPickupRoute] = useState(null);
+  const [riderToPickupRoute, setRiderToPickupRoute] = useState(null);
+  const prevPhaseRef = useRef(ridePhase);
+
+  // Fetch driver→pickup route during matched phase
+  useEffect(() => {
+    if (ridePhase !== 'matched' || !driverLocation || !activeRequest) return;
+    let cancelled = false;
+    ridesAPI.getDirections(
+      driverLocation.lat, driverLocation.lng,
+      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng)
+    ).then((res) => {
+      if (!cancelled && res.data.route?.overview_polyline) {
+        setDriverToPickupRoute(decodePolyline(res.data.route.overview_polyline));
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [ridePhase, driverLocation, activeRequest]);
+
+  // Fetch rider→pickup route during matched phase
+  useEffect(() => {
+    if (ridePhase !== 'matched' || !userLocation || !activeRequest) return;
+    let cancelled = false;
+    ridesAPI.getDirections(
+      userLocation.lat, userLocation.lng,
+      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng),
+      'walking'
+    ).then((res) => {
+      if (!cancelled && res.data.route?.overview_polyline) {
+        setRiderToPickupRoute(decodePolyline(res.data.route.overview_polyline));
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [ridePhase, userLocation, activeRequest]);
+
+  // Clear phase-specific routes on phase change
+  useEffect(() => {
+    if (prevPhaseRef.current !== ridePhase) {
+      if (ridePhase !== 'matched') {
+        setDriverToPickupRoute(null);
+        setRiderToPickupRoute(null);
+      }
+      prevPhaseRef.current = ridePhase;
+    }
+  }, [ridePhase]);
+
+  // Distance computations for matched phase
+  const driverToPickupInfo = useMemo(() => {
+    if (ridePhase !== 'matched' || !driverLocation || !activeRequest) return null;
+    const dist = haversineDistance(
+      driverLocation.lat, driverLocation.lng,
+      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng)
+    );
+    return { distance: dist, time: estimateTime(dist / 1000) };
+  }, [ridePhase, driverLocation, activeRequest]);
+
+  const riderToPickupInfo = useMemo(() => {
+    if (ridePhase !== 'matched' || !userLocation || !activeRequest) return null;
+    const dist = haversineDistance(
+      userLocation.lat, userLocation.lng,
+      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng)
+    );
+    return { distance: dist, time: estimateTime(dist / 1000) };
+  }, [ridePhase, userLocation, activeRequest]);
 
   // Route guard: only render for matched/in_progress/completed
   useEffect(() => {
@@ -125,6 +194,18 @@ function RiderRidePage() {
                     <span>Status</span>
                     <strong style={{ color: '#05944F' }}>Driver is on the way</strong>
                   </div>
+                  {driverToPickupInfo && (
+                    <div className="ride-detail-row">
+                      <span>Driver ETA</span>
+                      <strong>{formatDistance(driverToPickupInfo.distance)} (~{driverToPickupInfo.time} min)</strong>
+                    </div>
+                  )}
+                  {riderToPickupInfo && (
+                    <div className="ride-detail-row">
+                      <span>You → Pickup</span>
+                      <strong>{formatDistance(riderToPickupInfo.distance)} (~{riderToPickupInfo.time} min)</strong>
+                    </div>
+                  )}
 
                   <div className="ride-actions">
                     <button
@@ -192,6 +273,12 @@ function RiderRidePage() {
                     <span>Status</span>
                     <strong style={{ color: '#05944F' }}>Ride started</strong>
                   </div>
+                  {eta && (
+                    <div className="ride-detail-row">
+                      <span>ETA</span>
+                      <strong>{eta}</strong>
+                    </div>
+                  )}
 
                   <div className="ride-actions">
                     <button
@@ -284,11 +371,16 @@ function RiderRidePage() {
                 pickupLocation={{ lat: parseFloat(activeRequest.pickup_lat), lng: parseFloat(activeRequest.pickup_lng) }}
                 dropoffLocation={{ lat: parseFloat(activeRequest.dropoff_lat), lng: parseFloat(activeRequest.dropoff_lng) }}
                 driverLocation={driverLocation}
+                riderLocation={userLocation}
                 routePath={routePath}
                 routeInfo={routeInfo}
                 eta={eta}
                 wasRerouted={wasRerouted}
                 routeLoading={routeLoading}
+                ridePhase={ridePhase}
+                driverToPickupRoute={driverToPickupRoute}
+                riderToPickupRoute={riderToPickupRoute}
+                inProgressRoute={ridePhase === 'in_progress' ? routePath : null}
               />
             ) : (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F6F6F6', color: '#6B6B6B', fontSize: '14px' }}>

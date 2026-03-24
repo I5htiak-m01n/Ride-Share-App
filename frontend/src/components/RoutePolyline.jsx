@@ -36,8 +36,29 @@ const INACTIVE_OUTLINE = {
  *   active   – Whether this is the active/primary route (default true)
  *   onClick  – Optional click handler
  */
-function RoutePolyline({ path, active = true, onClick }) {
+function RoutePolyline({ path, active = true, dashed = false, onClick }) {
   if (!path || path.length < 2) return null;
+
+  if (dashed) {
+    const color = active ? '#276EF1' : '#BDC1C6';
+    return (
+      <Polyline
+        path={path}
+        options={{
+          strokeColor: color,
+          strokeOpacity: 0,
+          strokeWeight: 4,
+          zIndex: active ? 10 : 2,
+          icons: [{
+            icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 },
+            offset: '0',
+            repeat: '14px',
+          }],
+        }}
+        onClick={onClick}
+      />
+    );
+  }
 
   const outerStyle = active ? ACTIVE_OUTLINE : INACTIVE_OUTLINE;
   const innerStyle = active ? ACTIVE_STYLE : INACTIVE_STYLE;

@@ -23,6 +23,15 @@ const DRIVER_ICON = {
   scale: 1,
 };
 
+const RIDER_ICON = {
+  path: 'M 0,0 m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0',
+  fillColor: '#7B61FF',
+  fillOpacity: 1,
+  strokeColor: '#FFFFFF',
+  strokeWeight: 3,
+  scale: 1,
+};
+
 function RideMap({
   driverLocation,
   rideRequests = [],
@@ -35,6 +44,10 @@ function RideMap({
   wasRerouted = false,
   pickupLocation = null,
   dropoffLocation = null,
+  riderLocation = null,
+  rideStatus = null,
+  driverToPickupRoute = null,
+  riderToPickupRoute = null,
 }) {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const mapRef = useRef(null);
@@ -52,15 +65,31 @@ function RideMap({
     mapRef.current = map;
   }, []);
 
-  // Fit bounds to route when routePath changes
+  // Fit bounds to route when routePath or phase-specific routes change
   useEffect(() => {
-    if (routePath.length > 1 && mapRef.current) {
-      const bounds = new window.google.maps.LatLngBounds();
+    if (!mapRef.current) return;
+    const bounds = new window.google.maps.LatLngBounds();
+    let hasPoints = false;
+
+    if (rideStatus === 'driver_assigned') {
+      [driverToPickupRoute, riderToPickupRoute].forEach((route) => {
+        if (route && route.length > 1) {
+          route.forEach((p) => bounds.extend(p));
+          hasPoints = true;
+        }
+      });
+      if (pickupLocation) { bounds.extend(pickupLocation); hasPoints = true; }
+    } else if (routePath.length > 1) {
       routePath.forEach((point) => bounds.extend(point));
-      if (driverLocation) bounds.extend(driverLocation);
+      hasPoints = true;
+    }
+
+    if (driverLocation) { bounds.extend(driverLocation); hasPoints = true; }
+    if (riderLocation) { bounds.extend(riderLocation); hasPoints = true; }
+    if (hasPoints) {
       mapRef.current.fitBounds(bounds, { top: 60, bottom: 80, left: 40, right: 40 });
     }
-  }, [routePath, driverLocation]);
+  }, [routePath, driverLocation, riderLocation, rideStatus, driverToPickupRoute, riderToPickupRoute, pickupLocation]);
 
   if (loadError) {
     return (
@@ -186,13 +215,26 @@ function RideMap({
           </InfoWindow>
         )}
 
-        {/* Route polyline */}
-        {routePath.length > 1 && (
+        {/* Route polylines — phase-aware */}
+        {rideStatus === 'driver_assigned' && (
+          <>
+            {driverToPickupRoute && driverToPickupRoute.length > 1 && (
+              <RoutePolyline path={driverToPickupRoute} active />
+            )}
+            {riderToPickupRoute && riderToPickupRoute.length > 1 && (
+              <RoutePolyline path={riderToPickupRoute} active={false} dashed />
+            )}
+          </>
+        )}
+        {rideStatus === 'started' && routePath.length > 1 && (
+          <RoutePolyline path={routePath} active />
+        )}
+        {!rideStatus && routePath.length > 1 && (
           <RoutePolyline path={routePath} active />
         )}
 
-        {/* Pickup marker for active ride */}
-        {pickupLocation && (
+        {/* Pickup marker — phase-aware */}
+        {pickupLocation && rideStatus !== 'started' && (
           <Marker
             position={pickupLocation}
             icon={{
@@ -207,9 +249,24 @@ function RideMap({
             zIndex={8}
           />
         )}
+        {pickupLocation && rideStatus === 'started' && (
+          <Marker
+            position={pickupLocation}
+            icon={{
+              path: 'M 0,0 m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0',
+              fillColor: '#05944F',
+              fillOpacity: 0.35,
+              strokeColor: '#FFFFFF',
+              strokeWeight: 1,
+              scale: 1.2,
+            }}
+            title="Pickup (passed)"
+            zIndex={6}
+          />
+        )}
 
-        {/* Dropoff marker for active ride */}
-        {dropoffLocation && (
+        {/* Dropoff marker — hidden during driver_assigned */}
+        {dropoffLocation && rideStatus !== 'driver_assigned' && (
           <Marker
             position={dropoffLocation}
             icon={{
@@ -222,6 +279,16 @@ function RideMap({
             }}
             title="Dropoff"
             zIndex={8}
+          />
+        )}
+
+        {/* Rider location marker (purple dot) */}
+        {riderLocation && (
+          <Marker
+            position={riderLocation}
+            icon={RIDER_ICON}
+            title="Rider"
+            zIndex={9}
           />
         )}
       </GoogleMap>
@@ -266,6 +333,11 @@ function RideMap({
         <span>
           <span style={{ fontWeight: 'bold' }}>&#9679;</span> You
         </span>
+        {riderLocation && (
+          <span>
+            <span style={{ color: '#7B61FF', fontWeight: 'bold' }}>&#9679;</span> Rider
+          </span>
+        )}
         <span>
           <span style={{ color: '#E11900', fontWeight: 'bold' }}>&#9679;</span> Requests ({rideRequests.length})
         </span>
