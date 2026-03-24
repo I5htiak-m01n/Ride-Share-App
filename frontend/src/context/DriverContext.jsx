@@ -10,6 +10,11 @@ const NEARBY_POLL_MS = 10000;
 const LOCATION_SYNC_MS = 15000;
 const RIDE_POLL_MS = 5000;
 const STORAGE_KEY = 'driver_state';
+const TEST_LOCATION_POLL_MS = 2000; // Poll database location every 2s for test accounts
+
+function isTestAccount(email) {
+  return email && email.includes('test-');
+}
 
 function generateNearbyVehicles(center, count = 5) {
   const vehicles = [];
@@ -50,6 +55,10 @@ export function DriverProvider({ children }) {
   const [locationError, setLocationError] = useState(null);
   const currentLocationRef = useRef(null);
   const watchIdRef = useRef(null);
+
+  // Test account location polling
+  const [isTestAcc, setIsTestAcc] = useState(false);
+  const testLocationPollRef = useRef(null);
 
   // Nearby requests
   const [nearbyRequests, setNearbyRequests] = useState([]);
@@ -154,9 +163,31 @@ export function DriverProvider({ children }) {
     }
   }, []);
 
+  const fetchTestLocation = useCallback(async () => {
+    try {
+      const res = await ridesAPI.getTestLocation();
+      if (res.data.lat != null && res.data.lng != null) {
+        const loc = { lat: res.data.lat, lng: res.data.lng };
+        currentLocationRef.current = loc;
+        setDriverLocation(loc);
+      }
+    } catch (err) {
+      console.error('fetchTestLocation error:', err);
+    }
+  }, []);
+
   // ── Geolocation & polling ──
 
   const startGeolocationWatch = useCallback(() => {
+    // For test accounts, use database polling instead of browser geolocation
+    if (isTestAcc) {
+      if (testLocationPollRef.current) return; // already polling
+      fetchTestLocation();
+      testLocationPollRef.current = setInterval(fetchTestLocation, TEST_LOCATION_POLL_MS);
+      setLocationError(null);
+      return;
+    }
+
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by this browser.');
       return;
@@ -174,9 +205,13 @@ export function DriverProvider({ children }) {
       },
       { enableHighAccuracy: true, maximumAge: 5000 }
     );
-  }, []);
+  }, [isTestAcc, fetchTestLocation]);
 
   const stopGeolocationWatch = useCallback(() => {
+    if (testLocationPollRef.current != null) {
+      clearInterval(testLocationPollRef.current);
+      testLocationPollRef.current = null;
+    }
     if (watchIdRef.current != null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -463,6 +498,12 @@ export function DriverProvider({ children }) {
   // ── On mount: restore state ──
 
   useEffect(() => {
+    // Check if this is a test account
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    if (user.email && isTestAccount(user.email)) {
+      setIsTestAcc(true);
+    }
+
     fetchWalletBalance();
     fetchMyRating();
     fetchVehicles();
@@ -521,6 +562,9 @@ export function DriverProvider({ children }) {
       // Cleanup on unmount
       if (watchIdRef.current != null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      if (testLocationPollRef.current) {
+        clearInterval(testLocationPollRef.current);
       }
       clearInterval(nearbyIntervalRef.current);
       clearInterval(locationIntervalRef.current);

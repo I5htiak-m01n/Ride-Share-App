@@ -7,6 +7,11 @@ const RideContext = createContext(null);
 
 const POLL_INTERVAL_MS = 5000;
 const STORAGE_KEY = 'ride_booking_state';
+const TEST_LOCATION_POLL_MS = 2000; // Poll database location every 2s for test accounts
+
+function isTestAccount(email) {
+  return email && email.includes('test-');
+}
 
 function generateNearbyVehicles(center, count = 7) {
   const vehicles = [];
@@ -63,6 +68,10 @@ export function RideProvider({ children }) {
   const riderWatchIdRef = useRef(null);
   const riderSyncIntervalRef = useRef(null);
   const activeRideIdRef = useRef(null);
+
+  // Test account location polling
+  const [isTestAcc, setIsTestAcc] = useState(false);
+  const testLocationPollRef = useRef(null);
 
   // UI
   const [error, setError] = useState(null);
@@ -136,9 +145,36 @@ export function RideProvider({ children }) {
     }
   }, []);
 
+  const fetchTestLocation = useCallback(async () => {
+    try {
+      const res = await ridesAPI.getTestLocation();
+      if (res.data.lat != null && res.data.lng != null) {
+        setRiderLocation({ lat: res.data.lat, lng: res.data.lng });
+      }
+    } catch (err) {
+      console.error('fetchTestLocation error:', err);
+    }
+  }, []);
+
   const startRiderLocationTracking = useCallback(() => {
     if (riderWatchIdRef.current != null) return; // already tracking
     if (!navigator.geolocation) return;
+
+    // For test accounts, use database polling instead of browser geolocation
+    if (isTestAcc) {
+      if (testLocationPollRef.current) return; // already polling
+      fetchTestLocation();
+      testLocationPollRef.current = setInterval(fetchTestLocation, TEST_LOCATION_POLL_MS);
+
+      // Sync rider location to backend every 10s (still need to sync for distance calculations)
+      if (!riderSyncIntervalRef.current) {
+        /* For test accounts, we don't sync the browser location since we're using the database.
+           Syncing would require getCurrentPosition which might not work in test mode.
+           The test script updates the location directly in the database. */
+        riderSyncIntervalRef.current = setInterval(() => {}, 10000); // placeholder to mark as syncing
+      }
+      return;
+    }
 
     riderWatchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
@@ -163,12 +199,16 @@ export function RideProvider({ children }) {
       syncRiderLoc();
       riderSyncIntervalRef.current = setInterval(syncRiderLoc, 10000);
     }
-  }, []);
+  }, [isTestAcc, fetchTestLocation]);
 
   const stopRiderLocationTracking = useCallback(() => {
     if (riderWatchIdRef.current != null) {
       navigator.geolocation.clearWatch(riderWatchIdRef.current);
       riderWatchIdRef.current = null;
+    }
+    if (testLocationPollRef.current) {
+      clearInterval(testLocationPollRef.current);
+      testLocationPollRef.current = null;
     }
     if (riderSyncIntervalRef.current) {
       clearInterval(riderSyncIntervalRef.current);
@@ -582,6 +622,18 @@ export function RideProvider({ children }) {
 
   // On mount: check for existing active ride + geolocation + wallet + rating
   useEffect(() => {
+    // Check if this is a test account
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    if (user.email && isTestAccount(user.email)) {
+      setIsTestAcc(true);
+      // For test accounts, start location polling immediately (not just when in a ride)
+      if (testLocationPollRef.current) {
+        clearInterval(testLocationPollRef.current);
+      }
+      fetchTestLocation();
+      testLocationPollRef.current = setInterval(fetchTestLocation, TEST_LOCATION_POLL_MS);
+    }
+
     fetchWalletBalance();
     fetchMyRating();
     fetchScheduledRides();
@@ -594,6 +646,13 @@ export function RideProvider({ children }) {
     return () => {
       stopPolling();
       stopRiderLocationTracking();
+      if (riderWatchIdRef.current != null) {
+        navigator.geolocation.clearWatch(riderWatchIdRef.current);
+      }
+      if (testLocationPollRef.current) {
+        clearInterval(testLocationPollRef.current);
+      }
+      clearInterval(riderSyncIntervalRef.current);
     };
   }, []);
 
@@ -621,6 +680,8 @@ export function RideProvider({ children }) {
     nearbyVehicles,
     // Driver live location (for rider tracking)
     driverLocation,
+    // Rider live location (for test account location simulation and ride tracking)
+    riderLocation,
     // Actions
     handleMapClick, handleUseMyLocation, handleGetEstimate,
     handleConfirmRide, handleValidatePromo, handleCancelRequest,

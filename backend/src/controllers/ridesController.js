@@ -1251,6 +1251,39 @@ const cancelRide = async (req, res) => {
   }
 };
 
+// Test account: get current location from database
+// For test accounts to simulate movement with update-test-location.js script
+const getTestAccountLocation = async (req, res) => {
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  try {
+    const table = userRole === 'driver' || userRole === 'mixed' ? 'drivers' : 'riders';
+    const idColumn = userRole === 'driver' || userRole === 'mixed' ? 'driver_id' : 'rider_id';
+
+    const result = await pool.query(
+      `SELECT ST_Y(current_location::geometry) AS lat,
+              ST_X(current_location::geometry) AS lng
+       FROM ${table}
+       WHERE ${idColumn} = $1 AND current_location IS NOT NULL`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ lat: null, lng: null });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      lat: parseFloat(row.lat),
+      lng: parseFloat(row.lng),
+    });
+  } catch (err) {
+    console.error('getTestAccountLocation error:', err);
+    res.status(500).json({ error: 'Failed to get test account location', details: err.message });
+  }
+};
+
 module.exports = {
   getNearbyRequests,
   updateDriverLocation,
@@ -1271,4 +1304,5 @@ module.exports = {
   getVehicleTypes,
   checkDriverReadiness,
   updateRiderLocation,
+  getTestAccountLocation,
 };

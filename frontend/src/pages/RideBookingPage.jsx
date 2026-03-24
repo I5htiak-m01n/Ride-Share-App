@@ -18,7 +18,7 @@ function RideBookingPage() {
     pickupCoords, setPickupCoords, dropoffCoords, setDropoffCoords,
     clickMode, setClickMode, mapCenter, setMapCenter,
     handleMapClick, handleUseMyLocation, handleGetEstimate,
-    resetBooking, error, setError, loading, userLocation,
+    resetBooking, error, setError, loading, userLocation, riderLocation,
     routePath, routeInfo, routeLoading, stopPolling,
   } = useRide();
   const { clearRoute, fetchRoutePreview } = useRoute();
@@ -174,6 +174,7 @@ function RideBookingPage() {
             centerLocation={userLocation}
             userLocation={userLocation}
             panTo={mapCenter}
+            userLocation={riderLocation || userLocation}
             routePath={routePath}
             routeInfo={routeInfo}
             routeLoading={routeLoading}
