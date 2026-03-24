@@ -190,6 +190,9 @@ export const ridesAPI = {
   // Rider: update GPS location (for proximity enforcement)
   updateRiderLocation: (lat, lng) => api.put('/rides/rider-location', { lat, lng }),
 
+  // Test: get current location from database (for test account location simulation)
+  getTestLocation: () => api.get('/rides/test/location'),
+
   // Ride detail (full info + chat + ratings)
   getRideDetail: (rideId) => api.get(`/rides/${rideId}/detail`),
 };
