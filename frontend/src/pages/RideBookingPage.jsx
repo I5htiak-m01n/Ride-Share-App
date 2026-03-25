@@ -46,10 +46,10 @@ function RideBookingPage() {
 
   // Auto-preview route when both pickup and dropoff are set
   useEffect(() => {
-    if (pickupCoords && dropoffCoords) {
+    if (ridePhase === 'booking' && pickupCoords && dropoffCoords) {
       fetchRoutePreview(pickupCoords.lat, pickupCoords.lng, dropoffCoords.lat, dropoffCoords.lng);
     }
-  }, [pickupCoords, dropoffCoords]);
+  }, [pickupCoords, dropoffCoords, ridePhase]);
 
   // Route guard: redirect if in an active ride phase
   useEffect(() => {

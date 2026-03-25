@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import RoutePolyline from './RoutePolyline';
 import RouteInfo from './RouteInfo';
@@ -87,6 +87,10 @@ function BookingMap({
   inProgressRoute = null,
 }) {
   const mapRef = useRef(null);
+  // Capture initial center once so location updates don't jerk the map
+  const [initialCenter] = useState(
+    () => centerLocation || userLocation || pickupLocation || { lat: 23.8103, lng: 90.4125 }
+  );
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
@@ -101,9 +105,19 @@ function BookingMap({
     }
   }, [panTo]);
 
-  // Fit bounds to active route(s) when they change
+  // Fit bounds once per ride phase when routes first become available
+  const hasFitBoundsRef = useRef(false);
+  const lastPhaseRef = useRef(ridePhase);
+
   useEffect(() => {
+    // Reset when phase changes so new phase gets one fitBounds
+    if (ridePhase !== lastPhaseRef.current) {
+      hasFitBoundsRef.current = false;
+      lastPhaseRef.current = ridePhase;
+    }
+    if (hasFitBoundsRef.current) return;
     if (!mapRef.current) return;
+
     const bounds = new window.google.maps.LatLngBounds();
     let hasPoints = false;
 
@@ -124,11 +138,11 @@ function BookingMap({
       hasPoints = true;
     }
 
-    if (driverLocation) { bounds.extend(driverLocation); hasPoints = true; }
     if (hasPoints) {
       mapRef.current.fitBounds(bounds, { top: 60, bottom: 60, left: 40, right: 40 });
+      hasFitBoundsRef.current = true;
     }
-  }, [routePath, driverLocation, ridePhase, driverToPickupRoute, riderToPickupRoute, inProgressRoute, pickupLocation]);
+  }, [routePath, ridePhase, driverToPickupRoute, riderToPickupRoute, inProgressRoute, pickupLocation]);
 
   const handleLoad = useCallback((map) => {
     mapRef.current = map;
@@ -158,13 +172,11 @@ function BookingMap({
     );
   }
 
-  const center = centerLocation || userLocation || pickupLocation || { lat: 23.8103, lng: 90.4125 };
-
   return (
   <div style={{ position: 'relative', ...containerStyle }}>
     <GoogleMap
       mapContainerStyle={{ width: '100%', height: '100%', borderRadius: '12px' }}
-      center={center}
+      center={initialCenter}
       zoom={fullscreen ? 15 : 14}
       onClick={handleClick}
       onLoad={handleLoad}
@@ -205,7 +217,7 @@ function BookingMap({
       {ridePhase === 'matched' && (
         <>
           {driverToPickupRoute && driverToPickupRoute.length > 1 && (
-            <RoutePolyline path={driverToPickupRoute} active={false} />
+            <RoutePolyline path={driverToPickupRoute} active color="#000000" />
           )}
           {riderToPickupRoute && riderToPickupRoute.length > 1 && (
             <RoutePolyline path={riderToPickupRoute} active />
@@ -241,6 +253,36 @@ function BookingMap({
         />
       ))}
     </GoogleMap>
+
+    {/* Recenter button */}
+    {(riderLocation || userLocation) && (
+      <button
+        onClick={() => {
+          const loc = riderLocation || userLocation;
+          if (loc && mapRef.current) {
+            mapRef.current.panTo(loc);
+            mapRef.current.setZoom(15);
+          }
+        }}
+        title="Center on my location"
+        style={{
+          position: 'absolute', bottom: '16px', left: '16px', zIndex: 5,
+          width: '40px', height: '40px', borderRadius: '50%',
+          background: '#fff', border: '1px solid #E2E2E2',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 0,
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <line x1="12" y1="2" x2="12" y2="6" />
+          <line x1="12" y1="18" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="22" y2="12" />
+        </svg>
+      </button>
+    )}
 
     {/* Route info overlay */}
     {(routeInfo || routeLoading) && (

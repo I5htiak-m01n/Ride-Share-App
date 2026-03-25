@@ -44,7 +44,7 @@ function DriverDashboard() {
   const handleAccept = async (requestId) => {
     try {
       await acceptRequest(requestId);
-      navigate('/driver/ride');
+      navigate('/driver/pickup');
     } catch {
       // error is set in context
     }
@@ -150,7 +150,7 @@ function DriverDashboard() {
                 <h3>Ongoing Ride</h3>
                 <div
                   className="ongoing-ride-card"
-                  onClick={() => navigate('/driver/ride')}
+                  onClick={() => navigate(driverPhase === 'ride_accepted' ? '/driver/pickup' : '/driver/ride')}
                 >
                   <div className="ongoing-ride-status">
                     <div className="status-dot active" />

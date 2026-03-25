@@ -1,10 +1,7 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
-import { ridesAPI } from '../api/client';
-import { decodePolyline } from '../utils/polyline';
-import { haversineDistance, formatDistance, estimateTime } from '../utils/geo';
 import BookingMap from '../components/BookingMap';
 import ChatPanel from '../components/ChatPanel';
 import RatingModal from '../components/RatingModal';
@@ -22,81 +19,15 @@ function RiderRidePage() {
     activeRequest, activeRide,
     resetBooking, stopPolling,
     routePath, routeInfo, eta, wasRerouted, routeLoading,
-    driverLocation, userLocation,
-    showRatingModal, ratingTarget, ratingLoading, userRating,
+    driverLocation, userLocation, userRating,
+    showRatingModal, ratingTarget, ratingLoading,
     handleSubmitRating, handleSkipRating,
     showCancelConfirm, showCancelReason, cancelFee, cancelLoading,
     initiateCancelRide, confirmCancelRide, submitCancelReason, abortCancel,
     handleMutualCancellation,
   } = useRide();
 
-  // Phase-specific routes for BookingMap
-  const [driverToPickupRoute, setDriverToPickupRoute] = useState(null);
-  const [riderToPickupRoute, setRiderToPickupRoute] = useState(null);
-  const prevPhaseRef = useRef(ridePhase);
-
-  // Fetch driver→pickup route during matched phase
-  useEffect(() => {
-    if (ridePhase !== 'matched' || !driverLocation || !activeRequest) return;
-    let cancelled = false;
-    ridesAPI.getDirections(
-      driverLocation.lat, driverLocation.lng,
-      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng)
-    ).then((res) => {
-      if (!cancelled && res.data.route?.overview_polyline) {
-        setDriverToPickupRoute(decodePolyline(res.data.route.overview_polyline));
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [ridePhase, driverLocation, activeRequest]);
-
-  // Fetch rider→pickup route during matched phase
-  useEffect(() => {
-    if (ridePhase !== 'matched' || !userLocation || !activeRequest) return;
-    let cancelled = false;
-    ridesAPI.getDirections(
-      userLocation.lat, userLocation.lng,
-      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng),
-      'walking'
-    ).then((res) => {
-      if (!cancelled && res.data.route?.overview_polyline) {
-        setRiderToPickupRoute(decodePolyline(res.data.route.overview_polyline));
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [ridePhase, userLocation, activeRequest]);
-
-  // Clear phase-specific routes on phase change
-  useEffect(() => {
-    if (prevPhaseRef.current !== ridePhase) {
-      if (ridePhase !== 'matched') {
-        setDriverToPickupRoute(null);
-        setRiderToPickupRoute(null);
-      }
-      prevPhaseRef.current = ridePhase;
-    }
-  }, [ridePhase]);
-
-  // Distance computations for matched phase
-  const driverToPickupInfo = useMemo(() => {
-    if (ridePhase !== 'matched' || !driverLocation || !activeRequest) return null;
-    const dist = haversineDistance(
-      driverLocation.lat, driverLocation.lng,
-      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng)
-    );
-    return { distance: dist, time: estimateTime(dist / 1000) };
-  }, [ridePhase, driverLocation, activeRequest]);
-
-  const riderToPickupInfo = useMemo(() => {
-    if (ridePhase !== 'matched' || !userLocation || !activeRequest) return null;
-    const dist = haversineDistance(
-      userLocation.lat, userLocation.lng,
-      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng)
-    );
-    return { distance: dist, time: estimateTime(dist / 1000) };
-  }, [ridePhase, userLocation, activeRequest]);
-
-  // Route guard: only render for matched/in_progress/completed
+  // Route guard: only render for in_progress/completed
   useEffect(() => {
     if (ridePhase === 'idle') {
       navigate('/rider/dashboard', { replace: true });
@@ -106,6 +37,8 @@ function RiderRidePage() {
       navigate('/rider/confirm', { replace: true });
     } else if (ridePhase === 'searching') {
       navigate('/rider/searching', { replace: true });
+    } else if (ridePhase === 'matched') {
+      navigate('/rider/pickup', { replace: true });
     }
   }, [ridePhase, navigate]);
 
@@ -130,7 +63,7 @@ function RiderRidePage() {
         {/* Left Panel: Ride Details */}
         <div className="uber-left-panel">
           <div className="driver-panel-scroll">
-            {(ridePhase === 'matched' || ridePhase === 'in_progress') && (
+            {ridePhase === 'in_progress' && (
               <button
                 onClick={() => navigate('/rider/dashboard')}
                 className="page-back-btn"
@@ -140,91 +73,6 @@ function RiderRidePage() {
               </button>
             )}
             {error && <div className="uber-panel-alert">{error}</div>}
-
-            {/* MATCHED */}
-            {ridePhase === 'matched' && activeRide && (
-              <>
-                <div className="uber-greeting">
-                  <h1>Driver Found!</h1>
-                  <p>Your driver is on the way</p>
-                </div>
-
-                <div className="uber-active-ride-panel">
-                  <div className="ride-detail-row">
-                    <span>Driver</span>
-                    <strong>{activeRide.driver_name}</strong>
-                  </div>
-                  {activeRide.driver_phone && (
-                    <div className="ride-detail-row">
-                      <span>Phone</span>
-                      <strong>{activeRide.driver_phone}</strong>
-                    </div>
-                  )}
-                  {activeRide.driver_rating && (
-                    <div className="ride-detail-row">
-                      <span>Rating</span>
-                      <strong>{activeRide.driver_rating}/5</strong>
-                    </div>
-                  )}
-                  {activeRide.vehicle_model && (
-                    <div className="ride-detail-row">
-                      <span>Vehicle</span>
-                      <strong>{activeRide.vehicle_model}</strong>
-                    </div>
-                  )}
-                  {activeRide.vehicle_plate && (
-                    <div className="ride-detail-row">
-                      <span>Plate</span>
-                      <strong>{activeRide.vehicle_plate}</strong>
-                    </div>
-                  )}
-                  <div className="ride-detail-row">
-                    <span>From</span>
-                    <strong>{activeRide.pickup_addr}</strong>
-                  </div>
-                  <div className="ride-detail-row">
-                    <span>To</span>
-                    <strong>{activeRide.dropoff_addr}</strong>
-                  </div>
-                  <div className="ride-detail-row">
-                    <span>Fare</span>
-                    <strong>{activeRide.estimated_fare} BDT</strong>
-                  </div>
-                  <div className="ride-detail-row">
-                    <span>Status</span>
-                    <strong style={{ color: '#05944F' }}>Driver is on the way</strong>
-                  </div>
-                  {driverToPickupInfo && (
-                    <div className="ride-detail-row">
-                      <span>Driver ETA</span>
-                      <strong>{formatDistance(driverToPickupInfo.distance)} (~{driverToPickupInfo.time} min)</strong>
-                    </div>
-                  )}
-                  {riderToPickupInfo && (
-                    <div className="ride-detail-row">
-                      <span>You → Pickup</span>
-                      <strong>{formatDistance(riderToPickupInfo.distance)} (~{riderToPickupInfo.time} min)</strong>
-                    </div>
-                  )}
-
-                  <div className="ride-actions">
-                    <button
-                      onClick={initiateCancelRide}
-                      style={{ background: '#fff', color: '#E11900', border: '1px solid #E2E2E2' }}
-                    >
-                      Cancel Ride
-                    </button>
-                  </div>
-
-                  <ChatPanel
-                    rideId={activeRide.ride_id}
-                    currentUserId={user.user_id}
-                    otherName={activeRide.driver_name}
-                    onRideCancelled={handleMutualCancellation}
-                  />
-                </div>
-              </>
-            )}
 
             {/* IN PROGRESS */}
             {ridePhase === 'in_progress' && activeRide && (
@@ -378,8 +226,6 @@ function RiderRidePage() {
                 wasRerouted={wasRerouted}
                 routeLoading={routeLoading}
                 ridePhase={ridePhase}
-                driverToPickupRoute={driverToPickupRoute}
-                riderToPickupRoute={riderToPickupRoute}
                 inProgressRoute={ridePhase === 'in_progress' ? routePath : null}
               />
             ) : (

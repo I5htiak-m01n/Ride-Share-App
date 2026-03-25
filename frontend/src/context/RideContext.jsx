@@ -587,6 +587,10 @@ export function RideProvider({ children }) {
       setCancelLoading(false);
       // Reset to idle
       setRidePhase('idle');
+      setPickupCoords(null);
+      setDropoffCoords(null);
+      setPickupAddr('');
+      setDropoffAddr('');
       setActiveRequest(null);
       setActiveRide(null);
       setDriverLocation(null);
@@ -611,6 +615,10 @@ export function RideProvider({ children }) {
   const handleMutualCancellation = useCallback(() => {
     fetchWalletBalance();
     setRidePhase('idle');
+    setPickupCoords(null);
+    setDropoffCoords(null);
+    setPickupAddr('');
+    setDropoffAddr('');
     setActiveRequest(null);
     setActiveRide(null);
     setDriverLocation(null);

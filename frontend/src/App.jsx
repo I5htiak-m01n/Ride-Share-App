@@ -10,10 +10,12 @@ import RiderDashboard from './pages/RiderDashboard';
 import RideBookingPage from './pages/RideBookingPage';
 import RideConfirmPage from './pages/RideConfirmPage';
 import RideSearchingPage from './pages/RideSearchingPage';
+import RiderPickupPage from './pages/RiderPickupPage';
 import RiderRidePage from './pages/RiderRidePage';
 import ScheduledRidesPage from './pages/ScheduledRidesPage';
 import { DriverProviderLayout } from './context/DriverContext';
 import DriverDashboard from './pages/DriverDashboard';
+import DriverPickupPage from './pages/DriverPickupPage';
 import DriverRidePage from './pages/DriverRidePage';
 import DriverVehiclesPage from './pages/DriverVehiclesPage';
 import ProfileSettings from './pages/ProfileSettings';
@@ -60,6 +62,7 @@ function App() {
             <Route path="/rider/book" element={<RideBookingPage />} />
             <Route path="/rider/confirm" element={<RideConfirmPage />} />
             <Route path="/rider/searching" element={<RideSearchingPage />} />
+            <Route path="/rider/pickup" element={<RiderPickupPage />} />
             <Route path="/rider/ride" element={<RiderRidePage />} />
             <Route path="/rider/scheduled" element={<ScheduledRidesPage />} />
           </Route>
@@ -72,6 +75,7 @@ function App() {
           }>
             <Route element={<OnboardingGuard />}>
               <Route path="/driver/dashboard" element={<DriverDashboard />} />
+              <Route path="/driver/pickup" element={<DriverPickupPage />} />
               <Route path="/driver/ride" element={<DriverRidePage />} />
               <Route path="/driver/vehicles" element={<DriverVehiclesPage />} />
             </Route>

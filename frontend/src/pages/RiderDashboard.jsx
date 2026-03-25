@@ -113,7 +113,7 @@ function RiderDashboard() {
               <h3>Ongoing Ride</h3>
               <div
                 className="ongoing-ride-card"
-                onClick={() => navigate('/rider/ride')}
+                onClick={() => navigate(ridePhase === 'matched' ? '/rider/pickup' : '/rider/ride')}
               >
                 <div className="ongoing-ride-status">
                   <div className="status-dot active" />

@@ -24,7 +24,9 @@ function RideSearchingPage() {
 
   // Watch for phase transitions from polling
   useEffect(() => {
-    if (ridePhase === 'matched' || ridePhase === 'in_progress' || ridePhase === 'completed') {
+    if (ridePhase === 'matched') {
+      navigate('/rider/pickup', { replace: true });
+    } else if (ridePhase === 'in_progress' || ridePhase === 'completed') {
       navigate('/rider/ride', { replace: true });
     } else if (ridePhase === 'idle') {
       // Ride was cancelled server-side or timed out

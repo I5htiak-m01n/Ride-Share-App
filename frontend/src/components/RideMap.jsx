@@ -51,6 +51,10 @@ function RideMap({
 }) {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const mapRef = useRef(null);
+  // Capture initial center once so location updates don't jerk the map
+  const [initialCenter] = useState(
+    () => driverLocation || { lat: 23.8103, lng: 90.4125 }
+  );
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
@@ -65,31 +69,38 @@ function RideMap({
     mapRef.current = map;
   }, []);
 
-  // Fit bounds to route when routePath or phase-specific routes change
+  // Fit bounds once per ride status when routes first become available
+  const hasFitBoundsRef = useRef(false);
+  const lastStatusRef = useRef(rideStatus);
+
   useEffect(() => {
+    // Reset when status changes so new status gets one fitBounds
+    if (rideStatus !== lastStatusRef.current) {
+      hasFitBoundsRef.current = false;
+      lastStatusRef.current = rideStatus;
+    }
+    if (hasFitBoundsRef.current) return;
     if (!mapRef.current) return;
+
     const bounds = new window.google.maps.LatLngBounds();
     let hasPoints = false;
 
     if (rideStatus === 'driver_assigned') {
-      [driverToPickupRoute, riderToPickupRoute].forEach((route) => {
-        if (route && route.length > 1) {
-          route.forEach((p) => bounds.extend(p));
-          hasPoints = true;
-        }
-      });
+      if (driverToPickupRoute && driverToPickupRoute.length > 1) {
+        driverToPickupRoute.forEach((p) => bounds.extend(p));
+        hasPoints = true;
+      }
       if (pickupLocation) { bounds.extend(pickupLocation); hasPoints = true; }
     } else if (routePath.length > 1) {
       routePath.forEach((point) => bounds.extend(point));
       hasPoints = true;
     }
 
-    if (driverLocation) { bounds.extend(driverLocation); hasPoints = true; }
-    if (riderLocation) { bounds.extend(riderLocation); hasPoints = true; }
     if (hasPoints) {
       mapRef.current.fitBounds(bounds, { top: 60, bottom: 80, left: 40, right: 40 });
+      hasFitBoundsRef.current = true;
     }
-  }, [routePath, driverLocation, riderLocation, rideStatus, driverToPickupRoute, riderToPickupRoute, pickupLocation]);
+  }, [routePath, rideStatus, driverToPickupRoute, riderToPickupRoute, pickupLocation]);
 
   if (loadError) {
     return (
@@ -107,13 +118,11 @@ function RideMap({
     );
   }
 
-  const center = driverLocation || { lat: 23.8103, lng: 90.4125 };
-
   return (
     <div style={{ position: 'relative', height: '100%' }}>
       <GoogleMap
         mapContainerStyle={MAP_CONTAINER_STYLE}
-        center={center}
+        center={initialCenter}
         zoom={DEFAULT_ZOOM}
         onClick={handleMapClick}
         onLoad={handleMapLoad}
@@ -216,15 +225,8 @@ function RideMap({
         )}
 
         {/* Route polylines — phase-aware */}
-        {rideStatus === 'driver_assigned' && (
-          <>
-            {driverToPickupRoute && driverToPickupRoute.length > 1 && (
-              <RoutePolyline path={driverToPickupRoute} active />
-            )}
-            {riderToPickupRoute && riderToPickupRoute.length > 1 && (
-              <RoutePolyline path={riderToPickupRoute} active={false} dashed />
-            )}
-          </>
+        {rideStatus === 'driver_assigned' && driverToPickupRoute && driverToPickupRoute.length > 1 && (
+          <RoutePolyline path={driverToPickupRoute} active />
         )}
         {rideStatus === 'started' && routePath.length > 1 && (
           <RoutePolyline path={routePath} active />
@@ -283,7 +285,7 @@ function RideMap({
         )}
 
         {/* Rider location marker (purple dot) */}
-        {riderLocation && (
+        {riderLocation && rideStatus !== 'driver_assigned' && (
           <Marker
             position={riderLocation}
             icon={RIDER_ICON}
@@ -312,6 +314,35 @@ function RideMap({
             zIndex: 5,
           }}
         />
+      )}
+
+      {/* Recenter button */}
+      {driverLocation && (
+        <button
+          onClick={() => {
+            if (mapRef.current) {
+              mapRef.current.panTo(driverLocation);
+              mapRef.current.setZoom(15);
+            }
+          }}
+          title="Center on my location"
+          style={{
+            position: 'absolute', bottom: '60px', left: '14px', zIndex: 5,
+            width: '40px', height: '40px', borderRadius: '50%',
+            background: '#fff', border: '1px solid #E2E2E2',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 0,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
+          </svg>
+        </button>
       )}
 
       {/* Legend */}

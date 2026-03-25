@@ -1,68 +1,88 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+// import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDriver } from '../context/DriverContext';
-import { haversineDistance, formatDistance } from '../utils/geo';
+import { ridesAPI } from '../api/client';
+import { decodePolyline } from '../utils/polyline';
+import { haversineDistance, formatDistance, estimateTime } from '../utils/geo';
 import RideMap from '../components/RideMap';
 import ChatPanel from '../components/ChatPanel';
-import RatingModal from '../components/RatingModal';
 import CancelConfirmModal from '../components/CancelConfirmModal';
 import CancelReasonForm from '../components/CancelReasonFormDriver';
 import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
-function DriverRidePage() {
-  const { user, logout } = useAuth();
+function DriverPickupPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const {
     driverPhase,
     driverLocation, locationError,
     activeRide,
+    riderLocation, riderToPickupDistance, proximityToPickup,
     error,
     userRating,
     updateRideStatus,
     routePath, routeInfo, routeLoading, eta, wasRerouted,
-    // Rating modal
-    showRatingModal, ratingTarget, ratingLoading,
-    handleSubmitRating, handleSkipRating,
-    // Cancellation
     showCancelConfirm, showCancelReason, cancelFee, cancelLoading,
     initiateCancelRide, confirmCancelRide, submitCancelReason, abortCancel,
     handleMutualCancellation,
   } = useDriver();
 
-  // Route guard: must be in ride_started phase
+  // Route guard: must be in ride_accepted phase
   useEffect(() => {
     if (driverPhase === 'offline' || driverPhase === 'online') {
       navigate('/driver/dashboard', { replace: true });
-    } else if (driverPhase === 'ride_accepted') {
-      navigate('/driver/pickup', { replace: true });
+    } else if (driverPhase === 'ride_started') {
+      navigate('/driver/ride', { replace: true });
     }
   }, [driverPhase, navigate]);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
   const [proximityWarning, setProximityWarning] = useState(null);
 
-  // Distance to dropoff for completion check
-  const distanceToDropoff = useMemo(() => {
-    if (!driverLocation || !activeRide?.ride?.dropoff_lat) return null;
-    return haversineDistance(
-      driverLocation.lat, driverLocation.lng,
-      parseFloat(activeRide.ride.dropoff_lat), parseFloat(activeRide.ride.dropoff_lng)
-    );
-  }, [driverLocation, activeRide]);
+  // Phase-specific routes for RideMap
+  const [driverToPickupRoute, setDriverToPickupRoute] = useState(null);
 
-  const handleCompleteRide = () => {
-    if (distanceToDropoff !== null && distanceToDropoff > 100) {
-      setProximityWarning(`You must be within 100m of the dropoff to complete. Currently ${formatDistance(distanceToDropoff)} away.`);
+  // Fetch driver→pickup route
+  useEffect(() => {
+    if (activeRide?.ride?.status !== 'driver_assigned' || !driverLocation || !activeRide.ride.pickup_lat) return;
+    let cancelled = false;
+    ridesAPI.getDirections(
+      driverLocation.lat, driverLocation.lng,
+      parseFloat(activeRide.ride.pickup_lat), parseFloat(activeRide.ride.pickup_lng)
+    ).then((res) => {
+      if (!cancelled && res.data.route?.overview_polyline) {
+        setDriverToPickupRoute(decodePolyline(res.data.route.overview_polyline));
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeRide?.ride?.status, driverLocation, activeRide?.ride?.pickup_lat, activeRide?.ride?.pickup_lng]);
+
+
+  const handleStartRide = () => {
+    // DUAL-PROXIMITY VALIDATION: both driver AND rider must be within 100m of pickup
+    if (!proximityToPickup || proximityToPickup.distance > 100) {
+      setProximityWarning(
+        `You must be within 100m of pickup. Currently ${formatDistance(proximityToPickup?.distance || 0)} away (~${proximityToPickup?.time || '?'} min).`
+      );
       return;
     }
+    if (riderLocation && activeRide?.ride?.pickup_lat) {
+      const riderDist = haversineDistance(
+        riderLocation.lat, riderLocation.lng,
+        parseFloat(activeRide.ride.pickup_lat),
+        parseFloat(activeRide.ride.pickup_lng)
+      );
+      if (riderDist > 100) {
+        setProximityWarning(
+          `Waiting for rider to arrive at pickup. Rider is ${formatDistance(riderDist)} away (~${estimateTime(riderDist / 1000)} min).`
+        );
+        return;
+      }
+    }
     setProximityWarning(null);
-    updateRideStatus('completed');
+    updateRideStatus('started');
   };
 
   if (!activeRide) return null;
@@ -77,7 +97,7 @@ function DriverRidePage() {
       />
 
       <div className="uber-split-layout">
-        {/* Left Panel: Ride Details */}
+        {/* Left Panel: Pickup Details */}
         <div className="uber-left-panel">
           <div className="driver-panel-scroll">
             <button
@@ -87,8 +107,8 @@ function DriverRidePage() {
               &larr; Back
             </button>
             <div className="uber-greeting">
-              <h1>Ride in Progress</h1>
-              <p>Navigate to the dropoff location</p>
+              <h1>Go to Pickup</h1>
+              <p>Navigate to the rider's pickup location</p>
             </div>
 
             {locationError && <div className="uber-panel-alert">{locationError}</div>}
@@ -111,25 +131,25 @@ function DriverRidePage() {
                 <span>Fare</span>
                 <strong>{activeRide.estimated_fare} BDT</strong>
               </div>
-              <div className="ride-detail-row">
-                <span>Status</span>
-                <strong style={{ color: '#05944F' }}>Ride started</strong>
-              </div>
-              {/* Distance to dropoff during ride */}
-              {distanceToDropoff !== null && (
+
+              {/* Proximity info — driver to pickup */}
+              {proximityToPickup && (
                 <div className="ride-detail-row">
-                  <span>Distance to dropoff</span>
-                  <strong style={{ color: distanceToDropoff <= 100 ? '#05944F' : '#E11900' }}>
-                    {formatDistance(distanceToDropoff)}
+                  <span>You → Pickup</span>
+                  <strong style={{ color: proximityToPickup.withinProximity ? '#05944F' : '#E11900' }}>
+                    {formatDistance(proximityToPickup.distance)} (~{proximityToPickup.time} min)
                   </strong>
                 </div>
               )}
-              {eta && (
+              {/* Rider location info — rider to pickup */}
+              {/* {riderToPickupDistance !== null && (
                 <div className="ride-detail-row">
-                  <span>ETA</span>
-                  <strong>{eta}</strong>
+                  <span>Rider → Pickup</span>
+                  <strong style={{ color: riderToPickupDistance <= 100 ? '#05944F' : '#F5A623' }}>
+                    {formatDistance(riderToPickupDistance)} (~{estimateTime(riderToPickupDistance / 1000)} min)
+                  </strong>
                 </div>
-              )}
+              )} */}
 
               {proximityWarning && (
                 <div className="uber-panel-alert" style={{ marginTop: 8 }}>{proximityWarning}</div>
@@ -137,10 +157,10 @@ function DriverRidePage() {
 
               <div className="ride-actions">
                 <button
-                  onClick={handleCompleteRide}
-                  style={{ background: '#05944F', color: '#fff', border: 'none' }}
+                  onClick={handleStartRide}
+                  style={{ background: '#000', color: '#fff', border: 'none' }}
                 >
-                  Complete Ride
+                  Start Ride
                 </button>
                 <button
                   onClick={initiateCancelRide}
@@ -160,7 +180,7 @@ function DriverRidePage() {
           </div>
         </div>
 
-        {/* Right Panel: RideMap with ride route */}
+        {/* Right Panel: RideMap with pickup routes */}
         <div className="uber-right-map">
           <div className="uber-ridemap-wrapper">
             {driverLocation ? (
@@ -182,7 +202,8 @@ function DriverRidePage() {
                   lat: parseFloat(activeRide.ride.dropoff_lat),
                   lng: parseFloat(activeRide.ride.dropoff_lng)
                 } : null}
-                rideStatus="started"
+                rideStatus="driver_assigned"
+                driverToPickupRoute={driverToPickupRoute}
               />
             ) : (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F6F6F6', color: '#6B6B6B', fontSize: '14px' }}>
@@ -192,16 +213,6 @@ function DriverRidePage() {
           </div>
         </div>
       </div>
-
-      {/* Rating Modal */}
-      {showRatingModal && ratingTarget && (
-        <RatingModal
-          rateeName={ratingTarget.rateeName}
-          onSubmit={handleSubmitRating}
-          onSkip={handleSkipRating}
-          loading={ratingLoading}
-        />
-      )}
 
       {/* Cancel Modals */}
       {showCancelConfirm && (
@@ -221,4 +232,4 @@ function DriverRidePage() {
   );
 }
 
-export default DriverRidePage;
+export default DriverPickupPage;
