@@ -337,4 +337,9 @@ export const savedPlacesAPI = {
   remove: (placeId) => api.delete(`/saved-places/${placeId}`),
 };
 
+// Test Account Utility
+export const isTestAccount = (email) => {
+  return email && email.includes('test-');
+};
+
 export default api;

@@ -21,6 +21,7 @@ const {
   getVehicleTypes,
   checkDriverReadiness,
   updateRiderLocation,
+  getTestAccountLocation,
 } = require("../controllers/ridesController");
 const {
   getDirections,
@@ -89,6 +90,9 @@ router.post("/requests/:id/cancel", authenticateToken, authorizeRoles("rider", "
 
 // Rider: get available promo codes
 router.get("/rider/promos", authenticateToken, authorizeRoles("rider", "mixed"), getAvailablePromos);
+
+// Test: get current location from database (for test account location simulation)
+router.get("/test/location", authenticateToken, getTestAccountLocation);
 
 // Directions: get route preview between two points
 router.post("/directions", authenticateToken, getDirections);

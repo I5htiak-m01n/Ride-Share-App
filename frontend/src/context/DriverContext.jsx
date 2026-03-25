@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useRoute } from './RouteContext';
-import { ridesAPI, walletAPI, ratingsAPI, driversAPI } from '../api/client';
+import { ridesAPI, walletAPI, ratingsAPI, driversAPI, isTestAccount } from '../api/client';
 import { haversineDistance, estimateTime } from '../utils/geo';
 
 const DriverContext = createContext(null);
@@ -11,10 +11,6 @@ const LOCATION_SYNC_MS = 15000;
 const RIDE_POLL_MS = 5000;
 const STORAGE_KEY = 'driver_state';
 const TEST_LOCATION_POLL_MS = 2000; // Poll database location every 2s for test accounts
-
-function isTestAccount(email) {
-  return email && email.includes('test-');
-}
 
 function generateNearbyVehicles(center, count = 5) {
   const vehicles = [];
@@ -58,6 +54,7 @@ export function DriverProvider({ children }) {
 
   // Test account location polling
   const [isTestAcc, setIsTestAcc] = useState(false);
+  const isTestAccRef = useRef(false); // For synchronous access to test account status
   const testLocationPollRef = useRef(null);
 
   // Nearby requests
@@ -180,7 +177,7 @@ export function DriverProvider({ children }) {
 
   const startGeolocationWatch = useCallback(() => {
     // For test accounts, use database polling instead of browser geolocation
-    if (isTestAcc) {
+    if (isTestAccRef.current) {
       if (testLocationPollRef.current) return; // already polling
       fetchTestLocation();
       testLocationPollRef.current = setInterval(fetchTestLocation, TEST_LOCATION_POLL_MS);
@@ -205,7 +202,7 @@ export function DriverProvider({ children }) {
       },
       { enableHighAccuracy: true, maximumAge: 5000 }
     );
-  }, [isTestAcc, fetchTestLocation]);
+  }, [fetchTestLocation]);
 
   const stopGeolocationWatch = useCallback(() => {
     if (testLocationPollRef.current != null) {
@@ -501,6 +498,7 @@ export function DriverProvider({ children }) {
     // Check if this is a test account
     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
     if (user.email && isTestAccount(user.email)) {
+      isTestAccRef.current = true;
       setIsTestAcc(true);
     }
 

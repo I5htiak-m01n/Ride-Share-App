@@ -1,17 +1,13 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useRoute } from './RouteContext';
-import { ridesAPI, walletAPI, ratingsAPI } from '../api/client';
+import { ridesAPI, walletAPI, ratingsAPI, isTestAccount } from '../api/client';
 
 const RideContext = createContext(null);
 
 const POLL_INTERVAL_MS = 5000;
 const STORAGE_KEY = 'ride_booking_state';
 const TEST_LOCATION_POLL_MS = 2000; // Poll database location every 2s for test accounts
-
-function isTestAccount(email) {
-  return email && email.includes('test-');
-}
 
 function generateNearbyVehicles(center, count = 7) {
   const vehicles = [];
@@ -72,6 +68,7 @@ export function RideProvider({ children }) {
 
   // Test account location polling
   const [isTestAcc, setIsTestAcc] = useState(false);
+  const isTestAccRef = useRef(false); // For synchronous access to test account status
   const testLocationPollRef = useRef(null);
 
   // UI
@@ -162,18 +159,10 @@ export function RideProvider({ children }) {
     if (!navigator.geolocation) return;
 
     // For test accounts, use database polling instead of browser geolocation
-    if (isTestAcc) {
+    if (isTestAccRef.current) {
       if (testLocationPollRef.current) return; // already polling
       fetchTestLocation();
       testLocationPollRef.current = setInterval(fetchTestLocation, TEST_LOCATION_POLL_MS);
-
-      // Sync rider location to backend every 10s (still need to sync for distance calculations)
-      if (!riderSyncIntervalRef.current) {
-        /* For test accounts, we don't sync the browser location since we're using the database.
-           Syncing would require getCurrentPosition which might not work in test mode.
-           The test script updates the location directly in the database. */
-        riderSyncIntervalRef.current = setInterval(() => {}, 10000); // placeholder to mark as syncing
-      }
       return;
     }
 
@@ -200,7 +189,7 @@ export function RideProvider({ children }) {
       syncRiderLoc();
       riderSyncIntervalRef.current = setInterval(syncRiderLoc, 10000);
     }
-  }, [isTestAcc, fetchTestLocation]);
+  }, [fetchTestLocation]);
 
   const stopRiderLocationTracking = useCallback(() => {
     if (riderWatchIdRef.current != null) {
@@ -634,13 +623,8 @@ export function RideProvider({ children }) {
     // Check if this is a test account
     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
     if (user.email && isTestAccount(user.email)) {
+      isTestAccRef.current = true;
       setIsTestAcc(true);
-      // For test accounts, start location polling immediately (not just when in a ride)
-      if (testLocationPollRef.current) {
-        clearInterval(testLocationPollRef.current);
-      }
-      fetchTestLocation();
-      testLocationPollRef.current = setInterval(fetchTestLocation, TEST_LOCATION_POLL_MS);
     }
 
     fetchWalletBalance();
@@ -661,7 +645,9 @@ export function RideProvider({ children }) {
       if (testLocationPollRef.current) {
         clearInterval(testLocationPollRef.current);
       }
-      clearInterval(riderSyncIntervalRef.current);
+      if (riderSyncIntervalRef.current) {
+        clearInterval(riderSyncIntervalRef.current);
+      }
     };
   }, []);
 
