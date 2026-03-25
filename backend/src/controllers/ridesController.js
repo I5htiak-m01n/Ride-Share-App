@@ -90,8 +90,11 @@ const updateDriverLocation = async (req, res) => {
     return res.status(400).json({ error: "lat and lng are required" });
   }
 
+  const client = await pool.connect();
   try {
-    await pool.query(
+    await client.query("BEGIN");
+
+    await client.query(
       `UPDATE drivers
        SET current_location = ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
            status = CASE WHEN status = 'offline' THEN 'online' ELSE status END
@@ -100,17 +103,21 @@ const updateDriverLocation = async (req, res) => {
     );
 
     // Log location during active rides for tracking
-    await pool.query(
+    await client.query(
       `INSERT INTO ride_tracking_logs (ride_id, driver_id, location)
        SELECT ride_id, $1, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography
        FROM rides WHERE driver_id = $1 AND status IN ('driver_assigned', 'started') LIMIT 1`,
       [driverId, parseFloat(lat), parseFloat(lng)]
     );
 
+    await client.query("COMMIT");
     res.json({ message: "Location updated" });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("updateDriverLocation error:", err);
     res.status(500).json({ error: "Failed to update location", details: err.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -807,7 +814,7 @@ const cancelRideRequest = async (req, res) => {
   const { id: requestId } = req.params;
 
   try {
-    // Fetch the request first to check scheduled_time
+    // Fetch the request first to check scheduled_time (read-only, no transaction needed)
     const reqCheck = await pool.query(
       `SELECT request_id, status, scheduled_time, estimated_fare
        FROM ride_requests
@@ -828,7 +835,6 @@ const cancelRideRequest = async (req, res) => {
     if (request.status === "scheduled" && request.scheduled_time) {
       const msUntilScheduled = new Date(request.scheduled_time).getTime() - Date.now();
       if (msUntilScheduled < 30 * 60 * 1000) {
-        // Within 30 minutes — apply cancellation fee
         const pricingResult = await pool.query(
           `SELECT cancellation_pct FROM pricing_standards LIMIT 1`
         );
@@ -836,32 +842,43 @@ const cancelRideRequest = async (req, res) => {
           ? parseFloat(pricingResult.rows[0].cancellation_pct)
           : 0;
         cancellationFee = Math.round(parseFloat(request.estimated_fare) * (pct / 100) * 100) / 100;
-
-        if (cancellationFee > 0) {
-          // Deduct fee from rider wallet
-          await pool.query(
-            `UPDATE wallets SET balance = balance - $1 WHERE owner_id = $2`,
-            [cancellationFee, riderId]
-          );
-        }
       }
     }
 
-    // Cancel the request
-    const result = await pool.query(
-      `UPDATE ride_requests SET status = 'cancelled'
-       WHERE request_id = $1
-       RETURNING request_id, status`,
-      [requestId]
-    );
+    // Wrap DML operations in a transaction (wallet deduction + request cancellation)
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    res.json({
-      message: cancellationFee > 0
-        ? `Ride cancelled. A fee of ${cancellationFee} BDT was charged.`
-        : "Ride request cancelled",
-      request: result.rows[0],
-      cancellation_fee: cancellationFee,
-    });
+      if (cancellationFee > 0) {
+        await client.query(
+          `UPDATE wallets SET balance = balance - $1 WHERE owner_id = $2`,
+          [cancellationFee, riderId]
+        );
+      }
+
+      const result = await client.query(
+        `UPDATE ride_requests SET status = 'cancelled'
+         WHERE request_id = $1
+         RETURNING request_id, status`,
+        [requestId]
+      );
+
+      await client.query("COMMIT");
+
+      res.json({
+        message: cancellationFee > 0
+          ? `Ride cancelled. A fee of ${cancellationFee} BDT was charged.`
+          : "Ride request cancelled",
+        request: result.rows[0],
+        cancellation_fee: cancellationFee,
+      });
+    } catch (txnErr) {
+      await client.query("ROLLBACK");
+      throw txnErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error("cancelRideRequest error:", err);
     res.status(500).json({ error: "Failed to cancel ride request", details: err.message });
