@@ -1,6 +1,7 @@
-const SSLCommerzPayment = require("sslcommerz-lts");
+const SSLCommerzPayment = require("sslcommerz-lts"); // Not used utilized in current form
 const { pool } = require("../db");
 
+// None of this is used in current form, topup done directly
 const store_id = process.env.SSLCOMMERZ_STORE_ID;
 const store_passwd = process.env.SSLCOMMERZ_STORE_PASSWORD;
 const is_live = process.env.SSLCOMMERZ_IS_LIVE === "true";
@@ -17,6 +18,7 @@ const initPayment = async (req, res) => {
     return res.status(400).json({ error: "Amount must be positive" });
   }
 
+  //SSLCommerz credentials check, not utilized in current form
   if (!store_id || !store_passwd || store_id.includes("your_")) {
     return res.status(500).json({
       error: "SSLCommerz credentials not configured. Update SSLCOMMERZ_STORE_ID and SSLCOMMERZ_STORE_PASSWORD in backend/.env"
@@ -38,7 +40,7 @@ const initPayment = async (req, res) => {
 
     // Get user details for SSLCommerz
     const userResult = await client.query(
-      `SELECT first_name, last_name, email, phone FROM users WHERE user_id = $1`,
+      `SELECT first_name, last_name, email, phone_number FROM users WHERE user_id = $1`,
       [userId]
     );
     const user = userResult.rows[0];
@@ -67,6 +69,7 @@ const initPayment = async (req, res) => {
       cus_phone: user.phone || "01700000000",
     };
 
+    //handles SSLCommerz session initiation, not utilized in current form
     const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
     const apiResponse = await sslcz.init(data);
 
@@ -193,6 +196,7 @@ const paymentIPN = async (req, res) => {
     return res.status(200).json({ message: "ignored" });
   }
 
+  // Not used in current form, for SSLCommerz server-to-server validation
   const client = await pool.connect();
   try {
     const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);

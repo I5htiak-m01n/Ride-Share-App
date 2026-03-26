@@ -66,45 +66,38 @@ function RideSearchingPage() {
             <button
               onClick={() => navigate('/rider/dashboard')}
               className="page-back-btn"
-              style={{ marginBottom: 12 }}
             >
               &larr; Back
             </button>
 
             {error && <div className="uber-panel-alert">{error}</div>}
 
-            <div className="searching-panel" style={{ boxShadow: 'none', padding: 0 }}>
+            <div className="searching-panel">
               <div className="searching-animation">
                 <div className="pulse-ring" />
               </div>
               <h2>Looking for nearby drivers...</h2>
+              <p className="searching-hint">This usually takes a minute or two</p>
+
               {activeRequest && (
-                <>
-                  <p style={{ color: '#6B6B6B', fontSize: '14px', marginTop: '16px' }}>
-                    From: {activeRequest.pickup_addr}
-                  </p>
-                  <p style={{ color: '#6B6B6B', fontSize: '14px' }}>
-                    To: {activeRequest.dropoff_addr}
-                  </p>
-                  <p style={{ fontWeight: 600, fontSize: '16px', marginTop: '8px' }}>
-                    {activeRequest.estimated_fare} BDT
-                  </p>
-                </>
+                <div className="searching-route-card">
+                  <div className="searching-route-row">
+                    <div className="searching-route-dot pickup" />
+                    <span>{activeRequest.pickup_addr}</span>
+                  </div>
+                  <div className="searching-route-divider" />
+                  <div className="searching-route-row">
+                    <div className="searching-route-dot dropoff" />
+                    <span>{activeRequest.dropoff_addr}</span>
+                  </div>
+                </div>
               )}
-              <p className="searching-hint">This may take up to 5 minutes</p>
-              <button
-                onClick={handleCancel}
-                style={{
-                  padding: '12px 28px',
-                  background: '#fff',
-                  color: '#E11900',
-                  border: '1px solid #E2E2E2',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  fontSize: '14px',
-                }}
-              >
+
+              {activeRequest && (
+                <div className="searching-fare">{activeRequest.estimated_fare} BDT</div>
+              )}
+
+              <button onClick={handleCancel} className="searching-cancel-btn">
                 Cancel Request
               </button>
             </div>
@@ -126,7 +119,7 @@ function RideSearchingPage() {
                 fullHeight
               />
             ) : (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F6F6F6', color: '#6B6B6B', fontSize: '14px' }}>
+              <div className="uber-map-loading">
                 Loading map...
               </div>
             )}

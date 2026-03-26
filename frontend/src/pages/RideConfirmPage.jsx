@@ -147,80 +147,85 @@ function RideConfirmPage() {
           {error && <div className="error-banner">{error}</div>}
           <h2>Confirm Your Ride</h2>
 
-          <div className="ride-summary">
-            <div className="summary-row">
-              <span>From</span>
-              <strong>{pickupAddr}</strong>
-            </div>
-            <div className="summary-row">
-              <span>To</span>
-              <strong>{dropoffAddr}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Distance</span>
-              <strong>{fareEstimate.route_distance_text || `${fareEstimate.distance_km} km`}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Est. Duration</span>
-              <strong>{fareEstimate.route_duration_text || `${fareEstimate.estimated_duration_min} min`}</strong>
-            </div>
-          </div>
-
-          {/* Pickup Time Selector */}
-          <div className="pickup-time-selector">
-            <h3>Pickup Time</h3>
-            <div className="pickup-mode-toggle">
-              <button
-                className={pickupMode === 'now' ? 'active' : ''}
-                onClick={() => { setPickupMode('now'); setScheduledTime(null); }}
-              >
-                Pick up now
-              </button>
-              <button
-                className={pickupMode === 'schedule' ? 'active' : ''}
-                onClick={() => setPickupMode('schedule')}
-              >
-                Schedule
-              </button>
-            </div>
-
-            {pickupMode === 'schedule' && (
-              <div className="schedule-picker">
-                <div className="schedule-picker-row">
-                  <div className="schedule-field">
-                    <label>Date</label>
-                    <input
-                      type="date"
-                      value={scheduleDate}
-                      onChange={(e) => setScheduleDate(e.target.value)}
-                      min={todayStr}
-                      max={maxDateStr}
-                    />
-                  </div>
-                  <div className="schedule-field">
-                    <label>Time</label>
-                    <input
-                      type="time"
-                      value={scheduleTime}
-                      onChange={(e) => setScheduleTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="schedule-info">
-                  <p>Schedule up to 15 days in advance</p>
-                  <p>Cancel without charge up to 30 minutes before pickup</p>
-                </div>
-                {scheduleError && (
-                  <p className="promo-error" style={{ marginTop: 8 }}>{scheduleError}</p>
-                )}
+          {/* Route summary */}
+          <div className="confirm-section">
+            <div className="ride-summary">
+              <div className="summary-row">
+                <span>From</span>
+                <strong>{pickupAddr}</strong>
               </div>
-            )}
+              <div className="summary-row">
+                <span>To</span>
+                <strong>{dropoffAddr}</strong>
+              </div>
+              <div className="summary-row">
+                <span>Distance</span>
+                <strong>{fareEstimate.route_distance_text || `${fareEstimate.distance_km} km`}</strong>
+              </div>
+              <div className="summary-row">
+                <span>Est. Duration</span>
+                <strong>{fareEstimate.route_duration_text || `${fareEstimate.estimated_duration_min} min`}</strong>
+              </div>
+            </div>
           </div>
 
-          {/* Vehicle Type Selector */}
+          {/* Pickup Time */}
+          <div className="confirm-section">
+            <div className="pickup-time-selector">
+              <h3>Pickup Time</h3>
+              <div className="pickup-mode-toggle">
+                <button
+                  className={pickupMode === 'now' ? 'active' : ''}
+                  onClick={() => { setPickupMode('now'); setScheduledTime(null); }}
+                >
+                  Pick up now
+                </button>
+                <button
+                  className={pickupMode === 'schedule' ? 'active' : ''}
+                  onClick={() => setPickupMode('schedule')}
+                >
+                  Schedule
+                </button>
+              </div>
+
+              {pickupMode === 'schedule' && (
+                <div className="schedule-picker">
+                  <div className="schedule-picker-row">
+                    <div className="schedule-field">
+                      <label>Date</label>
+                      <input
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        min={todayStr}
+                        max={maxDateStr}
+                      />
+                    </div>
+                    <div className="schedule-field">
+                      <label>Time</label>
+                      <input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="schedule-info">
+                    <p>Schedule up to 15 days in advance</p>
+                    <p>Cancel without charge up to 30 minutes before pickup</p>
+                  </div>
+                  {scheduleError && (
+                    <p className="promo-error">{scheduleError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Vehicle type */}
           {vehicleTypes.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 8px' }}>Choose Ride Category</h3>
+            <div className="confirm-section">
+              <h3 className="confirm-section-title">Choose Ride Category</h3>
               <div className="vehicle-type-list">
                 {vehicleTypes.map((vt) => {
                   const vtFare = Math.round(baseFare * parseFloat(vt.fare_multiplier) * 100) / 100;
@@ -243,59 +248,59 @@ function RideConfirmPage() {
             </div>
           )}
 
-          <div className="ride-summary">
-            <div className="summary-row fare">
-              <span>Estimated Fare</span>
-              <strong>{displayFare} BDT</strong>
-            </div>
-          </div>
-
-          <div className="promo-input-section">
-            <label>Have a discount coupon?</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {availablePromos.length > 0 ? (
-                <select
-                  value={promoCode}
-                  onChange={(e) => {
-                    setPromoCode(e.target.value);
-                    setPromoResult(null);
-                  }}
-                  style={{
-                    flex: 1, padding: '10px 12px', border: '1px solid #ccc',
-                    borderRadius: 8, fontSize: 14, background: '#fff',
-                  }}
-                >
-                  <option value="">Select a promo code</option>
-                  {availablePromos.map(p => (
-                    <option key={p.promo_id} value={p.promo_code}>
-                      {p.promo_code} — {parseFloat(p.discount_amount).toFixed(0)} BDT off ({p.remaining_uses} use{p.remaining_uses !== 1 ? 's' : ''} left)
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={promoCode}
-                  onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); }}
-                  placeholder={promosLoading ? 'Loading promos...' : 'Enter promo code'}
-                />
-              )}
-              <button
-                onClick={handleValidatePromo}
-                disabled={!promoCode.trim() || promoLoading}
-                className="location-btn"
-              >
-                {promoLoading ? 'Checking...' : 'Apply'}
-              </button>
-            </div>
-            {promoResult && promoResult.valid && (
-              <div className="promo-success">
-                Discount: {promoResult.discount_amount} BDT off! New fare: {promoResult.discounted_fare} BDT
+          {/* Fare + promo */}
+          <div className="confirm-section">
+            <div className="ride-summary">
+              <div className="summary-row fare">
+                <span>Estimated Fare</span>
+                <strong>{displayFare} BDT</strong>
               </div>
-            )}
-            {promoResult && !promoResult.valid && (
-              <div className="promo-error">Invalid or expired promo code</div>
-            )}
+            </div>
+
+            <div className="promo-input-section">
+              <label>Have a discount coupon?</label>
+              <div className="promo-input-row">
+                {availablePromos.length > 0 ? (
+                  <select
+                    className="promo-select"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value);
+                      setPromoResult(null);
+                    }}
+                  >
+                    <option value="">Select a promo code</option>
+                    {availablePromos.map(p => (
+                      <option key={p.promo_id} value={p.promo_code}>
+                        {p.promo_code} — {parseFloat(p.discount_amount).toFixed(0)} BDT off ({p.remaining_uses} use{p.remaining_uses !== 1 ? 's' : ''} left)
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); }}
+                    placeholder={promosLoading ? 'Loading promos...' : 'Enter promo code'}
+                  />
+                )}
+                <button
+                  onClick={handleValidatePromo}
+                  disabled={!promoCode.trim() || promoLoading}
+                  className="location-btn"
+                >
+                  {promoLoading ? 'Checking...' : 'Apply'}
+                </button>
+              </div>
+              {promoResult && promoResult.valid && (
+                <div className="promo-success">
+                  Discount: {promoResult.discount_amount} BDT off! New fare: {promoResult.discounted_fare} BDT
+                </div>
+              )}
+              {promoResult && !promoResult.valid && (
+                <div className="promo-error">Invalid or expired promo code</div>
+              )}
+            </div>
           </div>
 
           <div className="booking-actions">

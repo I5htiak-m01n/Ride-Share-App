@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { walletAPI, paymentAPI } from '../api/client';
+import { walletAPI } from '../api/client';
 import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
@@ -66,14 +66,13 @@ function Wallet() {
     setSuccessMsg(null);
     setLoading(true);
     try {
-      const res = await paymentAPI.initTopUp(amount);
-      if (res.data.url) {
-        window.location.href = res.data.url;
-      } else {
-        setError('Could not start payment. Try again.');
-      }
+      await walletAPI.topUp(amount);
+      setSuccessMsg(`Successfully added ${amount} BDT to your wallet!`);
+      fetchBalance();
+      fetchTransactions();
+      setCustomAmount('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to initiate payment');
+      setError(err.response?.data?.error || 'Failed to top up wallet');
     } finally {
       setLoading(false);
     }

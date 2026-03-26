@@ -94,21 +94,25 @@ function RideBookingPage() {
     <div className="dashboard-container">
       <NavBar onLogout={handleLogout} />
 
-      <div className="dashboard-content">
-        {error && <div className="error-banner">{error}</div>}
+      <div className="booking-split-layout">
+        {/* Left Panel: Booking form */}
+        <div className="booking-left-panel">
+          <button onClick={handleBack} className="page-back-btn">
+            &larr; Back
+          </button>
 
-        <div>
-          <div className="dashboard-header">
-            <div>
-              <h1>Book a Ride</h1>
-              <p>Set your pickup and dropoff locations</p>
-            </div>
+          {error && <div className="uber-panel-alert">{error}</div>}
+
+          <div className="booking-panel-header">
+            <h2>Book a Ride</h2>
+            <p>Set your pickup and dropoff locations</p>
           </div>
 
           <div className="booking-form">
-            <div className="form-group">
-              <label>Pickup Address</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="booking-field">
+              <label>Pickup</label>
+              <div className="booking-input-row">
+                <div className="booking-input-dot pickup" />
                 <PlacesAutocomplete
                   value={pickupAddr}
                   onChange={setPickupAddr}
@@ -121,74 +125,92 @@ function RideBookingPage() {
                   placeholder="Search pickup address"
                   userLocation={userLocation}
                 />
-                <button onClick={handleUseMyLocation} className="location-btn">
-                  Use My Location
+              </div>
+              <div className="booking-field-actions">
+                <button onClick={handleUseMyLocation} className="booking-action-link">
+                  Use my location
+                </button>
+                <span className="booking-action-divider" />
+                <button onClick={() => openSavedPlaces('pickup')} className="booking-action-link">
+                  Saved places
                 </button>
               </div>
-              <div className="saved-places-trigger" onClick={() => openSavedPlaces('pickup')}>
-                <span className="saved-places-icon">&#9733;</span> Saved places
-              </div>
             </div>
-            <div className="form-group">
-              <label>Dropoff Address</label>
-              <PlacesAutocomplete
-                value={dropoffAddr}
-                onChange={setDropoffAddr}
-                onPlaceSelect={({ address, lat, lng }) => {
-                  setDropoffAddr(address);
-                  setDropoffCoords({ lat, lng });
-                  setMapCenter({ lat, lng });
-                }}
-                placeholder="Search dropoff address"
-                userLocation={userLocation}
-              />
-              <div className="saved-places-trigger" onClick={() => openSavedPlaces('dropoff')}>
-                <span className="saved-places-icon">&#9733;</span> Saved places
+
+            <div className="booking-route-connector" />
+
+            <div className="booking-field">
+              <label>Dropoff</label>
+              <div className="booking-input-row">
+                <div className="booking-input-dot dropoff" />
+                <PlacesAutocomplete
+                  value={dropoffAddr}
+                  onChange={setDropoffAddr}
+                  onPlaceSelect={({ address, lat, lng }) => {
+                    setDropoffAddr(address);
+                    setDropoffCoords({ lat, lng });
+                    setMapCenter({ lat, lng });
+                  }}
+                  placeholder="Search dropoff address"
+                  userLocation={userLocation}
+                />
+              </div>
+              <div className="booking-field-actions">
+                <button onClick={() => openSavedPlaces('dropoff')} className="booking-action-link">
+                  Saved places
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="click-mode-toggle">
-            <button
-              className={clickMode === 'pickup' ? 'active' : ''}
-              onClick={() => setClickMode('pickup')}
-            >
-              Set Pickup
-            </button>
-            <button
-              className={clickMode === 'dropoff' ? 'active' : ''}
-              onClick={() => setClickMode('dropoff')}
-            >
-              Set Dropoff
-            </button>
+          <div className="booking-map-mode">
+            <p className="booking-map-hint">
+              Or click on the map to set your {clickMode} location
+              {pickupCoords && !dropoffCoords && ' (now set your dropoff)'}
+            </p>
+            <div className="click-mode-toggle">
+              <button
+                className={clickMode === 'pickup' ? 'active' : ''}
+                onClick={() => setClickMode('pickup')}
+              >
+                Set Pickup
+              </button>
+              <button
+                className={clickMode === 'dropoff' ? 'active' : ''}
+                onClick={() => setClickMode('dropoff')}
+              >
+                Set Dropoff
+              </button>
+            </div>
           </div>
-          <p className="map-hint">
-            Click on the map to set your {clickMode} location
-            {pickupCoords && !dropoffCoords && ' (now set your dropoff)'}
-          </p>
-
-          <BookingMap
-            pickupLocation={pickupCoords}
-            dropoffLocation={dropoffCoords}
-            onMapClick={handleMapClick}
-            centerLocation={userLocation}
-            userLocation={userLocation}
-            panTo={mapCenter}
-            routePath={routePath}
-            routeInfo={routeInfo}
-            routeLoading={routeLoading}
-            ridePhase="booking"
-            riderLocation={riderLocation}
-          />
 
           <div className="booking-actions">
-            <button onClick={handleBack}>Back</button>
             <button
               onClick={handleGetEstimate}
               disabled={!pickupCoords || !dropoffCoords || !pickupAddr.trim() || !dropoffAddr.trim() || loading}
             >
               {loading ? 'Calculating...' : 'Get Fare Estimate'}
             </button>
+          </div>
+        </div>
+
+        {/* Right Panel: Map */}
+        <div className="booking-map-panel">
+          <div className="uber-ridemap-wrapper">
+            <BookingMap
+              pickupLocation={pickupCoords}
+              dropoffLocation={dropoffCoords}
+              onMapClick={handleMapClick}
+              centerLocation={userLocation}
+              userLocation={userLocation}
+              panTo={mapCenter}
+              routePath={routePath}
+              routeInfo={routeInfo}
+              routeLoading={routeLoading}
+              ridePhase="booking"
+              riderLocation={riderLocation}
+              fullHeight
+            />
           </div>
         </div>
       </div>

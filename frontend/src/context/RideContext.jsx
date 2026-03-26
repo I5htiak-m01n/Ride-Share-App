@@ -211,8 +211,6 @@ export function RideProvider({ children }) {
       const res = await ridesAPI.getRiderActive();
       const data = res.data;
 
-      if (data.message) setStatusMessage(data.message);
-
       switch (data.phase) {
         case 'scheduled':
           // Rider has a scheduled ride — don't change phase, stay idle
@@ -269,6 +267,7 @@ export function RideProvider({ children }) {
         case 'idle':
         default:
           if (['searching', 'matched', 'in_progress'].includes(ridePhaseRef.current)) {
+            if (data.message) setStatusMessage(data.message);
             setRidePhase('idle');
             setActiveRequest(null);
             setActiveRide(null);
