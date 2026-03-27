@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { pool } = require("../db");
 const { authenticateToken, authorizeRoles } = require("../middleware/auth");
+const { avatarUpload } = require("../middleware/upload");
 
 // Get all users (admin only)
 router.get("/", authenticateToken, authorizeRoles("admin"), async (req, res) => {
@@ -76,9 +77,9 @@ router.put("/:userId", authenticateToken, async (req, res) => {
       updates.push(`phone_number = $${paramCount++}`);
       values.push(phone_number);
     }
-    if (avatar_url) {
+    if (avatar_url !== undefined) {
       updates.push(`avatar_url = $${paramCount++}`);
-      values.push(avatar_url);
+      values.push(avatar_url || null);
     }
 
     if (updates.length === 0) {
@@ -103,6 +104,39 @@ router.put("/:userId", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Update user error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Upload avatar
+router.post("/:userId/avatar", authenticateToken, (req, res, next) => {
+  avatarUpload(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({ error: "File too large. Maximum size is 10 MB." });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed" });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: "You can only update your own avatar" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "No image file provided" });
+    }
+    const avatarUrl = `/uploads/documents/${req.file.filename}`;
+    const result = await pool.query(
+      `UPDATE users SET avatar_url = $1 WHERE user_id = $2
+       RETURNING user_id, first_name, last_name, email, phone_number, avatar_url, created_at`,
+      [avatarUrl, userId]
+    );
+    res.json({ message: "Avatar updated", user: result.rows[0] });
+  } catch (error) {
+    console.error("Avatar upload error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

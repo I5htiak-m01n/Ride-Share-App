@@ -1,24 +1,95 @@
-/* ── Uber-style base reset ─────────────────────────────────── */
-:root {
-  --uber-black: #000000;
-  --uber-white: #FFFFFF;
-  --uber-gray-10: #F6F6F6;
-  --uber-gray-20: #EEEEEE;
-  --uber-gray-30: #E2E2E2;
-  --uber-gray-50: #6B6B6B;
-  --uber-gray-70: #333333;
-  --uber-green: #05944F;
-  --uber-blue: #276EF1;
-  --uber-red: #E11900;
-  --uber-font: 'UberMove', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --uber-radius: 8px;
-  --uber-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+/* ══════════════════════════════════════════════════════════════
+   Design System: High-Contrast Functionalism
+   Typography: Plus Jakarta Sans (display) + Inter (body)
+   Animation: Emil Kowalski philosophy — custom easing, sub-300ms
+   ══════════════════════════════════════════════════════════════ */
 
-  font-family: var(--uber-font);
+:root {
+  /* ── Surface Hierarchy (stacked sheets) ──────────────────── */
+  --surface:                 #f9f9f9;
+  --surface-container-low:   #f3f3f4;
+  --surface-container:       #eeeeee;
+  --surface-container-high:  #e8e8e8;
+  --surface-container-highest:#e2e2e2;
+  --surface-container-lowest:#ffffff;
+
+  /* ── Primary Palette ─────────────────────────────────────── */
+  --primary:                 #000000;
+  --primary-container:       #3b3b3b;
+  --on-primary:              #e2e2e2;
+  --on-surface:              #1a1c1c;
+  --on-surface-variant:      #474747;
+
+  /* ── Outline & Ghost Borders ─────────────────────────────── */
+  --outline:                 #777777;
+  --outline-variant:         #c6c6c6;
+  --ghost-border:            rgba(198, 198, 198, 0.20);
+
+  /* ── Semantic Colors ─────────────────────────────────────── */
+  --color-success:           #05944F;
+  --color-info:              #276EF1;
+  --color-error:             #ba1a1a;
+  --color-warning:           #F59E0B;
+
+  /* ── Legacy Uber aliases (for backward compat in components) */
+  --uber-black:              #000000;
+  --uber-white:              #FFFFFF;
+  --uber-gray-10:            #f3f3f4;
+  --uber-gray-20:            #eeeeee;
+  --uber-gray-30:            #e2e2e2;
+  --uber-gray-50:            #474747;
+  --uber-gray-70:            #3b3b3b;
+  --uber-green:              #05944F;
+  --uber-blue:               #276EF1;
+  --uber-red:                #ba1a1a;
+
+  /* ── Typography ──────────────────────────────────────────── */
+  --font-display:            'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body:               'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --uber-font:               var(--font-body);
+
+  /* ── Spacing Scale ───────────────────────────────────────── */
+  --space-0:                 0;
+  --space-1:                 0.25rem;
+  --space-2:                 0.5rem;
+  --space-3:                 0.75rem;
+  --space-4:                 1rem;
+  --space-6:                 1.5rem;
+  --space-8:                 2rem;
+  --space-12:                3rem;
+  --space-16:                4rem;
+  --space-20:                5rem;
+
+  /* ── Radius ──────────────────────────────────────────────── */
+  --radius-sm:               0.25rem;
+  --radius-md:               0.5rem;
+  --radius-lg:               0.75rem;
+  --radius-xl:               1rem;
+  --radius-2xl:              1.25rem;
+  --radius-full:             500px;
+  --uber-radius:             var(--radius-md);
+
+  /* ── Elevation (Whisper Shadows) ─────────────────────────── */
+  --shadow-sm:               0 1px 3px rgba(26, 28, 28, 0.04);
+  --shadow-md:               0 4px 20px rgba(26, 28, 28, 0.05);
+  --shadow-lg:               0 8px 40px rgba(26, 28, 28, 0.06);
+  --shadow-xl:               0 20px 60px rgba(26, 28, 28, 0.08);
+  --uber-shadow:             var(--shadow-md);
+
+  /* ── Animation (Emil Kowalski) ───────────────────────────── */
+  --ease-out:                cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out:             cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer:             cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast:           120ms;
+  --duration-normal:         180ms;
+  --duration-slow:           280ms;
+
+  /* ── Root Defaults ───────────────────────────────────────── */
+  font-family: var(--font-body);
   line-height: 1.5;
   font-weight: 400;
-  color: var(--uber-black);
-  background-color: var(--uber-white);
+  color: var(--on-surface);
+  background-color: var(--surface);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -35,8 +106,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: var(--uber-white);
-  color: var(--uber-black);
+  background-color: var(--surface);
+  color: var(--on-surface);
 }
 
 #root {
@@ -44,8 +115,9 @@ body {
   width: 100%;
 }
 
+/* ── Links ───────────────────────────────────────────────── */
 a {
-  color: var(--uber-black);
+  color: var(--primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -54,8 +126,9 @@ a:hover {
   text-decoration: underline;
 }
 
+/* ── Buttons ─────────────────────────────────────────────── */
 button {
-  font-family: var(--uber-font);
+  font-family: var(--font-body);
   cursor: pointer;
   border: none;
   outline: none;
@@ -63,18 +136,22 @@ button {
 }
 
 button:focus-visible {
-  outline: 2px solid var(--uber-black);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
+/* ── Inputs ──────────────────────────────────────────────── */
 input, select, textarea {
-  font-family: var(--uber-font);
+  font-family: var(--font-body);
 }
 
+/* ── Typography ──────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
-  line-height: 1.2;
+  font-family: var(--font-display);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
-h1 { font-size: 36px; font-weight: 700; }
-h2 { font-size: 28px; font-weight: 700; }
-h3 { font-size: 20px; font-weight: 600; }
+h1 { font-size: 2.25rem; font-weight: 800; }
+h2 { font-size: 1.75rem; font-weight: 700; }
+h3 { font-size: 1.25rem; font-weight: 600; }

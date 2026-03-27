@@ -1,12 +1,15 @@
-/* ── Homepage — Uber-style Landing ─────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   Homepage — High-Contrast Functionalism Landing
+   Gradient CTAs · Plus Jakarta Sans · Custom Easing
+   ══════════════════════════════════════════════════════════════ */
 
 .homepage {
   width: 100%;
-  background: var(--uber-black);
-  color: var(--uber-white);
+  background: var(--primary);
+  color: var(--on-primary);
 }
 
-/* ── Navbar ────────────────────────────────────────────────── */
+/* ── Navbar (Glassmorphism) ───────────────────────────────── */
 
 .homepage-nav {
   position: fixed;
@@ -19,16 +22,17 @@
   justify-content: space-between;
   padding: 0 48px;
   height: 72px;
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.80);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .homepage-nav-brand {
   font-size: 22px;
   font-weight: 700;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
   letter-spacing: -0.3px;
+  font-family: var(--font-display);
 }
 
 .homepage-nav-links {
@@ -41,16 +45,21 @@
   padding: 10px 20px;
   font-size: 15px;
   font-weight: 500;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
   background: transparent;
   border: none;
-  border-radius: 500px;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--duration-normal) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
 }
 
 .homepage-nav-link:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.homepage-nav-link:active {
+  transform: scale(0.97);
 }
 
 .homepage-nav-link.inert {
@@ -72,17 +81,21 @@
   justify-content: center;
   text-align: center;
   padding: 120px 48px 80px;
-  background: var(--uber-black);
+  background: var(--primary);
 }
 
 .homepage-hero h1 {
   font-size: 72px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.05;
   letter-spacing: -2px;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
   max-width: 800px;
   margin-bottom: 24px;
+  font-family: var(--font-display);
+  opacity: 0;
+  transform: translateY(12px);
+  animation: heroFadeIn 600ms var(--ease-out) forwards;
 }
 
 .homepage-hero p {
@@ -91,6 +104,17 @@
   max-width: 520px;
   line-height: 1.6;
   margin-bottom: 48px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: heroFadeIn 600ms var(--ease-out) forwards;
+  animation-delay: 80ms;
+}
+
+@keyframes heroFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .homepage-cta-btn {
@@ -98,22 +122,27 @@
   align-items: center;
   gap: 8px;
   padding: 18px 40px;
-  background: var(--uber-white);
-  color: var(--uber-black);
+  background: var(--surface-container-lowest);
+  color: var(--on-surface);
   border: none;
-  border-radius: 500px;
+  border-radius: var(--radius-full);
   font-size: 18px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s, transform 0.1s;
+  transition: background-color var(--duration-normal) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+  opacity: 0;
+  transform: translateY(12px);
+  animation: heroFadeIn 600ms var(--ease-out) forwards;
+  animation-delay: 160ms;
 }
 
 .homepage-cta-btn:hover {
-  background: #e5e5e5;
+  background: var(--surface-container-high);
 }
 
 .homepage-cta-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 /* ── How It Works ──────────────────────────────────────────── */
@@ -132,7 +161,8 @@
   font-size: 44px;
   font-weight: 700;
   letter-spacing: -1px;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
+  font-family: var(--font-display);
 }
 
 .homepage-steps-grid {
@@ -146,6 +176,19 @@
 .homepage-step {
   text-align: center;
   padding: 0 16px;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: stepFadeIn 400ms var(--ease-out) forwards;
+}
+.homepage-step:nth-child(1) { animation-delay: 0ms; }
+.homepage-step:nth-child(2) { animation-delay: 60ms; }
+.homepage-step:nth-child(3) { animation-delay: 120ms; }
+
+@keyframes stepFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .homepage-step-number {
@@ -156,18 +199,19 @@
   height: 64px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 24px;
   font-weight: 700;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
   margin-bottom: 28px;
+  font-family: var(--font-display);
 }
 
 .homepage-step h3 {
   font-size: 22px;
   font-weight: 600;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
   margin-bottom: 12px;
+  font-family: var(--font-display);
 }
 
 .homepage-step p {
@@ -193,8 +237,9 @@
   font-size: 44px;
   font-weight: 700;
   letter-spacing: -1px;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
   margin-bottom: 16px;
+  font-family: var(--font-display);
 }
 
 .homepage-driver p {
@@ -211,37 +256,54 @@
   gap: 8px;
   padding: 16px 36px;
   background: transparent;
-  color: var(--uber-white);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 500px;
+  color: var(--surface-container-lowest);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition: background-color var(--duration-normal) var(--ease-out),
+              border-color var(--duration-normal) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
 }
 
 .homepage-driver-btn:hover {
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.homepage-driver-btn:active {
+  transform: scale(0.97);
 }
 
 /* ── Footer ────────────────────────────────────────────────── */
 
 .homepage-footer {
   padding: 48px;
-  background: var(--uber-black);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--primary);
   text-align: center;
 }
 
 .homepage-footer-brand {
   font-size: 18px;
   font-weight: 700;
-  color: var(--uber-white);
+  color: var(--surface-container-lowest);
   margin-bottom: 8px;
+  font-family: var(--font-display);
 }
 
 .homepage-footer p {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Reduced Motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

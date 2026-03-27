@@ -21,7 +21,7 @@ const fileFilter = (_req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
 const onboardingUpload = upload.fields([
@@ -36,4 +36,6 @@ const vehicleUpload = upload.fields([
   { name: "insurance_file", maxCount: 1 },
 ]);
 
-module.exports = { onboardingUpload, vehicleUpload };
+const avatarUpload = upload.single("avatar");
+
+module.exports = { onboardingUpload, vehicleUpload, avatarUpload };

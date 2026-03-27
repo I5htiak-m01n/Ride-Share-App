@@ -112,6 +112,13 @@ export const userAPI = {
   getUser: (userId) => api.get(`/users/${userId}`),
   updateUser: (userId, data) => api.put(`/users/${userId}`, data),
   getAllUsers: () => api.get('/users'),
+  uploadAvatar: (userId, file) => {
+    const fd = new FormData();
+    fd.append('avatar', file);
+    return api.post(`/users/${userId}/avatar`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Rides API

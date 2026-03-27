@@ -102,6 +102,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = (fields) => {
+    setUser((prev) => {
+      const merged = { ...prev, ...fields };
+      if (fields.first_name || fields.last_name) {
+        merged.name = `${merged.first_name || ''} ${merged.last_name || ''}`.trim();
+      }
+      sessionStorage.setItem('user', JSON.stringify(merged));
+      return merged;
+    });
+  };
+
   const value = {
     user,
     loading,
@@ -109,6 +120,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUser,
     isAuthenticated: !!user,
   };
 

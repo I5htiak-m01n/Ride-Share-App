@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
+
 function UserDropdown({ onLogout, ratingAvg, ratingCount }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -12,6 +14,7 @@ function UserDropdown({ onLogout, ratingAvg, ratingCount }) {
   const initial = (user?.first_name || user?.name || 'U').charAt(0).toUpperCase();
   const role = user?.role || 'rider';
   const hasRating = ratingAvg !== null && ratingAvg !== undefined;
+  const avatarUrl = user?.avatar_url ? `${API_BASE}${user.avatar_url}` : null;
 
   // Close on outside click
   useEffect(() => {
@@ -109,7 +112,9 @@ function UserDropdown({ onLogout, ratingAvg, ratingCount }) {
         aria-expanded={open}
         aria-haspopup="true"
       >
-        <div className="user-dropdown-trigger-avatar">{initial}</div>
+        <div className="user-dropdown-trigger-avatar">
+          {avatarUrl ? <img src={avatarUrl} alt="" className="user-dropdown-avatar-img" /> : initial}
+        </div>
         <span className="user-dropdown-trigger-name">{displayName}</span>
         <svg
           className={`user-dropdown-chevron${open ? ' user-dropdown-chevron--open' : ''}`}
@@ -129,7 +134,9 @@ function UserDropdown({ onLogout, ratingAvg, ratingCount }) {
       {open && (
         <div className="user-dropdown-panel" role="menu">
           <div className="user-dropdown-header">
-            <div className="user-dropdown-avatar">{initial}</div>
+            <div className="user-dropdown-avatar">
+              {avatarUrl ? <img src={avatarUrl} alt="" className="user-dropdown-avatar-img" /> : initial}
+            </div>
             <div className="user-dropdown-header-info">
               <div className="user-dropdown-name">{displayName}</div>
               {user?.email && (
