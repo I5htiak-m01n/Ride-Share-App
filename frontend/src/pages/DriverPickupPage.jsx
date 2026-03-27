@@ -132,12 +132,14 @@ function DriverPickupPage() {
                 <strong>{activeRide.estimated_fare} BDT</strong>
               </div>
 
-              {/* Proximity info — driver to pickup */}
-              {proximityToPickup && (
+              {/* Proximity info — driver to pickup (prefer route-based eta) */}
+              {(eta || proximityToPickup) && (
                 <div className="ride-detail-row">
                   <span>You → Pickup</span>
-                  <strong style={{ color: proximityToPickup.withinProximity ? '#05944F' : '#E11900' }}>
-                    {formatDistance(proximityToPickup.distance)} (~{proximityToPickup.time} min)
+                  <strong style={{ color: proximityToPickup?.withinProximity ? '#05944F' : '#E11900' }}>
+                    {eta?.remaining_meters != null
+                      ? `${formatDistance(eta.remaining_meters)} (~${eta.remaining_text})`
+                      : `${formatDistance(proximityToPickup.distance)} (~${proximityToPickup.time} min)`}
                   </strong>
                 </div>
               )}

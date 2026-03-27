@@ -124,7 +124,7 @@ function RiderRidePage() {
                   {eta && (
                     <div className="ride-detail-row">
                       <span>ETA</span>
-                      <strong>{eta}</strong>
+                      <strong>{eta?.remaining_text ?? ''}</strong>
                     </div>
                   )}
 

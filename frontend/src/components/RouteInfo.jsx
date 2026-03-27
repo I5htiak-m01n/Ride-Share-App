@@ -3,12 +3,17 @@
  *
  * Props:
  *   routeInfo    – { distance_text, duration_text }
- *   eta          – { remaining_text, progress_percent } (optional, for active rides)
+ *   eta          – { remaining_text, remaining_meters, progress_percent } (optional, for active rides)
  *   wasRerouted  – Boolean, show reroute indicator
  *   loading      – Boolean, show loading state
  *   style        – Additional styles for the container
  *   compact      – Boolean, show minimal version
  */
+function formatRemainingDistance(meters) {
+  if (meters == null) return null;
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
 function RouteInfo({ routeInfo, eta, wasRerouted, loading, style, compact = false }) {
   if (loading) {
     return (
@@ -29,7 +34,7 @@ function RouteInfo({ routeInfo, eta, wasRerouted, loading, style, compact = fals
         </span>
         <span style={styles.compactDivider}>·</span>
         <span style={styles.compactText}>
-          {routeInfo.distance_text}
+          {formatRemainingDistance(eta?.remaining_meters) || routeInfo.distance_text}
         </span>
         {wasRerouted && <span style={styles.rerouteChip}>Rerouted</span>}
       </div>
@@ -51,9 +56,9 @@ function RouteInfo({ routeInfo, eta, wasRerouted, loading, style, compact = fals
         <div style={styles.divider} />
         <div style={styles.distanceBlock}>
           <div style={styles.distanceText}>
-            {routeInfo.distance_text}
+            {formatRemainingDistance(eta?.remaining_meters) || routeInfo.distance_text}
           </div>
-          <div style={styles.label}>Distance</div>
+          <div style={styles.label}>{eta ? 'Distance remaining' : 'Distance'}</div>
         </div>
       </div>
 

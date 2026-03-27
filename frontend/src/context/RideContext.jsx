@@ -34,7 +34,7 @@ export function RideProvider({ children }) {
   const {
     routePath, routeInfo, routeLoading, eta, wasRerouted,
     fetchRoutePreview, fetchRideRoute, clearRoute,
-    stopRouteChecking,
+    startRouteChecking, stopRouteChecking,
   } = useRoute();
 
   const saved = useMemo(() => loadSavedState(), []);
@@ -61,6 +61,9 @@ export function RideProvider({ children }) {
 
   // Live driver location (from poll) and rider location tracking
   const [driverLocation, setDriverLocation] = useState(null);
+  const driverLocationRef = useRef(null);
+  const routeCheckingActiveRef = useRef(false);
+  useEffect(() => { driverLocationRef.current = driverLocation; }, [driverLocation]);
   const [riderLocation, setRiderLocation] = useState(null);
   const riderWatchIdRef = useRef(null);
   const riderSyncIntervalRef = useRef(null);
@@ -223,20 +226,34 @@ export function RideProvider({ children }) {
           setRidePhase('matched');
           setActiveRide(data.ride);
           setActiveRequest(data.request);
-          if (data.driver_location) setDriverLocation(data.driver_location);
+          if (data.driver_location) {
+            setDriverLocation(data.driver_location);
+            driverLocationRef.current = data.driver_location;
+          }
           if (data.ride?.ride_id) {
             fetchRideRoute(data.ride.ride_id);
             startRiderLocationTracking();
+            if (!routeCheckingActiveRef.current) {
+              startRouteChecking(data.ride.ride_id, () => driverLocationRef.current);
+              routeCheckingActiveRef.current = true;
+            }
           }
           break;
         case 'in_progress':
           setRidePhase('in_progress');
           setActiveRide(data.ride);
           setActiveRequest(data.request);
-          if (data.driver_location) setDriverLocation(data.driver_location);
+          if (data.driver_location) {
+            setDriverLocation(data.driver_location);
+            driverLocationRef.current = data.driver_location;
+          }
           if (data.ride?.ride_id) {
             fetchRideRoute(data.ride.ride_id);
             startRiderLocationTracking();
+            if (!routeCheckingActiveRef.current) {
+              startRouteChecking(data.ride.ride_id, () => driverLocationRef.current);
+              routeCheckingActiveRef.current = true;
+            }
           }
           break;
         case 'completed':
@@ -250,6 +267,7 @@ export function RideProvider({ children }) {
             }
             stopPolling();
             stopRouteChecking();
+            routeCheckingActiveRef.current = false;
             clearRoute();
             stopRiderLocationTracking();
             setDriverLocation(null);
@@ -283,6 +301,7 @@ export function RideProvider({ children }) {
             stopRiderLocationTracking();
             setDriverLocation(null);
             clearRoute();
+            routeCheckingActiveRef.current = false;
             sessionStorage.removeItem(STORAGE_KEY);
           }
           break;
@@ -290,7 +309,7 @@ export function RideProvider({ children }) {
     } catch (err) {
       console.error('checkActiveRide error:', err);
     }
-  }, [stopPolling, clearRoute, fetchRideRoute, fetchWalletBalance, stopRouteChecking]);
+  }, [stopPolling, clearRoute, fetchRideRoute, fetchWalletBalance, startRouteChecking, stopRouteChecking]);
 
   const startPolling = useCallback(() => {
     stopPolling();
@@ -586,6 +605,7 @@ export function RideProvider({ children }) {
       stopRiderLocationTracking();
       clearRoute();
       stopRouteChecking();
+      routeCheckingActiveRef.current = false;
       sessionStorage.removeItem(STORAGE_KEY);
     } catch (err) {
       setCancelLoading(false);
@@ -614,6 +634,7 @@ export function RideProvider({ children }) {
     stopRiderLocationTracking();
     clearRoute();
     stopRouteChecking();
+    routeCheckingActiveRef.current = false;
     sessionStorage.removeItem(STORAGE_KEY);
   }, [stopPolling, stopRiderLocationTracking, clearRoute, stopRouteChecking, fetchWalletBalance]);
 

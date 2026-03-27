@@ -147,8 +147,14 @@ export function RouteProvider({ children }) {
    */
   const startRouteChecking = useCallback((rideId, getDriverLocation) => {
     stopRouteChecking();
+    // Immediate first check so ETA/distance are available right away
+    const getLoc = () => typeof getDriverLocation === 'function' ? getDriverLocation() : getDriverLocation;
+    const loc = getLoc();
+    if (loc?.lat && loc?.lng) {
+      checkRouteProgress(rideId, loc.lat, loc.lng);
+    }
     routeCheckIntervalRef.current = setInterval(async () => {
-      const loc = typeof getDriverLocation === 'function' ? getDriverLocation() : getDriverLocation;
+      const loc = getLoc();
       if (loc?.lat && loc?.lng) {
         await checkRouteProgress(rideId, loc.lat, loc.lng);
       }

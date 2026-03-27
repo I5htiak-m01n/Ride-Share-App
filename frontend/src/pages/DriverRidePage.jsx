@@ -115,19 +115,21 @@ function DriverRidePage() {
                 <span>Status</span>
                 <strong style={{ color: '#05944F' }}>Ride started</strong>
               </div>
-              {/* Distance to dropoff during ride */}
-              {distanceToDropoff !== null && (
+              {/* Distance to dropoff during ride — prefer route-based ETA distance */}
+              {(eta?.remaining_meters != null || distanceToDropoff !== null) && (
                 <div className="ride-detail-row">
                   <span>Distance to dropoff</span>
-                  <strong style={{ color: distanceToDropoff <= 100 ? '#05944F' : '#E11900' }}>
-                    {formatDistance(distanceToDropoff)}
+                  <strong style={{ color: (distanceToDropoff !== null && distanceToDropoff <= 100) ? '#05944F' : '#E11900' }}>
+                    {eta?.remaining_meters != null
+                      ? formatDistance(eta.remaining_meters)
+                      : formatDistance(distanceToDropoff)}
                   </strong>
                 </div>
               )}
               {eta && (
                 <div className="ride-detail-row">
                   <span>ETA</span>
-                  <strong>{eta}</strong>
+                  <strong>{eta?.remaining_text ?? ''}</strong>
                 </div>
               )}
 

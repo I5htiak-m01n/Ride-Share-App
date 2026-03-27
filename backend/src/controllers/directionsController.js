@@ -308,6 +308,17 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
 }
 
 /**
+ * Sum of haversine distances between consecutive polyline points from fromIdx to toIdx.
+ */
+function polylineDistance(pts, fromIdx, toIdx) {
+  let dist = 0;
+  for (let i = fromIdx; i < toIdx; i++) {
+    dist += haversineDistance(pts[i].lat, pts[i].lng, pts[i + 1].lat, pts[i + 1].lng);
+  }
+  return dist;
+}
+
+/**
  * POST /api/rides/:id/check-route
  * Check if driver is off-route and trigger reroute if needed.
  * Body: { driver_lat, driver_lng }
@@ -321,6 +332,24 @@ const checkAndReroute = async (req, res) => {
   }
 
   try {
+    // Get ride status and pickup coords (needed for phase-aware calculations)
+    const rideResult = await pool.query(
+      `SELECT status,
+              ST_Y(pickup_location::geometry) AS pickup_lat,
+              ST_X(pickup_location::geometry) AS pickup_lng,
+              ST_Y(dropoff_location::geometry) AS dropoff_lat,
+              ST_X(dropoff_location::geometry) AS dropoff_lng
+       FROM rides WHERE ride_id = $1`,
+      [rideId]
+    );
+
+    if (rideResult.rows.length === 0) {
+      return res.status(404).json({ error: "Ride not found" });
+    }
+
+    const { status: rideStatus, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng } = rideResult.rows[0];
+    const isPickupPhase = rideStatus === "driver_assigned";
+
     // Get latest route for this ride
     const routeResult = await pool.query(
       `SELECT overview_polyline, duration_seconds, distance_meters
@@ -339,8 +368,10 @@ const checkAndReroute = async (req, res) => {
     const offRoute = isOffRoute(parseFloat(driver_lat), parseFloat(driver_lng), overview_polyline, 100);
 
     if (!offRoute) {
-      // Calculate approximate remaining distance/time
+      // Phase-aware remaining distance/time calculation
       const points = decodePolyline(overview_polyline);
+
+      // Find driver's closest point on polyline
       let closestIdx = 0;
       let minDist = Infinity;
       for (let i = 0; i < points.length; i++) {
@@ -350,9 +381,35 @@ const checkAndReroute = async (req, res) => {
           closestIdx = i;
         }
       }
-      const progressRatio = closestIdx / Math.max(points.length - 1, 1);
-      const remainingSeconds = Math.round(duration_seconds * (1 - progressRatio));
-      const remainingMeters = Math.round(distance_meters * (1 - progressRatio));
+
+      // Find pickup point's index on polyline (boundary between leg 1 and leg 2)
+      let pickupIdx = 0;
+      let minPickupDist = Infinity;
+      for (let i = 0; i < points.length; i++) {
+        const d = haversineDistance(parseFloat(pickup_lat), parseFloat(pickup_lng), points[i].lat, points[i].lng);
+        if (d < minPickupDist) {
+          minPickupDist = d;
+          pickupIdx = i;
+        }
+      }
+
+      // Phase-aware remaining distance using actual polyline distances
+      const destIdx = isPickupPhase ? pickupIdx : points.length - 1;
+      const effectiveClosestIdx = Math.min(closestIdx, destIdx);
+
+      const remainingMeters = Math.round(polylineDistance(points, effectiveClosestIdx, destIdx));
+      const segmentStartIdx = isPickupPhase ? 0 : pickupIdx;
+      const segmentTotalMeters = polylineDistance(points, segmentStartIdx, destIdx);
+      const progressInSegment = segmentTotalMeters > 0
+        ? Math.max(0, Math.min(1, 1 - (remainingMeters / segmentTotalMeters)))
+        : 1;
+
+      // Estimate remaining time proportionally from total route duration
+      const totalPolylineDist = polylineDistance(points, 0, points.length - 1);
+      const segmentDurationShare = totalPolylineDist > 0
+        ? (segmentTotalMeters / totalPolylineDist) * duration_seconds
+        : duration_seconds;
+      const remainingSeconds = Math.round(segmentDurationShare * (1 - progressInSegment));
 
       return res.json({
         on_route: true,
@@ -360,29 +417,13 @@ const checkAndReroute = async (req, res) => {
         remaining_seconds: remainingSeconds,
         remaining_meters: remainingMeters,
         remaining_text: formatDuration(remainingSeconds),
-        progress_percent: Math.round(progressRatio * 100),
+        progress_percent: Math.round(progressInSegment * 100),
       });
     }
 
     // Off route — trigger reroute (phase-aware)
-    const rideResult = await pool.query(
-      `SELECT status,
-              ST_Y(pickup_location::geometry) AS pickup_lat,
-              ST_X(pickup_location::geometry) AS pickup_lng,
-              ST_Y(dropoff_location::geometry) AS dropoff_lat,
-              ST_X(dropoff_location::geometry) AS dropoff_lng
-       FROM rides WHERE ride_id = $1`,
-      [rideId]
-    );
-
-    if (rideResult.rows.length === 0) {
-      return res.status(404).json({ error: "Ride not found" });
-    }
-
-    const { status: rideStatus, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng } = rideResult.rows[0];
-
     // If driver_assigned, route driver→pickup→dropoff; if started, route driver→dropoff
-    const waypoints = rideStatus === "driver_assigned"
+    const waypoints = isPickupPhase
       ? [{ lat: parseFloat(pickup_lat), lng: parseFloat(pickup_lng) }]
       : [];
 
@@ -406,14 +447,22 @@ const checkAndReroute = async (req, res) => {
       is_reroute: true,
     });
 
+    // For pickup phase with 2 legs, return only leg 1 (driver→pickup) remaining values
+    const relevantDistance = isPickupPhase && directions.legs?.length > 1
+      ? directions.legs[0].distance_meters
+      : directions.distance_meters;
+    const relevantDuration = isPickupPhase && directions.legs?.length > 1
+      ? directions.legs[0].duration_seconds
+      : directions.duration_seconds;
+
     res.json({
       on_route: false,
       rerouted: true,
       route: routeRow,
       directions,
-      remaining_seconds: directions.duration_seconds,
-      remaining_meters: directions.distance_meters,
-      remaining_text: directions.duration_text,
+      remaining_seconds: relevantDuration,
+      remaining_meters: relevantDistance,
+      remaining_text: formatDuration(relevantDuration),
       progress_percent: 0,
     });
   } catch (err) {

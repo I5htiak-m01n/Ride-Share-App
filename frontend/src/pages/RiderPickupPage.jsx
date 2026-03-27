@@ -96,6 +96,34 @@ function RiderPickupPage() {
     return { distance: dist, time: estimateTime(dist / 1000) };
   }, [ridePhase, userLocation, activeRequest]);
 
+  // Route-based rider→pickup distance (fetched from directions API)
+  const [riderRouteToPickup, setRiderRouteToPickup] = useState(null);
+  const lastRiderRouteFetchRef = useRef(0);
+
+  useEffect(() => {
+    if (ridePhase !== 'matched' || !userLocation || !activeRequest?.pickup_lat) return;
+    // Throttle: skip if last fetch was < 30s ago
+    const now = Date.now();
+    if (now - lastRiderRouteFetchRef.current < 30000) return;
+    lastRiderRouteFetchRef.current = now;
+
+    let cancelled = false;
+    ridesAPI.getDirections(
+      userLocation.lat, userLocation.lng,
+      parseFloat(activeRequest.pickup_lat), parseFloat(activeRequest.pickup_lng),
+      'walking'
+    ).then((res) => {
+      if (!cancelled && res.data.route) {
+        setRiderRouteToPickup({
+          distance: res.data.route.distance_meters,
+          distance_text: res.data.route.distance_text,
+          duration_text: res.data.route.duration_text,
+        });
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [ridePhase, userLocation, activeRequest]);
+
   if (!activeRide) return null;
 
   return (
@@ -169,16 +197,24 @@ function RiderPickupPage() {
                 <span>Status</span>
                 <strong style={{ color: '#05944F' }}>Driver is on the way</strong>
               </div>
-              {driverToPickupInfo && (
+              {(eta || driverToPickupInfo) && (
                 <div className="ride-detail-row">
                   <span>Driver ETA</span>
-                  <strong>{formatDistance(driverToPickupInfo.distance)} (~{driverToPickupInfo.time} min)</strong>
+                  <strong>
+                    {eta?.remaining_meters != null
+                      ? `${formatDistance(eta.remaining_meters)} (~${eta.remaining_text})`
+                      : `${formatDistance(driverToPickupInfo.distance)} (~${driverToPickupInfo.time} min)`}
+                  </strong>
                 </div>
               )}
-              {riderToPickupInfo && (
+              {(riderRouteToPickup || riderToPickupInfo) && (
                 <div className="ride-detail-row">
                   <span>You → Pickup</span>
-                  <strong>{formatDistance(riderToPickupInfo.distance)} (~{riderToPickupInfo.time} min)</strong>
+                  <strong>
+                    {riderRouteToPickup
+                      ? `${riderRouteToPickup.distance_text} (~${riderRouteToPickup.duration_text})`
+                      : `${formatDistance(riderToPickupInfo.distance)} (~${riderToPickupInfo.time} min)`}
+                  </strong>
                 </div>
               )}
 

@@ -305,10 +305,9 @@ function RideMap({
           eta={eta}
           wasRerouted={wasRerouted}
           loading={routeLoading}
-          compact
           style={{
             position: 'absolute',
-            top: '14px',
+            bottom: '12px',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 5,
