@@ -116,8 +116,13 @@ const respondToTicket = async (req, res) => {
     if (status && allowedStatuses.includes(status)) {
       if (status === "resolved" || status === "closed") {
         await client.query(
-          `UPDATE support_tickets SET status = $1, closed_at = NOW() WHERE ticket_id = $2`,
-          [status, ticketId]
+          `UPDATE support_tickets SET status = 'resolved', closed_at = NOW() WHERE ticket_id = $1`,
+          [ticketId]
+        );
+        // Also resolve the linked complaint if one exists
+        await client.query(
+          `UPDATE complaints SET status = 'resolved' WHERE ticket_id = $1`,
+          [ticketId]
         );
       } else {
         await client.query(

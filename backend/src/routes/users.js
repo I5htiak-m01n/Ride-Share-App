@@ -1,8 +1,11 @@
 const express = require("express");
 const router = express.Router();
+const bcrypt = require("bcrypt");
 const { pool } = require("../db");
 const { authenticateToken, authorizeRoles } = require("../middleware/auth");
 const { avatarUpload } = require("../middleware/upload");
+
+const BCRYPT_SALT_ROUNDS = 12;
 
 // Get all users (admin only)
 router.get("/", authenticateToken, authorizeRoles("admin"), async (req, res) => {
@@ -137,6 +140,45 @@ router.post("/:userId/avatar", authenticateToken, (req, res, next) => {
     res.json({ message: "Avatar updated", user: result.rows[0] });
   } catch (error) {
     console.error("Avatar upload error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Change password (own account only)
+router.post("/:userId/change-password", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+  const { current_password, new_password } = req.body;
+
+  if (req.user.id !== userId) {
+    return res.status(403).json({ error: "You can only change your own password" });
+  }
+  if (!current_password || !new_password) {
+    return res.status(400).json({ error: "Current and new password are required" });
+  }
+  if (new_password.length < 6) {
+    return res.status(400).json({ error: "New password must be at least 6 characters" });
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT password_hash FROM users WHERE user_id = $1",
+      [userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const valid = await bcrypt.compare(current_password, result.rows[0].password_hash);
+    if (!valid) {
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+
+    const newHash = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
+    await pool.query("UPDATE users SET password_hash = $1 WHERE user_id = $2", [newHash, userId]);
+
+    res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

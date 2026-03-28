@@ -22,6 +22,13 @@ function ProfileSettings() {
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwError, setPwError] = useState(null);
+  const [pwSuccess, setPwSuccess] = useState(null);
+  const [pwLoading, setPwLoading] = useState(false);
+
   const initial = (user?.first_name || '?')[0].toUpperCase();
 
   const fullAvatarUrl = avatarPreview || (avatarUrl ? `${API_BASE}${avatarUrl}` : null);
@@ -93,6 +100,28 @@ function ProfileSettings() {
       setError(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setPwError('New passwords do not match');
+      return;
+    }
+    setPwError(null);
+    setPwSuccess(null);
+    setPwLoading(true);
+    try {
+      await userAPI.changePassword(user.user_id, currentPassword, newPassword);
+      setPwSuccess('Password changed successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setPwError(err.response?.data?.error || 'Failed to change password');
+    } finally {
+      setPwLoading(false);
     }
   };
 
@@ -222,6 +251,56 @@ function ProfileSettings() {
               disabled={loading}
             >
               {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </form>
+          {/* Change Password */}
+          <form className="profile-form" style={{ marginTop: 24 }} onSubmit={handleChangePassword}>
+            <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+              Change Password
+            </h3>
+
+            {pwError && <div className="error-banner">{pwError}</div>}
+            {pwSuccess && <div className="info-banner">{pwSuccess}</div>}
+
+            <div className="form-group">
+              <label>Current Password</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Confirm New Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat new password"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="profile-save-btn"
+              disabled={pwLoading}
+            >
+              {pwLoading ? 'Updating...' : 'Update Password'}
             </button>
           </form>
         </div>

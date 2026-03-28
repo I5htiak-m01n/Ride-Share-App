@@ -112,6 +112,8 @@ export const userAPI = {
   getUser: (userId) => api.get(`/users/${userId}`),
   updateUser: (userId, data) => api.put(`/users/${userId}`, data),
   getAllUsers: () => api.get('/users'),
+  changePassword: (userId, current_password, new_password) =>
+    api.post(`/users/${userId}/change-password`, { current_password, new_password }),
   uploadAvatar: (userId, file) => {
     const fd = new FormData();
     fd.append('avatar', file);

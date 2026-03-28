@@ -1033,6 +1033,16 @@
   box-shadow: var(--shadow-sm);
 }
 
+.profile-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.profile-form .form-row .form-group {
+  min-width: 0;
+}
+
 .profile-form .form-group {
   display: flex;
   flex-direction: column;
