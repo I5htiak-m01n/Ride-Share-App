@@ -5,7 +5,7 @@ const { pool } = require("../db");
 const { authenticateToken, authorizeRoles } = require("../middleware/auth");
 const { avatarUpload } = require("../middleware/upload");
 
-const BCRYPT_SALT_ROUNDS = 12;
+const BCRYPT_SALT_ROUNDS = 10;
 
 // Get all users (admin only)
 router.get("/", authenticateToken, authorizeRoles("admin"), async (req, res) => {

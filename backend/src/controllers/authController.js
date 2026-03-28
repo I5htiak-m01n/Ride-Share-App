@@ -173,7 +173,7 @@ const login = async (req, res) => {
 
     // Query user by email (including password hash)
     const userResult = await client.query(
-      `SELECT user_id, first_name, last_name, email, password_hash, role, phone_number, is_banned, created_at
+      `SELECT user_id, first_name, last_name, email, password_hash, role, phone_number, avatar_url, is_banned, created_at
        FROM users
        WHERE email = $1`,
       [email]
@@ -248,6 +248,7 @@ const login = async (req, res) => {
         name: `${user.first_name} ${user.last_name}`,
         role: user.role,
         phone_number: user.phone_number,
+        avatar_url: user.avatar_url,
       },
       access_token: accessToken,
       refresh_token: refreshToken,
