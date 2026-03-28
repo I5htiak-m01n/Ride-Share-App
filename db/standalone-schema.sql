@@ -81,7 +81,7 @@ create table if not exists transactions (
   currency text not null default 'BDT',
   gateway_ref text,
   status text not null check (status in ('pending','succeeded','failed','reversed')),
-  type text not null check (type in ('wallet_topup','ride_payment','refund_payout','platform_fee')),
+  type text not null check (type in ('wallet_topup','ride_payment','refund_payout','platform_fee','wallet_withdrawal')),
   ts timestamptz not null default now(),
   invoice_id uuid
 );

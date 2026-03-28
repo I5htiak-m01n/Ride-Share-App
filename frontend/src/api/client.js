@@ -227,6 +227,7 @@ export const walletAPI = {
   getTransactions: (limit = 20, offset = 0) =>
     api.get(`/wallet/transactions?limit=${limit}&offset=${offset}`),
   topUp: (amount) => api.post('/wallet/topup', { amount }),
+  withdraw: (amount) => api.post('/wallet/withdraw', { amount }),
   validatePromo: (promo_code, estimated_fare) =>
     api.post('/wallet/validate-promo', { promo_code, estimated_fare }),
   getEarningsSummary: () => api.get('/wallet/earnings-summary'),

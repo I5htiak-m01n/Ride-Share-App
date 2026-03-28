@@ -1,0 +1,92 @@
+/* ══════════════════════════════════════════════════════════════
+   About Page — High-Contrast Functionalism
+   Reuses homepage nav/footer styles from HomePage.css
+   ══════════════════════════════════════════════════════════════ */
+
+.about-page {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--primary);
+  color: var(--on-primary);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── Back Button (reuses .auth-back-btn, override positioning) ── */
+
+.about-back-btn.auth-back-btn {
+  position: fixed;
+  top: 84px;
+  left: 48px;
+  z-index: 99;
+  margin: 0;
+}
+
+/* ── Content Section ──────────────────────────────────────── */
+
+.about-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 140px 48px 120px;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.about-title {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  color: var(--surface-container-lowest);
+  text-align: center;
+  margin-bottom: 56px;
+  font-family: var(--font-display);
+  opacity: 0;
+  transform: translateY(12px);
+  animation: aboutFadeIn 600ms var(--ease-out) forwards;
+}
+
+.about-body {
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: aboutFadeIn 600ms var(--ease-out) forwards;
+  animation-delay: 80ms;
+}
+
+.about-body p {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+.about-body p:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes aboutFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Active nav link ──────────────────────────────────────── */
+
+.about-active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Reduced Motion ───────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .about-title,
+  .about-body {
+    animation-duration: 0.01ms !important;
+  }
+}

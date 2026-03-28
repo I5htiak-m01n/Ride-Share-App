@@ -86,6 +86,68 @@ const topUp = async (req, res) => {
   }
 };
 
+// POST /api/wallet/withdraw (driver only)
+const withdraw = async (req, res) => {
+  const userId = req.user.id;
+  const { amount } = req.body;
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: "Amount must be positive" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Lock the wallet row and check balance
+    const walletResult = await client.query(
+      `SELECT balance, currency FROM wallets WHERE owner_id = $1 FOR UPDATE`,
+      [userId]
+    );
+
+    if (walletResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Wallet not found" });
+    }
+
+    const currentBalance = parseFloat(walletResult.rows[0].balance);
+    const withdrawAmount = parseFloat(amount);
+
+    if (withdrawAmount > currentBalance) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Not sufficient balance for withdrawal" });
+    }
+
+    // Deduct balance
+    const updated = await client.query(
+      `UPDATE wallets SET balance = balance - $1
+       WHERE owner_id = $2
+       RETURNING balance, currency`,
+      [withdrawAmount, userId]
+    );
+
+    // Record transaction
+    await client.query(
+      `INSERT INTO transactions (wallet_owner_id, amount, currency, status, type)
+       VALUES ($1, $2, 'BDT', 'succeeded', 'wallet_withdrawal')`,
+      [userId, withdrawAmount]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      message: "Withdrawal successful",
+      wallet: updated.rows[0],
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("withdraw error:", err);
+    res.status(500).json({ error: "Failed to process withdrawal" });
+  } finally {
+    client.release();
+  }
+};
+
 // POST /api/wallet/validate-promo
 const validatePromo = async (req, res) => {
   const userId = req.user.id;
@@ -150,6 +212,7 @@ module.exports = {
   getBalance,
   getTransactions,
   topUp,
+  withdraw,
   validatePromo,
   getEarningsSummary,
 };

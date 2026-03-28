@@ -16,7 +16,7 @@ export default function HomePage() {
           <button className="homepage-nav-link" onClick={() => navigate('/login')}>
             Earn
           </button>
-          <button className="homepage-nav-link inert">
+          <button className="homepage-nav-link" onClick={() => navigate('/about')}>
             About
           </button>
         </div>

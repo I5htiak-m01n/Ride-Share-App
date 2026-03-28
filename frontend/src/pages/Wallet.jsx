@@ -6,6 +6,7 @@ import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 const PRESET_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
+const WITHDRAW_PRESETS = [100, 200, 500, 1000, 2000, 5000];
 
 function Wallet() {
   const { user, logout } = useAuth();
@@ -15,7 +16,9 @@ function Wallet() {
   const [balance, setBalance] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [customAmount, setCustomAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
@@ -87,6 +90,36 @@ function Wallet() {
     handleTopUp(amount);
   };
 
+  const handleWithdraw = async (amount) => {
+    if (!amount || amount <= 0) {
+      setError('Enter a valid amount');
+      return;
+    }
+    setError(null);
+    setSuccessMsg(null);
+    setWithdrawLoading(true);
+    try {
+      await walletAPI.withdraw(amount);
+      setSuccessMsg(`Successfully withdrew ${amount} BDT from your wallet!`);
+      fetchBalance();
+      fetchTransactions();
+      setWithdrawAmount('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to withdraw from wallet');
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
+  const handleCustomWithdraw = () => {
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Enter a valid amount');
+      return;
+    }
+    handleWithdraw(amount);
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -106,6 +139,7 @@ function Wallet() {
   const typeLabel = (type) => {
     switch (type) {
       case 'wallet_topup': return 'Top-Up';
+      case 'wallet_withdrawal': return 'Withdrawal';
       case 'ride_payment': return 'Ride Payment';
       case 'refund_payout': return 'Refund';
       case 'platform_fee': return 'Platform Fee';
@@ -169,6 +203,43 @@ function Wallet() {
           </div>
         </div>
 
+        {/* Withdraw Section (driver only) */}
+        {(user?.role === 'driver' || user?.role === 'mixed') && (
+          <div className="wallet-topup-section">
+            <h3>Withdraw from Wallet</h3>
+            <p className="wallet-topup-hint">Select an amount or enter a custom value</p>
+            <div className="wallet-preset-grid">
+              {WITHDRAW_PRESETS.map((amt) => (
+                <button
+                  key={amt}
+                  className="wallet-preset-btn"
+                  onClick={() => handleWithdraw(amt)}
+                  disabled={withdrawLoading}
+                >
+                  {amt} BDT
+                </button>
+              ))}
+            </div>
+            <div className="wallet-custom-row">
+              <input
+                type="number"
+                min="1"
+                placeholder="Custom amount"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                disabled={withdrawLoading}
+              />
+              <button
+                onClick={handleCustomWithdraw}
+                disabled={withdrawLoading || !withdrawAmount}
+                className="wallet-custom-btn"
+              >
+                {withdrawLoading ? 'Processing...' : 'Withdraw'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Transaction History */}
         <div className="wallet-txn-section">
           <h3>Recent Transactions</h3>
@@ -191,7 +262,7 @@ function Wallet() {
                         ? 'credit'
                         : txn.type === 'ride_payment'
                           ? (user?.role === 'driver' ? 'credit' : 'debit')
-                          : txn.type === 'platform_fee'
+                          : txn.type === 'wallet_withdrawal' || txn.type === 'platform_fee'
                             ? 'debit'
                             : 'debit'
                     }`}>

@@ -4,6 +4,7 @@ import { RouteProvider } from './context/RouteContext';
 import { RideProviderLayout } from './context/RideContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RiderDashboard from './pages/RiderDashboard';
@@ -49,6 +50,7 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
