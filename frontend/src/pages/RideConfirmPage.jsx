@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
@@ -16,7 +16,7 @@ function RideConfirmPage() {
     fareEstimate,
     promoCode, setPromoCode, promoResult, setPromoResult, promoLoading,
     vehicleType, setVehicleType,
-    scheduledTime, setScheduledTime,
+    scheduledTime,
     handleValidatePromo, handleConfirmRide,
     error, loading, stopPolling,
     routePath, routeInfo, eta, wasRerouted, routeLoading,
@@ -26,11 +26,6 @@ function RideConfirmPage() {
   const [availablePromos, setAvailablePromos] = useState([]);
   const [promosLoading, setPromosLoading] = useState(false);
   const [vehicleTypes, setVehicleTypes] = useState([]);
-
-  // Pickup time mode
-  const [pickupMode, setPickupMode] = useState('now'); // 'now' | 'schedule'
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
 
   // Fetch available promos and vehicle types on mount
   useEffect(() => {
@@ -73,41 +68,8 @@ function RideConfirmPage() {
     }
   }, [ridePhase, navigate]);
 
-  // Compute date bounds for the schedule picker
-  const { todayStr, maxDateStr } = useMemo(() => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const maxDate = new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000);
-    const fmt = (d) => d.toISOString().split('T')[0];
-    return { todayStr: fmt(today), maxDateStr: fmt(maxDate) };
-  }, []);
-
-  // Update scheduledTime when date/time change
-  useEffect(() => {
-    if (pickupMode === 'schedule' && scheduleDate && scheduleTime) {
-      const dt = new Date(`${scheduleDate}T${scheduleTime}`);
-      if (!isNaN(dt.getTime())) {
-        setScheduledTime(dt.toISOString());
-      }
-    } else if (pickupMode === 'now') {
-      setScheduledTime(null);
-    }
-  }, [pickupMode, scheduleDate, scheduleTime, setScheduledTime]);
-
-  // Validate that scheduled time is at least 30 minutes from now
-  const scheduleError = useMemo(() => {
-    if (pickupMode !== 'schedule' || !scheduleDate || !scheduleTime) return null;
-    const dt = new Date(`${scheduleDate}T${scheduleTime}`);
-    if (isNaN(dt.getTime())) return null;
-    const minTime = Date.now() + 30 * 60 * 1000;
-    if (dt.getTime() < minTime) {
-      return 'Pickup must be at least 30 minutes from now';
-    }
-    return null;
-  }, [pickupMode, scheduleDate, scheduleTime]);
 
   const handleBack = () => {
-    setScheduledTime(null);
     setRidePhase('booking');
     navigate('/rider/book');
   };
@@ -135,8 +97,6 @@ function RideConfirmPage() {
   const displayFare = promoResult?.valid
     ? Math.max(0, adjustedFare - parseFloat(promoResult.discount_amount || 0))
     : adjustedFare;
-
-  const scheduleValid = pickupMode === 'now' || (scheduleDate && scheduleTime && !scheduleError);
 
   return (
     <div className="dashboard-container">
@@ -169,58 +129,19 @@ function RideConfirmPage() {
             </div>
           </div>
 
-          {/* Pickup Time */}
-          <div className="confirm-section">
-            <div className="pickup-time-selector">
-              <h3>Pickup Time</h3>
-              <div className="pickup-mode-toggle">
-                <button
-                  className={pickupMode === 'now' ? 'active' : ''}
-                  onClick={() => { setPickupMode('now'); setScheduledTime(null); }}
-                >
-                  Pick up now
-                </button>
-                <button
-                  className={pickupMode === 'schedule' ? 'active' : ''}
-                  onClick={() => setPickupMode('schedule')}
-                >
-                  Schedule
-                </button>
+          {/* Pickup Time — scheduled time summary */}
+          {scheduledTime && (
+            <div className="confirm-section">
+              <div className="confirm-schedule-summary">
+                <span className="confirm-schedule-label">⏰ Scheduled pickup</span>
+                <strong className="confirm-schedule-time">
+                  {new Date(scheduledTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {' at '}
+                  {new Date(scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </strong>
               </div>
-
-              {pickupMode === 'schedule' && (
-                <div className="schedule-picker">
-                  <div className="schedule-picker-row">
-                    <div className="schedule-field">
-                      <label>Date</label>
-                      <input
-                        type="date"
-                        value={scheduleDate}
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        min={todayStr}
-                        max={maxDateStr}
-                      />
-                    </div>
-                    <div className="schedule-field">
-                      <label>Time</label>
-                      <input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="schedule-info">
-                    <p>Schedule up to 15 days in advance</p>
-                    <p>Cancel without charge up to 30 minutes before pickup</p>
-                  </div>
-                  {scheduleError && (
-                    <p className="promo-error">{scheduleError}</p>
-                  )}
-                </div>
-              )}
             </div>
-          </div>
+          )}
 
           {/* Vehicle type */}
           {vehicleTypes.length > 0 && (
@@ -305,8 +226,8 @@ function RideConfirmPage() {
 
           <div className="booking-actions">
             <button onClick={handleBack}>Back</button>
-            <button onClick={onConfirm} disabled={loading || !scheduleValid}>
-              {loading ? 'Requesting...' : (pickupMode === 'schedule' ? 'Schedule Ride' : 'Confirm Ride')}
+            <button onClick={onConfirm} disabled={loading}>
+              {loading ? 'Requesting...' : (scheduledTime ? 'Schedule Ride' : 'Confirm Ride')}
             </button>
           </div>
         </div>
