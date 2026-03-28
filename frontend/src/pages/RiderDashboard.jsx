@@ -80,10 +80,12 @@ function RiderDashboard() {
             </div>
           )}
 
-          <div className="uber-where-to-bar" onClick={startBooking}>
-            <div className="search-dot" />
-            <span>Where to?</span>
-          </div>
+          {!['searching', 'matched', 'in_progress'].includes(ridePhase) && (
+            <div className="uber-where-to-bar" onClick={startBooking}>
+              <div className="search-dot" />
+              <span>Where to?</span>
+            </div>
+          )}
 
           {ridePhase === 'searching' && activeRequest && (
             <div className="ongoing-ride-section">
@@ -175,19 +177,7 @@ function RiderDashboard() {
           )}
 
           <div className="uber-quick-actions">
-            <div className="uber-quick-card" onClick={startBooking}>
-              <div className="card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 17h14M5 17a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l2-3h8l2 3h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2M5 17v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1m10 0v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1" />
-                  <circle cx="7.5" cy="13" r="1.5" />
-                  <circle cx="16.5" cy="13" r="1.5" />
-                </svg>
-              </div>
-              <div>
-                <h4>Book a Ride</h4>
-                <p>Set pickup and destination</p>
-              </div>
-            </div>
+
             <div className="uber-quick-card" onClick={() => navigate('/rider/history')}>
               <div className="card-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

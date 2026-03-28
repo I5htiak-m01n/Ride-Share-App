@@ -147,10 +147,20 @@ function RideBookingPage() {
     }
   };
 
-  // Auto-preview route when both pickup and dropoff are set
+  // hasMountedRef prevents the coord-change effect from calling fetchRoutePreview
+  // on the INITIAL mount (back-navigation restores coords but should not re-fetch the old route).
+  const hasMountedRef = useRef(false);
+
+  // Auto-preview route when BOTH coords are set — clear old polyline first.
+  // Skipped on initial mount so back-navigation doesn't re-fetch the stale route.
   useEffect(() => {
+    if (!hasMountedRef.current) return; // skip on mount — handled by mount effect below
     if (ridePhase === 'booking' && pickupCoords && dropoffCoords) {
+      clearRoute(); // wipe the previous polyline immediately so there's no overlap
       fetchRoutePreview(pickupCoords.lat, pickupCoords.lng, dropoffCoords.lat, dropoffCoords.lng);
+    } else if (ridePhase === 'booking' && (!pickupCoords || !dropoffCoords)) {
+      // Either location was cleared — remove the partial/stale route from the map
+      clearRoute();
     }
   }, [pickupCoords, dropoffCoords, ridePhase]);
 
@@ -161,8 +171,11 @@ function RideBookingPage() {
     }
   }, []);
 
-  // Set phase to booking when this page mounts — clear stale data from previous rides
+  // On mount: always clear any stale route (covers back-navigation from confirm page),
+  // then mark hasMountedRef so the coord-change effect activates for future interactions.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    clearRoute();
     if (ridePhase === 'idle') {
       setPickupAddr('');
       setDropoffAddr('');
@@ -171,8 +184,9 @@ function RideBookingPage() {
       setClickMode('pickup');
       setRidePhase('booking');
       setError(null);
-      clearRoute();
     }
+    // Allow coord-change effect to fire for user-driven changes from now on
+    hasMountedRef.current = true;
   }, []);
 
   // When fare estimate succeeds, phase transitions to confirming -> navigate

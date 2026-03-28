@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
+import { useRoute } from '../context/RouteContext';
 import { ridesAPI } from '../api/client';
 import BookingMap from '../components/BookingMap';
 import NavBar from '../components/NavBar';
@@ -22,6 +23,7 @@ function RideConfirmPage() {
     routePath, routeInfo, eta, wasRerouted, routeLoading,
     userLocation,
   } = useRide();
+  const { clearRoute } = useRoute();
 
   const [availablePromos, setAvailablePromos] = useState([]);
   const [promosLoading, setPromosLoading] = useState(false);
@@ -70,6 +72,7 @@ function RideConfirmPage() {
 
 
   const handleBack = () => {
+    clearRoute();           // remove stale polyline before going back
     setRidePhase('booking');
     navigate('/rider/book');
   };
