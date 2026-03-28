@@ -4570,6 +4570,151 @@
   }
 }
 
+/* ── Uber-Style Vehicle Selection List (Confirm Page) ────── */
+
+.confirm-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+}
+
+.uber-vehicle-loading {
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  padding: 16px 0;
+}
+
+/* The vertical list container — no horizontal scroll */
+.uber-vehicle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  /* Allow vertical scroll if list is tall */
+  max-height: 420px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Thin scrollbar for the vehicle list */
+.uber-vehicle-list::-webkit-scrollbar { width: 3px; }
+.uber-vehicle-list::-webkit-scrollbar-track { background: transparent; }
+.uber-vehicle-list::-webkit-scrollbar-thumb {
+  background: var(--ghost-border);
+  border-radius: 2px;
+}
+
+/* Each vehicle card row */
+.uber-vehicle-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-normal) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+  user-select: none;
+  outline: none;
+}
+
+.uber-vehicle-card:hover {
+  background: var(--surface-container-low);
+}
+
+.uber-vehicle-card:active {
+  transform: scale(0.99);
+}
+
+/* Selected state — thick border, slight bg, like Uber */
+.uber-vehicle-card.selected {
+  border-color: var(--on-surface);
+  background: var(--surface-container-lowest);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Emoji icon column */
+.uber-vc-icon {
+  font-size: 40px;
+  width: 56px;
+  text-align: center;
+  flex-shrink: 0;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.14));
+}
+
+/* Middle info column */
+.uber-vc-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* Name + capacity badge row */
+.uber-vc-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.uber-vc-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--on-surface);
+  font-family: var(--font-display);
+  white-space: nowrap;
+}
+
+/* Passenger capacity pill — matches Uber's inline badge */
+.uber-vc-capacity {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  background: var(--surface-container);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.uber-vc-capacity svg {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+/* Description */
+.uber-vc-desc {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right fare column */
+.uber-vc-fare {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.uber-vc-fare strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--on-surface);
+  font-family: var(--font-display);
+  white-space: nowrap;
+}
+
 /* ── Reduced Motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,

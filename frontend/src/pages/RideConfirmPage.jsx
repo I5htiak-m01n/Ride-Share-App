@@ -143,38 +143,78 @@ function RideConfirmPage() {
             </div>
           )}
 
-          {/* Vehicle type */}
-          {vehicleTypes.length > 0 && (
-            <div className="confirm-section">
-              <h3 className="confirm-section-title">Choose Ride Category</h3>
-              <div className="vehicle-type-list">
-                {vehicleTypes.map((vt) => {
-                  const vtFare = Math.round(baseFare * parseFloat(vt.fare_multiplier) * 100) / 100;
-                  return (
-                    <div
-                      key={vt.type_key}
-                      className={`vehicle-type-card${vehicleType === vt.type_key ? ' selected' : ''}`}
-                      onClick={() => { setVehicleType(vt.type_key); setPromoResult(null); }}
-                    >
-                      <div className="vt-label">{vt.label}</div>
-                      <div className="vt-desc">{vt.description}</div>
-                      <div className="vt-meta">
-                        <span className="vt-capacity">{vt.capacity} seats</span>
-                        <strong>{vtFare} BDT</strong>
+          {/* Vehicle type — Uber-style vertical list */}
+          <div className="confirm-section">
+            <h3 className="confirm-section-title">Choose a ride</h3>
+            {vehicleTypes.length === 0 ? (
+              <div className="uber-vehicle-loading">Loading ride options…</div>
+            ) : (
+              <div className="uber-vehicle-list">
+                {[...vehicleTypes]
+                  .sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99))
+                  .map((vt) => {
+                    const vtFare = Math.round(baseFare * parseFloat(vt.fare_multiplier) * 100) / 100;
+                    const isSelected = vehicleType === vt.type_key;
+                    const ICONS = {
+                      bike:    '🏍️',
+                      cng:     '🛺',
+                      premier: '🚗',
+                      luxury:  '🚘',
+                      economy: '🚕',
+                    };
+                    const icon = ICONS[vt.type_key] || '🚖';
+                    const cap  = parseInt(vt.capacity, 10) || 0;
+
+                    return (
+                      <div
+                        key={vt.type_key}
+                        className={`uber-vehicle-card${isSelected ? ' selected' : ''}`}
+                        onClick={() => { setVehicleType(vt.type_key); setPromoResult(null); }}
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && (setVehicleType(vt.type_key), setPromoResult(null))}
+                      >
+                        {/* Vehicle emoji icon */}
+                        <div className="uber-vc-icon" aria-hidden="true">{icon}</div>
+
+                        {/* Middle: name row + description */}
+                        <div className="uber-vc-info">
+                          <div className="uber-vc-name-row">
+                            <span className="uber-vc-name">{vt.label}</span>
+                            {cap > 0 && (
+                              <span className="uber-vc-capacity">
+                                {/* Uber-style person icon */}
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                                </svg>
+                                <span>{cap}</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="uber-vc-desc">{vt.description}</div>
+                        </div>
+
+                        {/* Right: fare */}
+                        <div className="uber-vc-fare">
+                          <strong>
+                            BDT {vtFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
                       </div>
-                    </div>
-                  );
+                    );
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
 
           {/* Fare + promo */}
           <div className="confirm-section">
             <div className="ride-summary">
               <div className="summary-row fare">
                 <span>Estimated Fare</span>
-                <strong>{displayFare} BDT</strong>
+                <strong>BDT {displayFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
               </div>
             </div>
 
