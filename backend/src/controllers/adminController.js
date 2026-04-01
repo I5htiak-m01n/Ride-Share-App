@@ -639,6 +639,44 @@ const updatePricingStandards = async (req, res) => {
   }
 };
 
+// GET /api/admin/rides?status=active|completed|cancelled
+const getAllRides = async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = `
+      SELECT r.ride_id, r.status, r.pickup_addr, r.dropoff_addr,
+             r.total_fare, r.started_at, r.completed_at, r.created_at,
+             r.cancelled_at, r.cancel_reason,
+             rider.first_name AS rider_first_name, rider.last_name AS rider_last_name,
+             rider.email AS rider_email,
+             driver.first_name AS driver_first_name, driver.last_name AS driver_last_name,
+             driver.email AS driver_email
+      FROM rides r
+      JOIN users rider ON rider.user_id = r.rider_id
+      LEFT JOIN users driver ON driver.user_id = r.driver_id
+    `;
+    const params = [];
+    if (status) {
+      // Map filter values to actual DB statuses
+      if (status === 'active') {
+        query += ` WHERE r.status IN ('started', 'driver_assigned')`;
+      } else if (status === 'completed') {
+        query += ` WHERE r.status = $1`;
+        params.push('completed');
+      } else if (status === 'cancelled') {
+        query += ` WHERE r.status = $1`;
+        params.push('cancelled');
+      }
+    }
+    query += ` ORDER BY r.created_at DESC`;
+    const result = await pool.query(query, params);
+    res.json({ rides: result.rows });
+  } catch (err) {
+    console.error("getAllRides error:", err);
+    res.status(500).json({ error: "Failed to get rides" });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllDocuments,
@@ -658,4 +696,5 @@ module.exports = {
   updateStaffLevel,
   getPricingStandards,
   updatePricingStandards,
+  getAllRides,
 };

@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminAPI } from '../api/client';
 import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 export default function AdminTickets() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [tickets, setTickets] = useState([]);
-  const [ticketFilter, setTicketFilter] = useState('');
+  const [ticketFilter, setTicketFilter] = useState(searchParams.get('filter') || '');
   const [staffForAssign, setStaffForAssign] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

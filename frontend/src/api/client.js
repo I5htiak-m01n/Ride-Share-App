@@ -306,6 +306,9 @@ export const adminAPI = {
   // Pricing
   getPricing: () => api.get('/admin/pricing'),
   updatePricing: (data) => api.put('/admin/pricing', data),
+  // Rides
+  getRides: (status) =>
+    api.get(`/admin/rides${status ? `?status=${status}` : ''}`),
 };
 
 // Analytics API (admin only)

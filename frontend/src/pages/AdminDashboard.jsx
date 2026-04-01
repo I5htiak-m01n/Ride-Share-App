@@ -11,6 +11,7 @@ const TABS = [
   { key: 'complaints', label: 'Complaints', path: '/admin/complaints' },
   { key: 'users', label: 'Users', path: '/admin/users' },
   { key: 'staff', label: 'Staff', path: '/admin/staff' },
+  { key: 'rides', label: 'Rides', path: '/admin/rides' },
   { key: 'promos', label: 'Promos', path: '/admin/promos' },
   { key: 'pricing', label: 'Pricing', path: '/admin/pricing' },
 ];
@@ -66,28 +67,38 @@ export default function AdminDashboard() {
         {/* ── OVERVIEW ─────────────────────────────────── */}
         {stats && (
           <div className="quick-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-            <div className="stat-card"><div className="stat-number">{stats.total_users}</div><div className="stat-label">Total Users</div></div>
-            <div className="stat-card"><div className="stat-number">{stats.total_drivers}</div><div className="stat-label">Drivers</div></div>
-            <div className="stat-card"><div className="stat-number">{stats.total_riders}</div><div className="stat-label">Riders</div></div>
-            <div className="stat-card"><div className="stat-number">{stats.total_rides}</div><div className="stat-label">Total Rides</div></div>
-            <div className="stat-card"><div className="stat-number">{stats.active_rides}</div><div className="stat-label">Active Rides</div></div>
-            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/tickets')}>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/users')}>
+              <div className="stat-number">{stats.total_users}</div><div className="stat-label">Total Users</div>
+            </div>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/users?filter=driver')}>
+              <div className="stat-number">{stats.total_drivers}</div><div className="stat-label">Drivers</div>
+            </div>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/users?filter=rider')}>
+              <div className="stat-number">{stats.total_riders}</div><div className="stat-label">Riders</div>
+            </div>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/rides')}>
+              <div className="stat-number">{stats.total_rides}</div><div className="stat-label">Total Rides</div>
+            </div>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/rides?filter=active')}>
+              <div className="stat-number">{stats.active_rides}</div><div className="stat-label">Active Rides</div>
+            </div>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/tickets?filter=open')}>
               <div className="stat-number">{stats.open_tickets}</div><div className="stat-label">Open Tickets</div>
             </div>
-            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/documents')}>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/documents?filter=pending')}>
               <div className="stat-number">{stats.pending_documents}</div><div className="stat-label">Pending Docs</div>
             </div>
-            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/complaints')}>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/complaints')}>
               <div className="stat-number">{stats.open_complaints}</div><div className="stat-label">Open Complaints</div>
             </div>
-            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/users')}>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/users?filter=banned')}>
               <div className="stat-number">{stats.banned_users}</div><div className="stat-label">Banned Users</div>
             </div>
-            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/promos')}>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/promos?filter=active')}>
               <div className="stat-number">{stats.active_promos || 0}</div>
               <div className="stat-label">Active Promos</div>
             </div>
-            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/staff')}>
+            <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/staff')}>
               <div className="stat-number">{stats.active_support_staff || 0}</div>
               <div className="stat-label">Support Staff</div>
             </div>

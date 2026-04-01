@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminAPI } from '../api/client';
 import NavBar from '../components/NavBar';
 import './Dashboard.css';
@@ -15,9 +15,10 @@ function getImageFullUrl(imageUrl) {
 
 export default function AdminDocuments() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [documents, setDocuments] = useState([]);
-  const [docFilter, setDocFilter] = useState('');
+  const [docFilter, setDocFilter] = useState(searchParams.get('filter') || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [rejectModal, setRejectModal] = useState(null); // { driverId, driverName }

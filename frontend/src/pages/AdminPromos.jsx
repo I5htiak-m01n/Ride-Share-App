@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminAPI } from '../api/client';
 import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
 export default function AdminPromos() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [promos, setPromos] = useState([]);
+  const [promoFilter, setPromoFilter] = useState(searchParams.get('filter') || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -113,6 +115,15 @@ export default function AdminPromos() {
 
   const isExpired = (d) => d && new Date(d) < new Date();
 
+  // Client-side filtering for promo status
+  const filteredPromos = promos.filter(p => {
+    if (!promoFilter) return true;
+    const isActive = p.is_active && !isExpired(p.expiry_date);
+    if (promoFilter === 'active') return isActive;
+    if (promoFilter === 'inactive') return !isActive;
+    return true;
+  });
+
   return (
     <div className="dashboard-container">
       <NavBar brandText="RideShare Admin" />
@@ -132,6 +143,15 @@ export default function AdminPromos() {
           >
             + New Promo
           </button>
+        </div>
+
+        <div className="admin-filter-row">
+          <label>Filter:</label>
+          <select value={promoFilter} onChange={e => { setPromoFilter(e.target.value); if (e.target.value) { setSearchParams({ filter: e.target.value }); } else { setSearchParams({}); } }}>
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
         </div>
 
         {error && <div className="error-banner">{error}</div>}
@@ -272,10 +292,10 @@ export default function AdminPromos() {
         )}
 
         {/* ── Promos Table ────────────────────────────── */}
-        {promos.length === 0 && !loading ? (
+        {filteredPromos.length === 0 && !loading ? (
           <div className="empty-state">
             <h3>No promo codes</h3>
-            <p>Create your first promo code to get started.</p>
+            <p>{promoFilter ? `No ${promoFilter} promo codes found.` : 'Create your first promo code to get started.'}</p>
           </div>
         ) : (
           <table className="admin-table">
@@ -292,7 +312,7 @@ export default function AdminPromos() {
               </tr>
             </thead>
             <tbody>
-              {promos.map(p => (
+              {filteredPromos.map(p => (
                 <tr key={p.promo_id}>
                   <td style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 14 }}>{p.promo_code}</td>
                   <td>{parseFloat(p.discount_amount).toFixed(0)} BDT</td>

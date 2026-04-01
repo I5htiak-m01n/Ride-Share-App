@@ -285,6 +285,25 @@
   font-weight: 500;
 }
 
+/* Clickable stat cards — subtle lift + cursor */
+.stat-card-clickable {
+  cursor: pointer;
+  transition: background-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
+              transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stat-card-clickable:hover {
+    background: var(--surface-container);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
+  }
+}
+
+.stat-card-clickable:active {
+  transform: scale(0.97);
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .dashboard-grid {

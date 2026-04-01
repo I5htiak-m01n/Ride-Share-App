@@ -1,15 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminAPI } from '../api/client';
 import NavBar from '../components/NavBar';
 import './Dashboard.css';
 
+const USER_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'rider', label: 'Rider' },
+  { value: 'driver', label: 'Driver' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'support', label: 'Support Staff' },
+  { value: 'banned', label: 'Banned' },
+  { value: 'unbanned', label: 'Unbanned' },
+];
+
 export default function AdminUsers() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userFilter, setUserFilter] = useState(searchParams.get('filter') || '');
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -27,6 +39,16 @@ export default function AdminUsers() {
     fetchUsers();
   }, [fetchUsers]);
 
+  const handleFilterChange = (value) => {
+    setUserFilter(value);
+    // Update URL without full navigation
+    if (value) {
+      setSearchParams({ filter: value });
+    } else {
+      setSearchParams({});
+    }
+  };
+
   const handleToggleBan = async (userId) => {
     try {
       await adminAPI.toggleBanUser(userId);
@@ -35,6 +57,20 @@ export default function AdminUsers() {
       setError('Failed to update user');
     }
   };
+
+  // Client-side filtering
+  const filteredUsers = users.filter(u => {
+    if (!userFilter) return true;
+    switch (userFilter) {
+      case 'rider': return u.role === 'rider';
+      case 'driver': return u.role === 'driver';
+      case 'admin': return u.role === 'admin';
+      case 'support': return u.role === 'support';
+      case 'banned': return u.is_banned;
+      case 'unbanned': return !u.is_banned;
+      default: return true;
+    }
+  });
 
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
@@ -52,8 +88,17 @@ export default function AdminUsers() {
 
         {error && <div className="error-banner">{error}</div>}
 
-        {users.length === 0 && !loading ? (
-          <div className="empty-state"><h3>No users</h3><p>No users found.</p></div>
+        <div className="admin-filter-row">
+          <label>Filter:</label>
+          <select value={userFilter} onChange={e => handleFilterChange(e.target.value)}>
+            {USER_FILTERS.map(f => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {filteredUsers.length === 0 && !loading ? (
+          <div className="empty-state"><h3>No users</h3><p>No users found{userFilter ? ` for filter "${USER_FILTERS.find(f => f.value === userFilter)?.label}"` : ''}.</p></div>
         ) : (
           <table className="admin-table">
             <thead>
@@ -68,7 +113,7 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
+              {filteredUsers.map(u => (
                 <tr key={u.user_id}>
                   <td>{u.first_name} {u.last_name}</td>
                   <td>{u.email}</td>
