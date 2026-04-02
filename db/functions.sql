@@ -1,12 +1,3 @@
--- =========================================================
--- Reusable SQL Functions for Ride-Share App
--- Run this file to create/update all functions:
---   psql -f db/functions.sql
--- =========================================================
-
--- Drop old overloaded version if it exists
-DROP FUNCTION IF EXISTS estimate_fare(numeric, numeric);
-
 -- ---------------------------------------------------------
 -- estimate_fare(distance_km)
 -- Returns the estimated fare in BDT for a given distance.
@@ -112,5 +103,24 @@ BEGIN
     LEAST(v_promo.discount_amount, p_fare),
     v_promo.promo_id,
     true;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------
+-- 3. auto_expire_ride_requests()
+-- Utility function (can be called by pg_cron or manually)
+-- to bulk-expire all open ride requests past their expiry.
+-- ---------------------------------------------------------
+CREATE OR REPLACE FUNCTION auto_expire_ride_requests()
+RETURNS integer AS $$
+DECLARE
+  expired_count integer;
+BEGIN
+  UPDATE ride_requests
+  SET status = 'expired'
+  WHERE status = 'open' AND expires_at < NOW();
+
+  GET DIAGNOSTICS expired_count = ROW_COUNT;
+  RETURN expired_count;
 END;
 $$ LANGUAGE plpgsql;

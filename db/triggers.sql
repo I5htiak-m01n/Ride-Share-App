@@ -71,24 +71,6 @@ CREATE TRIGGER trg_ride_status_change
   BEFORE UPDATE OF status ON rides
   FOR EACH ROW EXECUTE FUNCTION on_ride_status_change();
 
--- ---------------------------------------------------------
--- 3. auto_expire_ride_requests()
--- Utility function (can be called by pg_cron or manually)
--- to bulk-expire all open ride requests past their expiry.
--- ---------------------------------------------------------
-CREATE OR REPLACE FUNCTION auto_expire_ride_requests()
-RETURNS integer AS $$
-DECLARE
-  expired_count integer;
-BEGIN
-  UPDATE ride_requests
-  SET status = 'expired'
-  WHERE status = 'open' AND expires_at < NOW();
-
-  GET DIAGNOSTICS expired_count = ROW_COUNT;
-  RETURN expired_count;
-END;
-$$ LANGUAGE plpgsql;
 
 -- ---------------------------------------------------------
 -- 4. log_payment_completed()

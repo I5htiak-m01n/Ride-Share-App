@@ -578,13 +578,13 @@
   transform: scale(0.97);
 }
 
-.booking-actions button:first-child {
+.booking-actions button:first-child:not(:last-child) {
   background: var(--surface-container);
   color: var(--on-surface);
   border: none;
 }
 
-.booking-actions button:first-child:hover {
+.booking-actions button:first-child:not(:last-child):hover {
   background: var(--surface-container-high);
 }
 
