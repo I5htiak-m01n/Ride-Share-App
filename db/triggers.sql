@@ -73,6 +73,26 @@ CREATE TRIGGER trg_ride_status_change
 
 
 -- ---------------------------------------------------------
+-- 3. log_login_activity()
+-- AFTER INSERT on refresh_tokens: logs a login event
+-- into login_logs whenever a new refresh token is created.
+-- ---------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.log_login_activity()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.login_logs (user_id, login_at)
+  VALUES (NEW.user_id, NOW());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_log_login ON public.refresh_tokens;
+CREATE TRIGGER trg_log_login
+  AFTER INSERT ON public.refresh_tokens
+  FOR EACH ROW EXECUTE FUNCTION public.log_login_activity();
+
+
+-- ---------------------------------------------------------
 -- 4. log_payment_completed()
 -- AFTER UPDATE trigger on rides: when invoice_id changes
 -- from NULL to a value (payment processed), insert

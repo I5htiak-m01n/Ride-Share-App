@@ -28,17 +28,6 @@ create table public.users (
   created_at timestamptz not null default now()
 );
 
--- TRIGGER: Log sensitive actions to login_logs shadow table
--- This trigger automatically logs every login by inserting into login_logs
-create or replace function public.log_login_activity()
-returns trigger as $$
-begin
-  insert into public.login_logs (user_id, login_at)
-  values (new.user_id, now());
-  return new;
-end;
-$$ language plpgsql security definer;
-
 -- Refresh tokens table for JWT token management
 create table public.refresh_tokens (
   token_id uuid primary key default gen_random_uuid(),

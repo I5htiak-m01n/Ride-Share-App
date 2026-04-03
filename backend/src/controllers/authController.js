@@ -230,12 +230,6 @@ const login = async (req, res) => {
       [user.user_id, refreshToken]
     );
 
-    // Log login activity
-    await client.query(
-      "INSERT INTO login_logs (user_id) VALUES ($1)",
-      [user.user_id]
-    );
-
     await client.query("COMMIT");
 
     res.json({
