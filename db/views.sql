@@ -64,22 +64,3 @@ FROM rides r
 WHERE r.status = 'completed' AND r.total_fare IS NOT NULL
 GROUP BY r.driver_id, DATE(r.completed_at);
 
--- ---------------------------------------------------------
--- v_rider_spending_summary
--- Aggregates rider spending with discount and promo info.
--- Complex query: JOIN + GROUP BY + aggregate functions +
--- correlated subquery for promo count.
--- ---------------------------------------------------------
-CREATE OR REPLACE VIEW v_rider_spending_summary AS
-SELECT
-  r.rider_id,
-  COUNT(*) AS total_rides,
-  SUM(r.total_fare) AS total_spent,
-  ROUND(AVG(r.total_fare), 2) AS avg_fare,
-  COALESCE(SUM(rr.estimated_fare - r.total_fare), 0) AS total_discounts,
-  (SELECT COUNT(*) FROM promo_redemptions pr
-   WHERE pr.rider_id = r.rider_id) AS promos_used
-FROM rides r
-JOIN ride_requests rr ON r.request_id = rr.request_id
-WHERE r.status = 'completed' AND r.total_fare IS NOT NULL
-GROUP BY r.rider_id;

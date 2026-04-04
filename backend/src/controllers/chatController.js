@@ -248,27 +248,10 @@ const respondToCancelRequest = async (req, res) => {
         [rideId, userId]
       );
 
-      // Insert ride_cancellations — no fee for mutual
+      // Procedure handles: cancellation record, ride status, notifications
       await client.query(
-        `INSERT INTO ride_cancellations (ride_id, cancelled_by_user_id, reason, cancellation_fee, cancellation_type)
-         VALUES ($1, $2, 'Mutual cancellation', 0, 'mutual')`,
-        [rideId, cancelReq.sender_id]
-      );
-
-      // Update ride status — trigger handles driver→online
-      await client.query(
-        `UPDATE rides SET status = 'cancelled' WHERE ride_id = $1`,
-        [rideId]
-      );
-
-      // Notifications
-      await client.query(
-        `INSERT INTO notifications (user_id, title, body) VALUES ($1, $2, $3)`,
-        [ride.rider_id, "Ride Cancelled", "The ride was cancelled by mutual agreement. No fee was charged."]
-      );
-      await client.query(
-        `INSERT INTO notifications (user_id, title, body) VALUES ($1, $2, $3)`,
-        [ride.driver_id, "Ride Cancelled", "The ride was cancelled by mutual agreement. No fee was charged."]
+        `CALL process_mutual_cancellation($1, $2, $3, $4)`,
+        [rideId, cancelReq.sender_id, ride.rider_id, ride.driver_id]
       );
 
       await client.query("COMMIT");

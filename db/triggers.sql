@@ -87,7 +87,7 @@ CREATE TRIGGER trg_log_login
 
 
 -- ---------------------------------------------------------
--- 3. log_payment_completed()
+-- 4. log_payment_completed()
 -- AFTER UPDATE trigger on rides: when invoice_id changes
 -- from NULL to a value (payment processed), insert
 -- notification records for both rider and driver.
@@ -126,7 +126,7 @@ CREATE TRIGGER trg_payment_completed
   EXECUTE FUNCTION log_payment_completed();
 
 -- ---------------------------------------------------------
--- 4. update_rating_avg()
+-- 5. update_rating_avg()
 -- AFTER INSERT on ratings: recalculate the ratee's
 -- rating_avg in the riders or drivers profile table.
 -- Uses NULL when no ratings exist (instead of default 5.0).

@@ -5,107 +5,7 @@
 -- =========================================================
 
 -- ---------------------------------------------------------
--- 1. accept_ride_request(p_request_id, p_driver_id)
--- Full transaction to accept a ride request:
---   1. Lock the request row (FOR UPDATE)
---   2. Record driver response
---   3. Update request status to 'matched'
---   4. Create the ride row
---   5. Set driver status to 'busy'
--- Raises an exception if the request is no longer open.
--- ---------------------------------------------------------
-CREATE OR REPLACE PROCEDURE accept_ride_request(
-  p_request_id UUID,
-  p_driver_id  UUID,
-  OUT p_ride_id UUID,
-  OUT p_rider_id UUID,
-  OUT p_rider_name TEXT,
-  OUT p_pickup_addr TEXT,
-  OUT p_dropoff_addr TEXT,
-  OUT p_estimated_fare NUMERIC,
-  OUT p_pickup_location GEOGRAPHY,
-  OUT p_dropoff_location GEOGRAPHY
-)
-LANGUAGE plpgsql AS $$
-DECLARE
-  v_request RECORD;
-BEGIN
-  -- Lock the request row
-  SELECT rr.*, u.name AS rider_name
-  INTO v_request
-  FROM ride_requests rr
-  JOIN riders r ON rr.rider_id = r.rider_id
-  JOIN users u ON r.rider_id = u.user_id
-  WHERE rr.request_id = p_request_id AND rr.status = 'open'
-  FOR UPDATE OF rr;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Ride request is no longer available';
-  END IF;
-
-  -- Record driver response
-  INSERT INTO driver_responses (request_id, driver_id, response_status)
-  VALUES (p_request_id, p_driver_id, 'accepted')
-  ON CONFLICT (request_id, driver_id)
-  DO UPDATE SET response_status = 'accepted', response_time = NOW();
-
-  -- Update request status
-  UPDATE ride_requests SET status = 'matched'
-  WHERE request_id = p_request_id;
-
-  -- Create the ride
-  INSERT INTO rides (request_id, rider_id, driver_id,
-                     pickup_location, dropoff_location, status)
-  VALUES (p_request_id, v_request.rider_id, p_driver_id,
-          v_request.pickup_location, v_request.dropoff_location, 'driver_assigned')
-  RETURNING ride_id INTO p_ride_id;
-
-  -- Set driver to busy
-  UPDATE drivers SET status = 'busy' WHERE driver_id = p_driver_id;
-
-  -- Set OUT parameters
-  p_rider_id := v_request.rider_id;
-  p_rider_name := v_request.rider_name;
-  p_pickup_addr := v_request.pickup_addr;
-  p_dropoff_addr := v_request.dropoff_addr;
-  p_estimated_fare := v_request.estimated_fare;
-  p_pickup_location := v_request.pickup_location;
-  p_dropoff_location := v_request.dropoff_location;
-END;
-$$;
-
--- ---------------------------------------------------------
--- 2. complete_ride(p_ride_id, p_driver_id)
--- Updates ride status to 'completed', sets completed_at,
--- and frees the driver (set to 'online').
--- Note: The trg_ride_status_change trigger handles setting
--- completed_at and driver status automatically, but this
--- procedure provides a single entry point.
--- ---------------------------------------------------------
-CREATE OR REPLACE PROCEDURE complete_ride(
-  p_ride_id   UUID,
-  p_driver_id UUID,
-  OUT p_success BOOLEAN
-)
-LANGUAGE plpgsql AS $$
-BEGIN
-  UPDATE rides
-  SET status = 'completed',
-      completed_at = NOW()
-  WHERE ride_id = p_ride_id AND driver_id = p_driver_id;
-
-  IF NOT FOUND THEN
-    p_success := FALSE;
-    RETURN;
-  END IF;
-
-  -- Driver status is set to 'online' by trg_ride_status_change trigger
-  p_success := TRUE;
-END;
-$$;
-
--- ---------------------------------------------------------
--- 3. process_ride_payment(p_ride_id, p_promo_code)
+-- 1. process_ride_payment(p_ride_id, p_promo_code)
 -- Full transactional payment processing:
 --   1. Locks ride and wallet rows (FOR UPDATE)
 --   2. Gets estimated_fare from ride_request
@@ -235,5 +135,34 @@ BEGIN
   -- Return updated rider balance
   SELECT balance INTO p_rider_balance
   FROM wallets WHERE owner_id = v_ride.rider_id;
+END;
+$$;
+
+-- ---------------------------------------------------------
+-- 2. process_mutual_cancellation(p_ride_id, p_requester_id, p_rider_id, p_driver_id)
+-- Handles the database side-effects of accepting a mutual
+-- cancellation: records the cancellation (no fee), updates
+-- ride status to 'cancelled' (trigger frees the driver),
+-- and notifies both rider and driver.
+-- ---------------------------------------------------------
+CREATE OR REPLACE PROCEDURE process_mutual_cancellation(
+  p_ride_id      UUID,
+  p_requester_id UUID,
+  p_rider_id     UUID,
+  p_driver_id    UUID
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+  -- Record cancellation (no fee for mutual)
+  INSERT INTO ride_cancellations (ride_id, cancelled_by_user_id, reason, cancellation_fee, cancellation_type)
+  VALUES (p_ride_id, p_requester_id, 'Mutual cancellation', 0, 'mutual');
+
+  -- Cancel the ride — trg_ride_status_change sets driver back to 'online'
+  UPDATE rides SET status = 'cancelled' WHERE ride_id = p_ride_id;
+
+  -- Notify both participants
+  INSERT INTO notifications (user_id, title, body) VALUES
+    (p_rider_id, 'Ride Cancelled', 'The ride was cancelled by mutual agreement. No fee was charged.'),
+    (p_driver_id, 'Ride Cancelled', 'The ride was cancelled by mutual agreement. No fee was charged.');
 END;
 $$;
