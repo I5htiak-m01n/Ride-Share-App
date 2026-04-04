@@ -1,45 +1,5 @@
--- =========================================================
--- Triggers for Ride-Share App
--- Run this file to create/update all triggers:
---   psql -f db/triggers.sql
--- =========================================================
-
 -- ---------------------------------------------------------
--- 1. handle_new_user()
--- Auto-creates a public.users row when a user signs up
--- via Supabase Auth. Copies name, role, phone from metadata.
--- ---------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.users (user_id, email, name, role, phone_number)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'name', 'New User'),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'rider'),
-    COALESCE(NEW.raw_user_meta_data->>'phone_number', '')
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Only create if auth.users exists (Supabase environment)
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'auth' AND table_name = 'users'
-  ) THEN
-    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-    CREATE TRIGGER on_auth_user_created
-      AFTER INSERT ON auth.users
-      FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-  END IF;
-END $$;
-
--- ---------------------------------------------------------
--- 2. on_ride_status_change()
+-- 1. on_ride_status_change()
 -- When a ride status changes to 'completed' or 'cancelled',
 -- automatically set the driver back to 'online'.
 -- This removes the need for the backend to run a separate
@@ -73,7 +33,7 @@ CREATE TRIGGER trg_ride_status_change
 
 
 -- ---------------------------------------------------------
--- 3. log_login_activity()
+-- 2. log_login_activity()
 -- AFTER INSERT on refresh_tokens: logs a login event
 -- into login_logs whenever a new refresh token is created.
 -- ---------------------------------------------------------
@@ -93,7 +53,7 @@ CREATE TRIGGER trg_log_login
 
 
 -- ---------------------------------------------------------
--- 4. log_payment_completed()
+-- 3. log_payment_completed()
 -- AFTER UPDATE trigger on rides: when invoice_id changes
 -- from NULL to a value (payment processed), insert
 -- notification records for both rider and driver.
@@ -132,7 +92,7 @@ CREATE TRIGGER trg_payment_completed
   EXECUTE FUNCTION log_payment_completed();
 
 -- ---------------------------------------------------------
--- 5. update_rating_avg()
+-- 4. update_rating_avg()
 -- AFTER INSERT on ratings: recalculate the ratee's
 -- rating_avg in the riders or drivers profile table.
 -- Uses NULL when no ratings exist (instead of default 5.0).
@@ -152,11 +112,11 @@ BEGIN
   SELECT role INTO v_role FROM users WHERE user_id = NEW.ratee_user_id;
 
   -- Update the appropriate profile table
-  IF v_role IN ('rider', 'mixed') THEN
+  IF v_role IN ('rider') THEN
     UPDATE riders SET rating_avg = v_new_avg WHERE rider_id = NEW.ratee_user_id;
   END IF;
 
-  IF v_role IN ('driver', 'mixed') THEN
+  IF v_role IN ('driver') THEN
     UPDATE drivers SET rating_avg = v_new_avg WHERE driver_id = NEW.ratee_user_id;
   END IF;
 

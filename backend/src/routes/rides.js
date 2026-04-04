@@ -35,37 +35,37 @@ const { getAvailablePromos } = require("../controllers/promoController");
 router.get("/vehicle-types", getVehicleTypes);
 
 // Rider: create a ride request
-router.post("/request", authenticateToken, authorizeRoles("rider", "mixed"), createRideRequest);
+router.post("/request", authenticateToken, authorizeRoles("rider"), createRideRequest);
 
 // Driver: get nearby open requests
-router.get("/nearby", authenticateToken, authorizeRoles("driver", "mixed"), getNearbyRequests);
+router.get("/nearby", authenticateToken, authorizeRoles("driver"), getNearbyRequests);
 
 // Driver: update GPS location
-router.put("/driver-location", authenticateToken, authorizeRoles("driver", "mixed"), updateDriverLocation);
+router.put("/driver-location", authenticateToken, authorizeRoles("driver"), updateDriverLocation);
 
 // Rider: update GPS location (for proximity enforcement on ride completion)
-router.put("/rider-location", authenticateToken, authorizeRoles("rider", "mixed"), updateRiderLocation);
+router.put("/rider-location", authenticateToken, authorizeRoles("rider"), updateRiderLocation);
 
 // Driver: accept a specific request
-router.post("/requests/:id/accept", authenticateToken, authorizeRoles("driver", "mixed"), acceptRequest);
+router.post("/requests/:id/accept", authenticateToken, authorizeRoles("driver"), acceptRequest);
 
 // Driver: reject a specific request
-router.post("/requests/:id/reject", authenticateToken, authorizeRoles("driver", "mixed"), rejectRequest);
+router.post("/requests/:id/reject", authenticateToken, authorizeRoles("driver"), rejectRequest);
 
 // Rider: get scheduled rides
-router.get("/rider/scheduled", authenticateToken, authorizeRoles("rider", "mixed"), getRiderScheduledRides);
+router.get("/rider/scheduled", authenticateToken, authorizeRoles("rider"), getRiderScheduledRides);
 
 // Rider: ride history
-router.get("/rider/history", authenticateToken, authorizeRoles("rider", "mixed"), getRiderHistory);
+router.get("/rider/history", authenticateToken, authorizeRoles("rider"), getRiderHistory);
 
 // Driver: ride history
-router.get("/driver/history", authenticateToken, authorizeRoles("driver", "mixed"), getDriverHistory);
+router.get("/driver/history", authenticateToken, authorizeRoles("driver"), getDriverHistory);
 
 // Driver: poll for active ride (state restoration on login/refresh)
-router.get("/driver/active", authenticateToken, authorizeRoles("driver", "mixed"), getDriverActiveRide);
+router.get("/driver/active", authenticateToken, authorizeRoles("driver"), getDriverActiveRide);
 
 // Driver: check readiness before going online
-router.get("/driver/readiness", authenticateToken, authorizeRoles("driver", "mixed"), checkDriverReadiness);
+router.get("/driver/readiness", authenticateToken, authorizeRoles("driver"), checkDriverReadiness);
 
 // Driver: update ride status (started / completed)
 router.put("/:id/status", authenticateToken, updateRideStatus);
@@ -80,16 +80,16 @@ router.post("/:id/cancel", authenticateToken, cancelRide);
 router.get("/:id/detail", authenticateToken, getRideDetail);
 
 // Rider: get fare estimate without creating request
-router.get("/fare-estimate", authenticateToken, authorizeRoles("rider", "mixed"), getFareEstimate);
+router.get("/fare-estimate", authenticateToken, authorizeRoles("rider"), getFareEstimate);
 
 // Rider: poll for active ride request / ride status
-router.get("/rider/active", authenticateToken, authorizeRoles("rider", "mixed"), getRiderActiveRide);
+router.get("/rider/active", authenticateToken, authorizeRoles("rider"), getRiderActiveRide);
 
 // Rider: cancel a pending ride request
-router.post("/requests/:id/cancel", authenticateToken, authorizeRoles("rider", "mixed"), cancelRideRequest);
+router.post("/requests/:id/cancel", authenticateToken, authorizeRoles("rider"), cancelRideRequest);
 
 // Rider: get available promo codes
-router.get("/rider/promos", authenticateToken, authorizeRoles("rider", "mixed"), getAvailablePromos);
+router.get("/rider/promos", authenticateToken, authorizeRoles("rider"), getAvailablePromos);
 
 // Test: get current location from database (for test account location simulation)
 router.get("/test/location", authenticateToken, getTestAccountLocation);

@@ -33,7 +33,7 @@ function isHexWKBFormat(input) {
 
 /**
  * Determine actual user role by checking which table they exist in
- * More reliable than relying on user.role column which might be 'mixed'
+ * More reliable than relying on user.role column
  */
 async function getUserRole(pool, userId) {
   try {

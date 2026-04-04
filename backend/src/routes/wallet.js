@@ -14,8 +14,8 @@ const {
 router.get("/balance", authenticateToken, getBalance);
 router.get("/transactions", authenticateToken, getTransactions);
 router.post("/topup", authenticateToken, topUp);
-router.post("/withdraw", authenticateToken, authorizeRoles("driver", "mixed"), withdraw);
-router.post("/validate-promo", authenticateToken, authorizeRoles("rider", "mixed"), validatePromo);
-router.get("/earnings-summary", authenticateToken, authorizeRoles("driver", "mixed"), getEarningsSummary);
+router.post("/withdraw", authenticateToken, authorizeRoles("driver"), withdraw);
+router.post("/validate-promo", authenticateToken, authorizeRoles("rider"), validatePromo);
+router.get("/earnings-summary", authenticateToken, authorizeRoles("driver"), getEarningsSummary);
 
 module.exports = router;

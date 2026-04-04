@@ -70,7 +70,7 @@ const createPromo = async (req, res) => {
               'New Promo Code Available!',
               'Use code ' || $1 || ' to get ' || $2 || ' BDT off your next ride!'
        FROM users u
-       WHERE u.role IN ('rider', 'mixed') AND u.is_banned = false`,
+       WHERE u.role = 'rider' AND u.is_banned = false`,
       [promo.promo_code, promo.discount_amount]
     );
 

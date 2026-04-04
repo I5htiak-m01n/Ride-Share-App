@@ -1275,8 +1275,8 @@ const getTestAccountLocation = async (req, res) => {
   const userRole = req.user.role;
 
   try {
-    const table = userRole === 'driver' || userRole === 'mixed' ? 'drivers' : 'riders';
-    const idColumn = userRole === 'driver' || userRole === 'mixed' ? 'driver_id' : 'rider_id';
+    const table = userRole === 'driver' ? 'drivers' : 'riders';
+    const idColumn = userRole === 'driver' ? 'driver_id' : 'rider_id';
 
     const result = await pool.query(
       `SELECT ST_Y(current_location::geometry) AS lat,

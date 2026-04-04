@@ -206,13 +206,13 @@ const login = async (req, res) => {
     );
 
     // Ensure rider/driver row exists
-    if (user.role === "rider" || user.role === "mixed") {
+    if (user.role === "rider") {
       await client.query(
         "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
         [user.user_id]
       );
     }
-    if (user.role === "driver" || user.role === "mixed") {
+    if (user.role === "driver") {
       await client.query(
         "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
         [user.user_id, `PENDING_${user.user_id.substring(0, 8)}`]

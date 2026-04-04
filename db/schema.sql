@@ -22,7 +22,7 @@ create table public.users (
   email text unique not null,
   password_hash text not null,
   phone_number text not null unique,
-  role text not null check (role in ('rider','driver','admin','support','mixed')),
+  role text not null check (role in ('rider','driver','admin','support')),
   avatar_url text,
   is_banned boolean not null default false,
   created_at timestamptz not null default now()

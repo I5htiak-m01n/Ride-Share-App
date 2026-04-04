@@ -204,7 +204,7 @@ function Wallet() {
         </div>
 
         {/* Withdraw Section (driver only) */}
-        {(user?.role === 'driver' || user?.role === 'mixed') && (
+        {user?.role === 'driver' && (
           <div className="wallet-topup-section">
             <h3>Withdraw from Wallet</h3>
             <p className="wallet-topup-hint">Select an amount or enter a custom value</p>

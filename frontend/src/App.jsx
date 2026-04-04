@@ -57,7 +57,7 @@ function App() {
 
           {/* Rider routes — wrapped in RideProvider layout */}
           <Route element={
-            <ProtectedRoute allowedRoles={['rider', 'mixed']}>
+            <ProtectedRoute allowedRoles={['rider']}>
               <RideProviderLayout />
             </ProtectedRoute>
           }>
@@ -72,7 +72,7 @@ function App() {
 
           {/* Driver routes — wrapped in DriverProvider layout + OnboardingGuard */}
           <Route element={
-            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+            <ProtectedRoute allowedRoles={['driver']}>
               <DriverProviderLayout />
             </ProtectedRoute>
           }>
@@ -86,17 +86,17 @@ function App() {
 
           {/* Driver onboarding routes (outside DriverProviderLayout) */}
           <Route path="/driver/onboarding/documents" element={
-            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+            <ProtectedRoute allowedRoles={['driver']}>
               <DriverOnboardingForm />
             </ProtectedRoute>
           } />
           <Route path="/driver/onboarding/pending" element={
-            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+            <ProtectedRoute allowedRoles={['driver']}>
               <DriverOnboardingPending />
             </ProtectedRoute>
           } />
           <Route path="/driver/onboarding/rejected" element={
-            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+            <ProtectedRoute allowedRoles={['driver']}>
               <DriverOnboardingRejected />
             </ProtectedRoute>
           } />
@@ -105,7 +105,7 @@ function App() {
           <Route
             path="/rider/profile"
             element={
-              <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
+              <ProtectedRoute allowedRoles={['rider', 'driver']}>
                 <ProfileSettings />
               </ProtectedRoute>
             }
@@ -113,7 +113,7 @@ function App() {
 
           {/* Driver Documents — requires onboarding complete */}
           <Route element={
-            <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+            <ProtectedRoute allowedRoles={['driver']}>
               <OnboardingGuard />
             </ProtectedRoute>
           }>
@@ -124,7 +124,7 @@ function App() {
           <Route
             path="/rider/history"
             element={
-              <ProtectedRoute allowedRoles={['rider', 'mixed']}>
+              <ProtectedRoute allowedRoles={['rider']}>
                 <RideHistory />
               </ProtectedRoute>
             }
@@ -132,7 +132,7 @@ function App() {
           <Route
             path="/driver/history"
             element={
-              <ProtectedRoute allowedRoles={['driver', 'mixed']}>
+              <ProtectedRoute allowedRoles={['driver']}>
                 <RideHistory />
               </ProtectedRoute>
             }
@@ -142,7 +142,7 @@ function App() {
           <Route
             path="/wallet"
             element={
-              <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
+              <ProtectedRoute allowedRoles={['rider', 'driver']}>
                 <Wallet />
               </ProtectedRoute>
             }
@@ -152,7 +152,7 @@ function App() {
           <Route
             path="/complaints"
             element={
-              <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
+              <ProtectedRoute allowedRoles={['rider', 'driver']}>
                 <Complaints />
               </ProtectedRoute>
             }
@@ -162,7 +162,7 @@ function App() {
           <Route
             path="/support/tickets"
             element={
-              <ProtectedRoute allowedRoles={['rider', 'driver', 'mixed']}>
+              <ProtectedRoute allowedRoles={['rider', 'driver']}>
                 <SupportTickets />
               </ProtectedRoute>
             }
@@ -282,7 +282,7 @@ function App() {
           <Route
             path="/rider/promos"
             element={
-              <ProtectedRoute allowedRoles={['rider', 'mixed']}>
+              <ProtectedRoute allowedRoles={['rider']}>
                 <RiderPromos />
               </ProtectedRoute>
             }

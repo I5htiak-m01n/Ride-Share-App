@@ -55,7 +55,7 @@ function UserDropdown({ onLogout, ratingAvg, ratingCount }) {
 
   // Role-based menu items
   const menuItems = [];
-  if (['rider', 'driver', 'mixed'].includes(role)) {
+  if (['rider', 'driver'].includes(role)) {
     menuItems.push(
       { label: 'Help', path: '/support/tickets', icon: 'help' },
       { label: 'Wallet', path: '/wallet', icon: 'wallet' },
