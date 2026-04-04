@@ -33,7 +33,41 @@ CREATE TRIGGER trg_ride_status_change
 
 
 -- ---------------------------------------------------------
--- 2. log_login_activity()
+-- 2. on_user_created()
+-- AFTER INSERT on users: automatically creates the
+-- corresponding profile row (riders/drivers) and wallet.
+-- Removes the need for the backend to manually INSERT
+-- into riders/drivers/wallets during registration.
+-- ---------------------------------------------------------
+CREATE OR REPLACE FUNCTION on_user_created()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Create role-specific profile
+  IF NEW.role = 'rider' THEN
+    INSERT INTO riders (rider_id) VALUES (NEW.user_id) ON CONFLICT DO NOTHING;
+  ELSIF NEW.role = 'driver' THEN
+    INSERT INTO drivers (driver_id, license_number, status)
+    VALUES (NEW.user_id, 'PENDING_' || LEFT(NEW.user_id::text, 8), 'offline')
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  -- Create wallet
+  INSERT INTO wallets (owner_id, balance, currency)
+  VALUES (NEW.user_id, 0, 'BDT')
+  ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_user_created ON users;
+CREATE TRIGGER trg_user_created
+  AFTER INSERT ON users
+  FOR EACH ROW EXECUTE FUNCTION on_user_created();
+
+
+-- ---------------------------------------------------------
+-- 3. log_login_activity()
 -- AFTER INSERT on refresh_tokens: logs a login event
 -- into login_logs whenever a new refresh token is created.
 -- ---------------------------------------------------------

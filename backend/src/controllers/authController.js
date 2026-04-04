@@ -95,27 +95,8 @@ const register = async (req, res) => {
 
     const newUser = userResult.rows[0];
 
-    // Create rider profile
-    if (role === "rider") {
-      await client.query(
-        "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
-        [newUser.user_id]
-      );
-    }
-
-    // Create driver profile with temporary license number
-    if (role === "driver") {
-      await client.query(
-        "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
-        [newUser.user_id, `PENDING_${newUser.user_id.substring(0, 8)}`]
-      );
-    }
-
-    // Create wallet
-    await client.query(
-      "INSERT INTO wallets (owner_id, balance, currency) VALUES ($1, 0, 'BDT') ON CONFLICT DO NOTHING",
-      [newUser.user_id]
-    );
+    // Profile (riders/drivers) and wallet are created automatically
+    // by the on_user_created() database trigger.
 
     // Generate JWT tokens
     const accessToken = generateAccessToken(newUser);
@@ -197,26 +178,6 @@ const login = async (req, res) => {
     if (user.is_banned) {
       await client.query("ROLLBACK");
       return res.status(403).json({ error: "Your account has been suspended. Contact support." });
-    }
-
-    // Ensure wallet exists
-    await client.query(
-      "INSERT INTO wallets (owner_id, balance, currency) VALUES ($1, 0, 'BDT') ON CONFLICT DO NOTHING",
-      [user.user_id]
-    );
-
-    // Ensure rider/driver row exists
-    if (user.role === "rider") {
-      await client.query(
-        "INSERT INTO riders (rider_id) VALUES ($1) ON CONFLICT DO NOTHING",
-        [user.user_id]
-      );
-    }
-    if (user.role === "driver") {
-      await client.query(
-        "INSERT INTO drivers (driver_id, license_number, status) VALUES ($1, $2, 'offline') ON CONFLICT DO NOTHING",
-        [user.user_id, `PENDING_${user.user_id.substring(0, 8)}`]
-      );
     }
 
     // Generate JWT tokens
