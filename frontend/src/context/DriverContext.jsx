@@ -6,7 +6,7 @@ import { haversineDistance, estimateTime } from '../utils/geo';
 
 const DriverContext = createContext(null);
 
-const NEARBY_POLL_MS = 10000;
+const NEARBY_POLL_MS = 5000;
 const LOCATION_SYNC_MS = 15000;
 const RIDE_POLL_MS = 5000;
 const STORAGE_KEY = 'driver_state';

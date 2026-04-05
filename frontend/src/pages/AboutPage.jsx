@@ -36,22 +36,21 @@ export default function AboutPage() {
 
         <div className="about-body">
           <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
-            eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-            ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-            aliquip ex ea commodo consequat.
+            RideShare is a full-stack ride-hailing platform built as a Database
+            Management project (CSE216) at Independent University, Bangladesh,
+            under the supervision of <strong>Asib Rahman</strong> sir.
           </p>
           <p>
-            Duis aute irure dolor in reprehenderit in voluptate velit esse
-            cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat
-            cupidatat non proident, sunt in culpa qui officia deserunt mollit
-            anim id est laborum.
+            The platform connects riders with nearby drivers in real time,
+            handling everything from ride requests and fare estimation to
+            in-ride chat, mutual cancellations, wallet payments, promo codes,
+            and driver onboarding — all backed by a PostgreSQL database with
+            custom triggers, stored procedures, and functions.
           </p>
           <p>
-            Curabitur pretium tincidunt lacus. Nulla gravida orci a odio.
-            Nullam varius, turpis et commodo pharetra, est eros bibendum elit,
-            nec luctus magna felis sollicitudin mauris. Integer in mauris eu
-            nibh euismod gravida.
+            Designed and developed by{' '}
+            <strong>Md. Ishtiak Moin</strong> and{' '}
+            <strong>Abhijnan Podder</strong>.
           </p>
         </div>
       </section>
